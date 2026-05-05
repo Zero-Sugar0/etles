@@ -87,6 +87,7 @@ import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
 import * as browserUseTools from "@/lib/ai/tools/browser-use";
 import * as daytonaBrowserTools from "@/lib/ai/tools/daytona-browser";
 import { getPersistentSandboxTools } from "@/lib/ai/tools/persistent-sandbox";
+import { allOracleTools } from "@/lib/ai/tools/oracle-cloud";
 
 export type TelegramEtlesToolsParams = {
   userId: string;
@@ -210,5 +211,6 @@ export function buildEtlesTelegramTools({
     browserUploadFile: daytonaBrowserTools.browserUploadFile({ userId }),
     browserScreenshot: daytonaBrowserTools.browserScreenshot({ userId }),
     browserVisualInteract: daytonaBrowserTools.browserVisualInteract({ userId }),
+    ...allOracleTools({ userId }),
   } as ToolSet;
 }

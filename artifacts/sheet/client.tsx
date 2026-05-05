@@ -1,5 +1,6 @@
 import { parse, unparse } from "papaparse";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import { Artifact } from "@/components/create-artifact";
 import {
   CopyIcon,
@@ -10,10 +11,11 @@ import {
   UndoIcon,
 } from "@/components/icons";
 import { SpreadsheetEditor } from "@/components/sheet-editor";
+import { isSheetData, type SheetData } from "@/lib/ai/tools/sheet-types";
 
 type Metadata = any;
 
-function downloadFile(filename: string, content: string, mimeType: string) {
+function downloadFile(filename: string, content: BlobPart, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -21,6 +23,17 @@ function downloadFile(filename: string, content: string, mimeType: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function getSheetData(content: string): SheetData {
+  try {
+    const parsed = JSON.parse(content);
+    if (isSheetData(parsed)) return parsed;
+  } catch {}
+  return {
+    title: "Spreadsheet",
+    sheets: [{ name: "Sheet1", csv: content }],
+  };
 }
 
 export const sheetArtifact = new Artifact<"sheet", Metadata>({
@@ -79,9 +92,11 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
     },
     {
       icon: <CopyIcon />,
-      description: "Copy as .csv",
+      description: "Copy active sheet as CSV",
       onClick: ({ content }) => {
-        const parsed = parse<string[]>(content, { skipEmptyLines: true });
+        const data = getSheetData(content);
+        const csv = data.sheets[0]?.csv ?? "";
+        const parsed = parse<string[]>(csv, { skipEmptyLines: true });
 
         const nonEmptyRows = parsed.data.filter((row) =>
           row.some((cell) => cell.trim() !== "")
@@ -95,9 +110,46 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
     },
     {
       icon: <DownloadIcon />,
-      description: "Download clean CSV",
+      description: "Download as XLSX",
       onClick: ({ content, currentVersionIndex }) => {
-        const parsed = parse<string[]>(content, { skipEmptyLines: true });
+        const data = getSheetData(content);
+        const wb = XLSX.utils.book_new();
+
+        data.sheets.forEach((sheet) => {
+          const parsed = parse<string[]>(sheet.csv, { skipEmptyLines: true });
+          const ws = XLSX.utils.aoa_to_sheet(parsed.data);
+          XLSX.utils.book_append_sheet(wb, ws, sheet.name.substring(0, 31));
+        });
+
+        const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        downloadFile(
+          `${data.title.replace(/\s+/g, "_")}-v${currentVersionIndex + 1}.xlsx`,
+          wbout,
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+        toast.success("Workbook downloaded as XLSX");
+      },
+    },
+    {
+      icon: (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      ),
+      description: "Download active sheet as CSV",
+      onClick: ({ content, currentVersionIndex }) => {
+        const data = getSheetData(content);
+        const csv = data.sheets[0]?.csv ?? "";
+        const parsed = parse<string[]>(csv, { skipEmptyLines: true });
         const nonEmptyRows = parsed.data.filter((row) =>
           row.some((cell) => cell.trim() !== "")
         );

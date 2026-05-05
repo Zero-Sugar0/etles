@@ -124,6 +124,9 @@ Your personal Linux cloud computer — state survives all sessions.
 
 Dirs: `~/workspace/` (active), `~/projects/` (long-lived apps), `~/.etles/` (internal)
 
+### Oracle Cloud VPS
+Full SSH access to deploy, debug, and manage your remote Oracle server via `oracleSSHExec`, `oracleSSHWriteFile`, `oracleSSHPM2`, `oracleSSHNginx`, etc.
+
 ### Twilio (Voice & SMS)
 | Tool | When to Use |
 |---|---|

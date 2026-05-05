@@ -1,2071 +1,800 @@
-/**
- * lib/ai/tools/oracle-cloud.ts
- *
- * Oracle Cloud Infrastructure (OCI) integration for Etles.
- * Exposes Compute, Networking, Object Storage, Identity, Database,
- * Container Engine (OKE), Load Balancer, Monitoring, and DNS
- * as AI tools — following the same pattern as daytona.ts.
- *
- * Install:
- *   pnpm install oci-common oci-core oci-objectstorage oci-identity \
- *               oci-database oci-containerengine oci-loadbalancer \
- *               oci-monitoring oci-dns oci-filestorage
- *
- * Required env vars:
- *   OCI_TENANCY_OCID       — e.g. ocid1.tenancy.oc1..xxxx
- *   OCI_USER_OCID          — e.g. ocid1.user.oc1..xxxx
- *   OCI_FINGERPRINT        — API key fingerprint
- *   OCI_PRIVATE_KEY        — PEM private key (full content, \n for newlines)
- *   OCI_REGION             — e.g. us-ashburn-1, eu-frankfurt-1
- *   OCI_COMPARTMENT_ID     — default compartment OCID for operations
- *
- * Optional:
- *   OCI_PRIVATE_KEY_PASSPHRASE — if your private key is encrypted
- */
-
 import { tool } from "ai";
-import * as common from "oci-common";
-import * as core from "oci-core";
-import * as objectstorage from "oci-objectstorage";
-import * as identity from "oci-identity";
-import * as database from "oci-database";
-import * as containerengine from "oci-containerengine";
-import * as loadbalancer from "oci-loadbalancer";
-import * as monitoring from "oci-monitoring";
-import * as dns from "oci-dns";
 import { z } from "zod";
-import { Readable } from "stream";
+import { exec } from "child_process";
+import { promisify } from "util";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import crypto from "crypto";
 
-// ── Auth Provider ─────────────────────────────────────────────────────────────
-// Re-use one provider per process. Built from env vars so no config file needed
-// in server environments.
+// ─── Oracle Cloud SSH Agent Tools ────────────────────────────────────────────
+//
+// ✅ ZERO extra npm dependencies — uses Node.js built-ins + system ssh binary.
+//
+// Required env vars:
+//   ORACLE_SSH_HOST         – Your Oracle Cloud public IP (e.g. 147.224.13.133)
+//   ORACLE_SSH_USER         – SSH username (default: ubuntu)
+//   ORACLE_SSH_PRIVATE_KEY  – Raw PEM private key string (incl. headers)
+//                             OR
+//   ORACLE_SSH_KEY_PATH     – Absolute path to private key file on THIS machine
+//   ORACLE_SSH_PORT         – SSH port (default: 22)
+//   ORACLE_WORK_DIR         – Default working directory (default: /home/ubuntu)
 
-let _provider: common.SimpleAuthenticationDetailsProvider | null = null;
+const execAsync = promisify(exec);
 
-function getProvider(): common.SimpleAuthenticationDetailsProvider {
-  if (_provider) return _provider;
+// ─── SSH Key Helper ───────────────────────────────────────────────────────────
+// Writes the private key to a secure temp file for the duration of each call,
+// then deletes it. Avoids key exposure in shell arguments.
 
-  const tenancy = process.env.OCI_TENANCY_OCID!;
-  const user = process.env.OCI_USER_OCID!;
-  const fingerprint = process.env.OCI_FINGERPRINT!;
-  const privateKey = process.env.OCI_PRIVATE_KEY!.replace(/\\n/g, "\n");
-  const passphrase = process.env.OCI_PRIVATE_KEY_PASSPHRASE ?? null;
-  const region = process.env.OCI_REGION ?? "us-ashburn-1";
+function withTempKey<T>(fn: (keyPath: string) => Promise<T>): Promise<T> {
+  const rawKey = process.env.ORACLE_SSH_PRIVATE_KEY;
+  const keyPath = process.env.ORACLE_SSH_KEY_PATH;
 
-  _provider = new common.SimpleAuthenticationDetailsProvider(
-    tenancy,
-    user,
-    fingerprint,
-    privateKey,
-    passphrase,
-    common.Region.fromRegionId(region)
-  );
+  if (keyPath) return fn(keyPath);
+  if (!rawKey) throw new Error("Set ORACLE_SSH_PRIVATE_KEY or ORACLE_SSH_KEY_PATH.");
 
-  return _provider;
+  const tmp = path.join(os.tmpdir(), `oracle_${crypto.randomBytes(8).toString("hex")}.pem`);
+  fs.writeFileSync(tmp, rawKey.replace(/\\n/g, "\n"), { mode: 0o600 });
+  return fn(tmp).finally(() => { try { fs.unlinkSync(tmp); } catch {} });
 }
 
-/** Default compartment from env — most tools accept an optional override. */
-function defaultCompartment(): string {
-  return process.env.OCI_COMPARTMENT_ID ?? "";
+function sshBase() {
+  const host = process.env.ORACLE_SSH_HOST;
+  if (!host) throw new Error("ORACLE_SSH_HOST must be set.");
+  return {
+    host,
+    user: process.env.ORACLE_SSH_USER || "ubuntu",
+    port: process.env.ORACLE_SSH_PORT || "22",
+  };
 }
 
-// ── Client Factories ──────────────────────────────────────────────────────────
-// Each returns a fresh client (cheap; no pooling needed for server-side tools).
-
-function computeClient() {
-  return new core.ComputeClient({ authenticationDetailsProvider: getProvider() });
-}
-
-function networkClient() {
-  return new core.VirtualNetworkClient({ authenticationDetailsProvider: getProvider() });
-}
-
-function objectStorageClient() {
-  return new objectstorage.ObjectStorageClient({
-    authenticationDetailsProvider: getProvider(),
+async function sshExec(
+  command: string,
+  cwd?: string,
+  timeoutMs = 30_000
+): Promise<{ stdout: string; stderr: string; code: number }> {
+  return withTempKey(async (keyPath) => {
+    const { host, user, port } = sshBase();
+    const flags = `-i ${keyPath} -p ${port} -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes`;
+    const cdPrefix = cwd ? `cd ${cwd} && ` : "";
+    // Wrap command in single quotes, escaping any internal single quotes
+    const escaped = command.replace(/'/g, `'"'"'`);
+    const fullCmd = `ssh ${flags} ${user}@${host} '${cdPrefix}${escaped}'`;
+    try {
+      const { stdout, stderr } = await execAsync(fullCmd, { timeout: timeoutMs });
+      return { stdout: stdout || "", stderr: stderr || "", code: 0 };
+    } catch (err: any) {
+      return { stdout: err.stdout || "", stderr: err.stderr || err.message || "", code: err.code ?? 1 };
+    }
   });
 }
 
-function identityClient() {
-  return new identity.IdentityClient({ authenticationDetailsProvider: getProvider() });
+function workDir() {
+  return process.env.ORACLE_WORK_DIR || "/home/ubuntu";
 }
 
-function databaseClient() {
-  return new database.DatabaseClient({ authenticationDetailsProvider: getProvider() });
-}
-
-function containerEngineClient() {
-  return new containerengine.ContainerEngineClient({
-    authenticationDetailsProvider: getProvider(),
-  });
-}
-
-function loadBalancerClient() {
-  return new loadbalancer.LoadBalancerClient({
-    authenticationDetailsProvider: getProvider(),
-  });
-}
-
-function monitoringClient() {
-  return new monitoring.MonitoringClient({
-    authenticationDetailsProvider: getProvider(),
-  });
-}
-
-function dnsClient() {
-  return new dns.DnsClient({ authenticationDetailsProvider: getProvider() });
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function comp(override?: string): string {
-  return override ?? defaultCompartment();
-}
-
-async function streamToString(stream: NodeJS.ReadableStream): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of stream) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks).toString("utf-8");
+// Safe base64-based file write — handles all special chars without shell escaping issues
+async function b64Write(content: string, remotePath: string, sudoPrefix = ""): Promise<{ stdout: string; stderr: string; code: number }> {
+  const b64 = Buffer.from(content, "utf8").toString("base64");
+  const cmd = `echo '${b64}' | base64 -d | ${sudoPrefix}tee ${remotePath} > /dev/null`;
+  return sshExec(cmd, workDir(), 20_000);
 }
 
 // =============================================================================
-// IDENTITY & COMPARTMENTS
+// SECTION 1 — COMMAND EXECUTION
 // =============================================================================
 
-/**
- * listCompartments — List all compartments in the tenancy.
- */
-export const listCompartments = () =>
+export const oracleSSHExec = ({ userId }: { userId: string }) =>
   tool({
     description:
-      "List all OCI compartments in the tenancy. " +
-      "Use to discover available compartments before creating resources. " +
-      "Returns compartment OCIDs, names, and lifecycle state.",
+      "Execute any shell command on the Oracle Cloud server over SSH. " +
+      "Returns stdout, stderr, and exit code. " +
+      "Supports pipes, &&, ||, redirects, sudo, and multi-statement chains. " +
+      "Zero external npm dependencies — uses the system ssh binary.",
     inputSchema: z.object({
-      compartmentId: z
-        .string()
-        .optional()
-        .describe("Parent compartment OCID. Defaults to tenancy root."),
-      lifecycleState: z
-        .enum(["ACTIVE", "DELETING", "DELETED", "CREATING"])
-        .optional()
-        .default("ACTIVE")
-        .describe("Filter by lifecycle state. Default: ACTIVE."),
+      command: z.string().describe("Shell command. Example: 'pm2 status' or 'df -h && free -h'."),
+      cwd: z.string().optional().describe("Working directory. Defaults to ORACLE_WORK_DIR."),
+      timeout_ms: z.number().int().min(1000).max(300_000).optional().default(30_000),
+      sudo: z.boolean().optional().default(false),
     }),
-    execute: async ({ compartmentId, lifecycleState }) => {
+    execute: async ({ command, cwd, timeout_ms, sudo }) => {
       try {
-        const client = identityClient();
-        const root = compartmentId ?? process.env.OCI_TENANCY_OCID!;
-        const response = await client.listCompartments({
-          compartmentId: root,
-          compartmentIdInSubtree: true,
-          lifecycleState: (lifecycleState as any) ?? "ACTIVE",
-        });
-        return {
-          success: true,
-          compartments: response.items.map((c) => ({
-            id: c.id,
-            name: c.name,
-            description: c.description,
-            lifecycleState: c.lifecycleState,
-          })),
-        };
+        const cmd = sudo ? `sudo ${command}` : command;
+        const r = await sshExec(cmd, cwd || workDir(), timeout_ms);
+        return { success: r.code === 0, exit_code: r.code, stdout: r.stdout, stderr: r.stderr, command: cmd };
       } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+        return { success: false, exit_code: -1, stdout: "", stderr: error.message, command };
       }
     },
   });
 
-/**
- * listAvailabilityDomains — List ADs in the region.
- */
-export const listAvailabilityDomains = () =>
+export const oracleSSHExecMany = ({ userId }: { userId: string }) =>
   tool({
     description:
-      "List all Availability Domains in the current OCI region. " +
-      "Needed when launching compute instances or creating subnets.",
+      "Run multiple shell commands sequentially. Returns per-step results. " +
+      "Stops on first failure by default. Perfect for deploy pipelines.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID. Defaults to env default."),
+      commands: z.array(z.string()).min(1).max(20),
+      cwd: z.string().optional(),
+      stop_on_error: z.boolean().optional().default(true),
+      timeout_ms: z.number().int().optional().default(60_000),
     }),
-    execute: async ({ compartmentId }) => {
-      try {
-        const client = identityClient();
-        const response = await client.listAvailabilityDomains({
-          compartmentId: comp(compartmentId),
-        });
-        return {
-          success: true,
-          availabilityDomains: response.items.map((ad) => ({
-            name: ad.name,
-            id: ad.id,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+    execute: async ({ commands, cwd, stop_on_error, timeout_ms }) => {
+      const dir = cwd || workDir();
+      const results: Array<{ command: string; success: boolean; exit_code: number; stdout: string; stderr: string }> = [];
+      for (const command of commands) {
+        const r = await sshExec(command, dir, timeout_ms);
+        results.push({ command, success: r.code === 0, exit_code: r.code, stdout: r.stdout, stderr: r.stderr });
+        if (stop_on_error && r.code !== 0) break;
       }
-    },
-  });
-
-/**
- * listUsers — List IAM users.
- */
-export const listUsers = () =>
-  tool({
-    description: "List IAM users in a compartment.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-    }),
-    execute: async ({ compartmentId }) => {
-      try {
-        const client = identityClient();
-        const response = await client.listUsers({ compartmentId: comp(compartmentId) });
-        return {
-          success: true,
-          users: response.items.map((u) => ({
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            lifecycleState: u.lifecycleState,
-            isMfaActivated: u.isMfaActivated,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listGroups — List IAM groups.
- */
-export const listGroups = () =>
-  tool({
-    description: "List IAM groups in a compartment.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-    }),
-    execute: async ({ compartmentId }) => {
-      try {
-        const client = identityClient();
-        const response = await client.listGroups({ compartmentId: comp(compartmentId) });
-        return {
-          success: true,
-          groups: response.items.map((g) => ({
-            id: g.id,
-            name: g.name,
-            description: g.description,
-            lifecycleState: g.lifecycleState,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listPolicies — List IAM policies.
- */
-export const listPolicies = () =>
-  tool({
-    description: "List IAM policies in a compartment.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-    }),
-    execute: async ({ compartmentId }) => {
-      try {
-        const client = identityClient();
-        const response = await client.listPolicies({ compartmentId: comp(compartmentId) });
-        return {
-          success: true,
-          policies: response.items.map((p) => ({
-            id: p.id,
-            name: p.name,
-            statements: p.statements,
-            lifecycleState: p.lifecycleState,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
+      return { success: results.every((r) => r.success), results, total: results.length };
     },
   });
 
 // =============================================================================
-// COMPUTE
+// SECTION 2 — FILE OPERATIONS
 // =============================================================================
 
-/**
- * listInstances — List compute instances in a compartment.
- */
-export const listInstances = () =>
+export const oracleSSHReadFile = ({ userId }: { userId: string }) =>
+  tool({
+    description: "Read a file from the Oracle server. Supports head (max_lines) and tail (tail_lines) modes.",
+    inputSchema: z.object({
+      path: z.string().describe("Absolute file path on server."),
+      max_lines: z.number().int().min(1).max(5000).optional(),
+      tail_lines: z.number().int().min(1).max(1000).optional(),
+    }),
+    execute: async ({ path: filePath, max_lines, tail_lines }) => {
+      const cmd = tail_lines ? `tail -n ${tail_lines} ${filePath}` : max_lines ? `head -n ${max_lines} ${filePath}` : `cat ${filePath}`;
+      const r = await sshExec(cmd, workDir());
+      return r.code === 0
+        ? { success: true, path: filePath, content: r.stdout, lines: r.stdout.split("\n").length }
+        : { success: false, content: null, error: r.stderr };
+    },
+  });
+
+export const oracleSSHWriteFile = ({ userId }: { userId: string }) =>
   tool({
     description:
-      "List all compute instances in an OCI compartment. " +
-      "Returns instance OCIDs, display names, shapes, lifecycle states, and IP addresses.",
+      "Write or append content to a file on the Oracle server. " +
+      "Uses base64 transfer — handles any characters safely. ⚠️ Overwrites unless append: true.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID. Defaults to env default."),
-      lifecycleState: z
-        .enum(["RUNNING", "STOPPED", "STARTING", "STOPPING", "TERMINATED", "PROVISIONING"])
-        .optional()
-        .describe("Filter by lifecycle state."),
+      path: z.string(),
+      content: z.string(),
+      append: z.boolean().optional().default(false),
+      create_dirs: z.boolean().optional().default(false),
+      sudo: z.boolean().optional().default(false),
     }),
-    execute: async ({ compartmentId, lifecycleState }) => {
+    execute: async ({ path: filePath, content, append, create_dirs, sudo }) => {
       try {
-        const client = computeClient();
-        const response = await client.listInstances({
-          compartmentId: comp(compartmentId),
-          lifecycleState: lifecycleState as any,
-        });
-        return {
-          success: true,
-          instances: response.items.map((i) => ({
-            id: i.id,
-            displayName: i.displayName,
-            shape: i.shape,
-            lifecycleState: i.lifecycleState,
-            availabilityDomain: i.availabilityDomain,
-            region: i.region,
-            timeCreated: i.timeCreated,
-            faultDomain: i.faultDomain,
-            shapeConfig: i.shapeConfig
-              ? {
-                  ocpus: i.shapeConfig.ocpus,
-                  memoryInGBs: i.shapeConfig.memoryInGBs,
-                }
-              : undefined,
-          })),
-        };
+        const prefix = sudo ? "sudo " : "";
+        if (create_dirs) await sshExec(`${prefix}mkdir -p $(dirname ${filePath})`, workDir());
+        if (append) {
+          const b64 = Buffer.from(content).toString("base64");
+          const r = await sshExec(`echo '${b64}' | base64 -d | ${prefix}tee -a ${filePath} > /dev/null`, workDir(), 20_000);
+          return r.code === 0 ? { success: true, path: filePath, action: "appended" } : { success: false, error: r.stderr };
+        }
+        const r = await b64Write(content, filePath, prefix);
+        return r.code === 0 ? { success: true, path: filePath, action: "written", bytes: Buffer.byteLength(content) } : { success: false, error: r.stderr };
       } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+        return { success: false, error: error.message };
       }
     },
   });
 
-/**
- * getInstance — Get details of a specific compute instance.
- */
-export const getInstance = () =>
+export const oracleSSHListFiles = ({ userId }: { userId: string }) =>
   tool({
-    description: "Get detailed information about a specific OCI compute instance by OCID.",
+    description: "List files and directories. Supports glob patterns and recursive mode.",
     inputSchema: z.object({
-      instanceId: z.string().describe("Instance OCID."),
+      path: z.string().optional(),
+      show_hidden: z.boolean().optional().default(false),
+      recursive: z.boolean().optional().default(false),
+      filter_pattern: z.string().optional().describe("Glob filter e.g. '*.js', '*.log'"),
     }),
-    execute: async ({ instanceId }) => {
-      try {
-        const client = computeClient();
-        const response = await client.getInstance({ instanceId });
-        const i = response.instance;
-        return {
-          success: true,
-          instance: {
-            id: i.id,
-            displayName: i.displayName,
-            shape: i.shape,
-            lifecycleState: i.lifecycleState,
-            availabilityDomain: i.availabilityDomain,
-            region: i.region,
-            timeCreated: i.timeCreated,
-            faultDomain: i.faultDomain,
-            imageId: i.imageId,
-            metadata: i.metadata,
-            freeformTags: i.freeformTags,
-            shapeConfig: i.shapeConfig,
-          },
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+    execute: async ({ path: dir, show_hidden, recursive, filter_pattern }) => {
+      const target = dir || workDir();
+      let cmd: string;
+      if (recursive || filter_pattern) {
+        const hidden = show_hidden ? "" : "! -path '*/\\.*'";
+        const name = filter_pattern ? `-name "${filter_pattern}"` : "";
+        const depth = recursive ? "" : "-maxdepth 1";
+        cmd = `find ${target} ${depth} ${hidden} ${name} ! -path "${target}" | sort`.replace(/\s+/g, " ");
+      } else {
+        cmd = `ls -la${show_hidden ? "A" : ""} ${target}`;
       }
+      const r = await sshExec(cmd, workDir());
+      return { success: r.code === 0, path: target, listing: r.stdout, error: r.code !== 0 ? r.stderr : undefined };
     },
   });
 
-/**
- * launchInstance — Create a new compute instance.
- */
-export const launchInstance = () =>
+export const oracleSSHFileOps = ({ userId }: { userId: string }) =>
   tool({
-    description:
-      "Launch a new OCI compute instance. " +
-      "Requires: compartmentId, availabilityDomain (from listAvailabilityDomains), " +
-      "shape (e.g. VM.Standard.E4.Flex), imageId, subnetId. " +
-      "For Flex shapes, specify ocpus and memoryInGBs.",
+    description: "Move, copy, delete, or create directories on the Oracle server.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      displayName: z.string().describe("Display name for the instance."),
-      availabilityDomain: z.string().describe("Availability Domain name. E.g. 'GrCH:US-ASHBURN-AD-1'."),
-      shape: z
-        .string()
-        .default("VM.Standard.E4.Flex")
-        .describe("Instance shape. E.g. VM.Standard.E4.Flex, VM.Standard.A1.Flex."),
-      imageId: z.string().describe("OS image OCID."),
-      subnetId: z.string().describe("Subnet OCID for the primary VNIC."),
-      ocpus: z
-        .number()
-        .optional()
-        .default(1)
-        .describe("CPUs for Flex shapes. Default: 1."),
-      memoryInGBs: z
-        .number()
-        .optional()
-        .default(8)
-        .describe("RAM in GB for Flex shapes. Default: 8."),
-      sshPublicKey: z.string().optional().describe("SSH public key for instance access."),
-      assignPublicIp: z
-        .boolean()
-        .optional()
-        .default(true)
-        .describe("Assign a public IP to the primary VNIC. Default: true."),
-      userData: z
-        .string()
-        .optional()
-        .describe("Cloud-init user data script (base64-encoded)."),
-      freeformTags: z
-        .record(z.string())
-        .optional()
-        .describe("Freeform tags as key-value pairs."),
+      action: z.enum(["move", "copy", "delete", "mkdir", "chmod", "chown"]),
+      path: z.string().describe("Source path (or target for mkdir/chmod/chown)."),
+      destination: z.string().optional().describe("Destination for move/copy."),
+      recursive: z.boolean().optional().default(false),
+      sudo: z.boolean().optional().default(false),
+      mode: z.string().optional().describe("Permission mode for chmod, e.g. '755', '+x'."),
+      owner: z.string().optional().describe("Owner for chown, e.g. 'ubuntu:ubuntu'."),
     }),
-    execute: async ({
-      compartmentId,
-      displayName,
-      availabilityDomain,
-      shape,
-      imageId,
-      subnetId,
-      ocpus,
-      memoryInGBs,
-      sshPublicKey,
-      assignPublicIp,
-      userData,
-      freeformTags,
-    }) => {
-      try {
-        const client = computeClient();
-        const launchDetails: core.models.LaunchInstanceDetails = {
-          compartmentId: comp(compartmentId),
-          displayName,
-          availabilityDomain,
-          shape,
-          sourceDetails: {
-            sourceType: "image",
-            imageId,
-          } as core.models.InstanceSourceViaImageDetails,
-          createVnicDetails: {
-            subnetId,
-            assignPublicIp: assignPublicIp ?? true,
-          },
-          shapeConfig: shape.includes("Flex")
-            ? { ocpus: ocpus ?? 1, memoryInGBs: memoryInGBs ?? 8 }
-            : undefined,
-          metadata: {
-            ...(sshPublicKey ? { ssh_authorized_keys: sshPublicKey } : {}),
-            ...(userData ? { user_data: userData } : {}),
-          },
-          freeformTags,
-        };
-
-        const response = await client.launchInstance({ launchInstanceDetails: launchDetails });
-        const i = response.instance;
-        return {
-          success: true,
-          instanceId: i.id,
-          displayName: i.displayName,
-          lifecycleState: i.lifecycleState,
-          shape: i.shape,
-          message: `Instance '${i.displayName}' (${i.id}) is ${i.lifecycleState}.`,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
+    execute: async ({ action, path: filePath, destination, recursive, sudo, mode, owner }) => {
+      const p = sudo ? "sudo " : "";
+      const rf = recursive ? "-rf " : "";
+      const r_flag = recursive ? "-r " : "";
+      const cmds: Record<string, string | null> = {
+        move: destination ? `${p}mv ${filePath} ${destination}` : null,
+        copy: destination ? `${p}cp ${r_flag}${filePath} ${destination}` : null,
+        delete: `${p}rm ${rf}${filePath}`,
+        mkdir: `${p}mkdir -p ${filePath}`,
+        chmod: mode ? `${p}chmod ${recursive ? "-R " : ""}${mode} ${filePath}` : null,
+        chown: owner ? `${p}chown ${recursive ? "-R " : ""}${owner} ${filePath}` : null,
+      };
+      const cmd = cmds[action];
+      if (!cmd) return { success: false, error: `Missing required param for '${action}'` };
+      const r = await sshExec(cmd, workDir());
+      return { success: r.code === 0, action, path: filePath, destination, error: r.code !== 0 ? r.stderr : undefined };
     },
   });
 
-/**
- * instanceAction — Start, stop, soft reset, or reset an instance.
- */
-export const instanceAction = () =>
+export const oracleSSHUploadFile = ({ userId }: { userId: string }) =>
   tool({
-    description:
-      "Perform a power action on an OCI compute instance. " +
-      "Actions: START, STOP, SOFTSTOP, SOFTRESET, RESET (hard reboot).",
+    description: "Upload text content to the Oracle server via base64+SSH. No scp needed.",
     inputSchema: z.object({
-      instanceId: z.string().describe("Instance OCID."),
-      action: z
-        .enum(["START", "STOP", "SOFTSTOP", "SOFTRESET", "RESET"])
-        .describe("Power action to perform."),
+      content: z.string(),
+      remote_path: z.string(),
+      make_executable: z.boolean().optional().default(false),
     }),
-    execute: async ({ instanceId, action }) => {
+    execute: async ({ content, remote_path, make_executable }) => {
       try {
-        const client = computeClient();
-        const response = await client.instanceAction({ instanceId, action });
-        const i = response.instance;
-        return {
-          success: true,
-          instanceId: i.id,
-          displayName: i.displayName,
-          lifecycleState: i.lifecycleState,
-          message: `Action '${action}' applied to instance ${i.id}. State: ${i.lifecycleState}.`,
-        };
+        await sshExec(`mkdir -p $(dirname ${remote_path})`, workDir());
+        const r = await b64Write(content, remote_path);
+        if (r.code !== 0) return { success: false, error: r.stderr };
+        if (make_executable) await sshExec(`chmod +x ${remote_path}`, workDir());
+        return { success: true, remote_path, bytes: Buffer.byteLength(content), executable: make_executable };
       } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * terminateInstance — Permanently delete a compute instance.
- */
-export const terminateInstance = () =>
-  tool({
-    description:
-      "Permanently terminate (delete) an OCI compute instance. " +
-      "This is irreversible. Set preserveBootVolume=true to keep the boot disk.",
-    inputSchema: z.object({
-      instanceId: z.string().describe("Instance OCID to terminate."),
-      preserveBootVolume: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe("Keep the boot volume after termination. Default: false."),
-    }),
-    execute: async ({ instanceId, preserveBootVolume }) => {
-      try {
-        const client = computeClient();
-        await client.terminateInstance({ instanceId, preserveBootVolume: preserveBootVolume ?? false });
-        return { success: true, message: `Instance ${instanceId} termination initiated.` };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listShapes — List available compute shapes in a compartment.
- */
-export const listShapes = () =>
-  tool({
-    description:
-      "List available compute shapes (VM/BM sizes) in an OCI compartment. " +
-      "Use to find valid shape names before launching an instance.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-    }),
-    execute: async ({ compartmentId }) => {
-      try {
-        const client = computeClient();
-        const response = await client.listShapes({ compartmentId: comp(compartmentId) });
-        return {
-          success: true,
-          shapes: response.items.map((s) => ({
-            shape: s.shape,
-            ocpus: s.ocpus,
-            memoryInGBs: s.memoryInGBs,
-            isFlexible: s.isFlexible,
-            processorDescription: s.processorDescription,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listImages — List available OS images.
- */
-export const listImages = () =>
-  tool({
-    description:
-      "List available OS images for compute instances. " +
-      "Filter by operating system (e.g. 'Oracle Linux', 'Ubuntu') or shape.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      operatingSystem: z
-        .string()
-        .optional()
-        .describe("Filter by OS name. E.g. 'Oracle Linux', 'Ubuntu', 'Windows'."),
-      shape: z
-        .string()
-        .optional()
-        .describe("Filter images compatible with this shape."),
-    }),
-    execute: async ({ compartmentId, operatingSystem, shape }) => {
-      try {
-        const client = computeClient();
-        const response = await client.listImages({
-          compartmentId: comp(compartmentId),
-          operatingSystem,
-          shape,
-        });
-        return {
-          success: true,
-          images: response.items.map((img) => ({
-            id: img.id,
-            displayName: img.displayName,
-            operatingSystem: img.operatingSystem,
-            operatingSystemVersion: img.operatingSystemVersion,
-            lifecycleState: img.lifecycleState,
-            timeCreated: img.timeCreated,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listVnicAttachments — Get VNIC info (IPs) for an instance.
- */
-export const listVnicAttachments = () =>
-  tool({
-    description:
-      "List VNIC attachments for a compute instance to retrieve its private and public IP addresses.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      instanceId: z.string().describe("Instance OCID."),
-    }),
-    execute: async ({ compartmentId, instanceId }) => {
-      try {
-        const computeC = computeClient();
-        const netC = networkClient();
-
-        const vnicsResp = await computeC.listVnicAttachments({
-          compartmentId: comp(compartmentId),
-          instanceId,
-        });
-
-        const results = await Promise.all(
-          vnicsResp.items.map(async (att) => {
-            if (!att.vnicId) return { attachmentId: att.id };
-            try {
-              const vnicResp = await netC.getVnic({ vnicId: att.vnicId });
-              return {
-                attachmentId: att.id,
-                vnicId: att.vnicId,
-                privateIp: vnicResp.vnic.privateIp,
-                publicIp: vnicResp.vnic.publicIp,
-                hostname: vnicResp.vnic.hostnameLabel,
-                isPrimary: vnicResp.vnic.isPrimary,
-              };
-            } catch {
-              return { attachmentId: att.id, vnicId: att.vnicId };
-            }
-          })
-        );
-
-        return { success: true, vnics: results };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+        return { success: false, error: error.message };
       }
     },
   });
 
 // =============================================================================
-// NETWORKING (VCN)
+// SECTION 3 — PM2 PROCESS MANAGEMENT
 // =============================================================================
 
-/**
- * listVcns — List Virtual Cloud Networks.
- */
-export const listVcns = () =>
+export const oracleSSHPM2 = ({ userId }: { userId: string }) =>
   tool({
-    description:
-      "List all Virtual Cloud Networks (VCNs) in a compartment. " +
-      "Returns OCID, display name, CIDR block, and lifecycle state.",
+    description: "Manage Node.js processes via PM2. Actions: status, restart, stop, start, delete, reload, logs, save, flush_logs, describe.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
+      action: z.enum(["status", "restart", "stop", "start", "delete", "reload", "logs", "save", "flush_logs", "describe"]),
+      process_name: z.string().optional(),
+      log_lines: z.number().int().min(1).max(500).optional().default(50),
+      update_env: z.boolean().optional().default(true),
+      start_script: z.string().optional(),
     }),
-    execute: async ({ compartmentId }) => {
-      try {
-        const client = networkClient();
-        const response = await client.listVcns({ compartmentId: comp(compartmentId) });
-        return {
-          success: true,
-          vcns: response.items.map((v) => ({
-            id: v.id,
-            displayName: v.displayName,
-            cidrBlock: v.cidrBlock,
-            cidrBlocks: v.cidrBlocks,
-            lifecycleState: v.lifecycleState,
-            dnsLabel: v.dnsLabel,
-            defaultDhcpOptionsId: v.defaultDhcpOptionsId,
-            defaultSecurityListId: v.defaultSecurityListId,
-            defaultRouteTableId: v.defaultRouteTableId,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * createVcn — Create a new VCN.
- */
-export const createVcn = () =>
-  tool({
-    description: "Create a new Virtual Cloud Network (VCN) in OCI.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      displayName: z.string().describe("Display name for the VCN."),
-      cidrBlock: z
-        .string()
-        .default("10.0.0.0/16")
-        .describe("CIDR block for the VCN. E.g. '10.0.0.0/16'."),
-      dnsLabel: z
-        .string()
-        .optional()
-        .describe("DNS label (no spaces, max 15 chars). E.g. 'myvcn'."),
-    }),
-    execute: async ({ compartmentId, displayName, cidrBlock, dnsLabel }) => {
-      try {
-        const client = networkClient();
-        const response = await client.createVcn({
-          createVcnDetails: {
-            compartmentId: comp(compartmentId),
-            displayName,
-            cidrBlock,
-            dnsLabel,
-          },
-        });
-        const v = response.vcn;
-        return {
-          success: true,
-          vcnId: v.id,
-          displayName: v.displayName,
-          cidrBlock: v.cidrBlock,
-          lifecycleState: v.lifecycleState,
-          message: `VCN '${v.displayName}' created (${v.id}).`,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * deleteVcn — Delete a VCN (must be empty).
- */
-export const deleteVcn = () =>
-  tool({
-    description:
-      "Delete a VCN. The VCN must have no subnets or other resources before deletion.",
-    inputSchema: z.object({
-      vcnId: z.string().describe("VCN OCID to delete."),
-    }),
-    execute: async ({ vcnId }) => {
-      try {
-        const client = networkClient();
-        await client.deleteVcn({ vcnId });
-        return { success: true, message: `VCN ${vcnId} deletion initiated.` };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listSubnets — List subnets in a VCN or compartment.
- */
-export const listSubnets = () =>
-  tool({
-    description: "List subnets in a compartment, optionally filtered by VCN.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      vcnId: z.string().optional().describe("Filter subnets belonging to this VCN."),
-    }),
-    execute: async ({ compartmentId, vcnId }) => {
-      try {
-        const client = networkClient();
-        const response = await client.listSubnets({
-          compartmentId: comp(compartmentId),
-          vcnId,
-        });
-        return {
-          success: true,
-          subnets: response.items.map((s) => ({
-            id: s.id,
-            displayName: s.displayName,
-            cidrBlock: s.cidrBlock,
-            availabilityDomain: s.availabilityDomain,
-            lifecycleState: s.lifecycleState,
-            prohibitPublicIpOnVnic: s.prohibitPublicIpOnVnic,
-            dnsLabel: s.dnsLabel,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * createSubnet — Create a subnet inside a VCN.
- */
-export const createSubnet = () =>
-  tool({
-    description:
-      "Create a subnet inside a VCN. Provide the VCN OCID, CIDR block, and availability domain.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      vcnId: z.string().describe("VCN OCID."),
-      displayName: z.string().describe("Subnet display name."),
-      cidrBlock: z.string().describe("Subnet CIDR. E.g. '10.0.1.0/24'."),
-      availabilityDomain: z
-        .string()
-        .optional()
-        .describe("AD name for regional subnets (omit for regional subnet)."),
-      dnsLabel: z.string().optional().describe("DNS label for the subnet."),
-      prohibitPublicIpOnVnic: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe("If true, instances in this subnet won't get public IPs."),
-    }),
-    execute: async ({
-      compartmentId,
-      vcnId,
-      displayName,
-      cidrBlock,
-      availabilityDomain,
-      dnsLabel,
-      prohibitPublicIpOnVnic,
-    }) => {
-      try {
-        const client = networkClient();
-        const response = await client.createSubnet({
-          createSubnetDetails: {
-            compartmentId: comp(compartmentId),
-            vcnId,
-            displayName,
-            cidrBlock,
-            availabilityDomain,
-            dnsLabel,
-            prohibitPublicIpOnVnic: prohibitPublicIpOnVnic ?? false,
-          },
-        });
-        const s = response.subnet;
-        return {
-          success: true,
-          subnetId: s.id,
-          displayName: s.displayName,
-          cidrBlock: s.cidrBlock,
-          lifecycleState: s.lifecycleState,
-          message: `Subnet '${s.displayName}' created (${s.id}).`,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * deleteSubnet — Delete a subnet.
- */
-export const deleteSubnet = () =>
-  tool({
-    description: "Delete a subnet from a VCN. The subnet must be empty.",
-    inputSchema: z.object({
-      subnetId: z.string().describe("Subnet OCID."),
-    }),
-    execute: async ({ subnetId }) => {
-      try {
-        const client = networkClient();
-        await client.deleteSubnet({ subnetId });
-        return { success: true, message: `Subnet ${subnetId} deletion initiated.` };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listSecurityLists — List security list rules for a VCN.
- */
-export const listSecurityLists = () =>
-  tool({
-    description: "List security lists (firewall rules) in a compartment, optionally filtered by VCN.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      vcnId: z.string().optional().describe("VCN OCID to filter by."),
-    }),
-    execute: async ({ compartmentId, vcnId }) => {
-      try {
-        const client = networkClient();
-        const response = await client.listSecurityLists({
-          compartmentId: comp(compartmentId),
-          vcnId,
-        });
-        return {
-          success: true,
-          securityLists: response.items.map((sl) => ({
-            id: sl.id,
-            displayName: sl.displayName,
-            lifecycleState: sl.lifecycleState,
-            ingressSecurityRules: sl.ingressSecurityRules?.length ?? 0,
-            egressSecurityRules: sl.egressSecurityRules?.length ?? 0,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listInternetGateways — List internet gateways in a VCN.
- */
-export const listInternetGateways = () =>
-  tool({
-    description: "List internet gateways in a VCN compartment.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      vcnId: z.string().optional().describe("VCN OCID."),
-    }),
-    execute: async ({ compartmentId, vcnId }) => {
-      try {
-        const client = networkClient();
-        const response = await client.listInternetGateways({
-          compartmentId: comp(compartmentId),
-          vcnId,
-        });
-        return {
-          success: true,
-          internetGateways: response.items.map((ig) => ({
-            id: ig.id,
-            displayName: ig.displayName,
-            isEnabled: ig.isEnabled,
-            lifecycleState: ig.lifecycleState,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
+    execute: async ({ action, process_name, log_lines, update_env, start_script }) => {
+      const name = process_name || "";
+      const needsName = ["restart", "stop", "delete", "reload", "logs", "describe", "flush_logs"];
+      if (needsName.includes(action) && !name) return { success: false, error: `process_name required for '${action}'` };
+      const cmds: Record<string, string> = {
+        status: "pm2 list",
+        restart: `pm2 restart ${name}${update_env ? " --update-env" : ""}`,
+        reload: `pm2 reload ${name}`,
+        stop: `pm2 stop ${name}`,
+        delete: `pm2 delete ${name}`,
+        start: `pm2 start ${start_script || "server.js"}${name ? ` --name ${name}` : ""}`,
+        logs: `pm2 logs ${name} --lines ${log_lines} --nostream`,
+        save: "pm2 save",
+        flush_logs: `pm2 flush ${name}`,
+        describe: `pm2 describe ${name}`,
+      };
+      const r = await sshExec(cmds[action], workDir(), action === "logs" ? 15_000 : 30_000);
+      return { success: r.code === 0, action, process_name: name, output: (r.stdout + "\n" + r.stderr).trim(), exit_code: r.code };
     },
   });
 
 // =============================================================================
-// OBJECT STORAGE
+// SECTION 4 — DEPLOYMENT & GIT
 // =============================================================================
 
-/**
- * getObjectStorageNamespace — Get the tenancy's Object Storage namespace.
- */
-export const getObjectStorageNamespace = () =>
+export const oracleSSHDeploy = ({ userId }: { userId: string }) =>
   tool({
-    description:
-      "Get the Object Storage namespace for the tenancy. " +
-      "Required as a parameter for all Object Storage operations.",
+    description: "Full deploy: git pull → npm install → pm2 restart. Returns step-by-step logs.",
+    inputSchema: z.object({
+      app_dir: z.string().optional(),
+      pm2_process_name: z.string().optional(),
+      branch: z.string().optional().default("main"),
+      npm_install: z.boolean().optional().default(true),
+      pre_commands: z.array(z.string()).optional(),
+      post_commands: z.array(z.string()).optional(),
+    }),
+    execute: async ({ app_dir, pm2_process_name, branch, npm_install, pre_commands, post_commands }) => {
+      const dir = app_dir || workDir();
+      const steps: Array<{ step: string; success: boolean; output: string }> = [];
+      async function run(step: string, cmd: string): Promise<boolean> {
+        const r = await sshExec(cmd, dir, 120_000);
+        steps.push({ step, success: r.code === 0, output: (r.stdout + "\n" + r.stderr).trim() });
+        return r.code === 0;
+      }
+      for (const cmd of pre_commands || []) if (!(await run(`pre: ${cmd}`, cmd))) return { success: false, steps, summary: `❌ Failed at: ${cmd}` };
+      if (!(await run("git pull", `git pull origin ${branch}`))) return { success: false, steps, summary: "❌ git pull failed" };
+      if (npm_install && !(await run("npm install", "npm ci --only=production"))) return { success: false, steps, summary: "❌ npm install failed" };
+      if (pm2_process_name) await run(`pm2 restart ${pm2_process_name}`, `pm2 restart ${pm2_process_name} --update-env && pm2 save`);
+      for (const cmd of post_commands || []) if (!(await run(`post: ${cmd}`, cmd))) return { success: false, steps, summary: `❌ Failed at: ${cmd}` };
+      return { success: true, app_dir: dir, steps, summary: `✅ Deployed in ${steps.length} steps` };
+    },
+  });
+
+export const oracleSSHGit = ({ userId }: { userId: string }) =>
+  tool({
+    description: "Run git operations: status, log, diff, branch, stash, reset_hard, clone, pull, fetch.",
+    inputSchema: z.object({
+      action: z.enum(["status", "log", "diff", "branch", "stash", "reset_hard", "clone", "pull", "fetch"]),
+      app_dir: z.string().optional(),
+      branch: z.string().optional(),
+      clone_url: z.string().optional(),
+      clone_dir: z.string().optional(),
+      log_count: z.number().int().optional().default(10),
+    }),
+    execute: async ({ action, app_dir, branch, clone_url, clone_dir, log_count }) => {
+      const dir = app_dir || workDir();
+      const cmds: Record<string, string> = {
+        status: "git status",
+        log: `git log --oneline -${log_count}`,
+        diff: "git diff HEAD",
+        branch: "git branch -a",
+        stash: "git stash",
+        reset_hard: `git reset --hard origin/${branch || "main"}`,
+        pull: `git pull origin ${branch || "main"}`,
+        fetch: "git fetch --all",
+        clone: `git clone ${clone_url} ${clone_dir || ""}`,
+      };
+      const r = await sshExec(cmds[action], action === "clone" ? workDir() : dir, 60_000);
+      return { success: r.code === 0, action, output: (r.stdout + "\n" + r.stderr).trim() };
+    },
+  });
+
+// =============================================================================
+// SECTION 5 — SYSTEM MONITORING
+// =============================================================================
+
+export const oracleSSHSystemStats = ({ userId }: { userId: string }) =>
+  tool({
+    description: "Full system health snapshot: CPU, memory, disk, uptime, load, top processes, PM2, nginx. Essential for the 1GB Oracle instance.",
     inputSchema: z.object({}),
     execute: async () => {
-      try {
-        const client = objectStorageClient();
-        const response = await client.getNamespace({});
-        return { success: true, namespace: response.value };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+      const checks: Record<string, string> = {
+        uptime: "uptime",
+        memory: "free -h",
+        disk: "df -h /",
+        load: "cat /proc/loadavg",
+        swap: "swapon --show 2>/dev/null || echo 'No swap'",
+        top_processes: "ps aux --sort=-%mem | head -8",
+        open_ports: "ss -tlnp 2>/dev/null | head -15",
+        pm2: "pm2 list 2>/dev/null || echo 'PM2 not running'",
+        nginx: "systemctl is-active nginx 2>/dev/null",
+        node_version: "node -v 2>/dev/null || echo 'not found'",
+        os_info: "lsb_release -d 2>/dev/null || head -3 /etc/os-release",
+        last_reboot: "who -b 2>/dev/null || last reboot | head -1",
+      };
+      const stats: Record<string, string> = {};
+      for (const [key, cmd] of Object.entries(checks)) {
+        const r = await sshExec(cmd, workDir(), 10_000);
+        stats[key] = (r.stdout || r.stderr || "").trim();
       }
+      return { success: true, stats };
     },
   });
 
-/**
- * listBuckets — List Object Storage buckets.
- */
-export const listBuckets = () =>
+export const oracleSSHTailLogs = ({ userId }: { userId: string }) =>
   tool({
-    description: "List all Object Storage buckets in a compartment and namespace.",
+    description: "Tail logs: PM2 app, nginx access/error, syslog, auth log, or custom path. Supports grep filtering.",
     inputSchema: z.object({
-      namespaceName: z.string().describe("Object Storage namespace (from getObjectStorageNamespace)."),
-      compartmentId: z.string().optional().describe("Compartment OCID."),
+      source: z.enum(["pm2", "nginx_access", "nginx_error", "syslog", "auth", "custom"]),
+      process_name: z.string().optional(),
+      custom_path: z.string().optional(),
+      lines: z.number().int().min(1).max(1000).optional().default(100),
+      grep: z.string().optional().describe("Include lines containing this string."),
+      grep_invert: z.string().optional().describe("Exclude lines containing this string."),
     }),
-    execute: async ({ namespaceName, compartmentId }) => {
-      try {
-        const client = objectStorageClient();
-        const response = await client.listBuckets({
-          namespaceName,
-          compartmentId: comp(compartmentId),
-        });
-        return {
-          success: true,
-          buckets: response.items.map((b) => ({
-            name: b.name,
-            namespace: b.namespace,
-            compartmentId: b.compartmentId,
-            createdBy: b.createdBy,
-            timeCreated: b.timeCreated,
-            etag: b.etag,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+    execute: async ({ source, process_name, custom_path, lines, grep, grep_invert }) => {
+      const logPaths: Record<string, string> = {
+        nginx_access: "/var/log/nginx/access.log",
+        nginx_error: "/var/log/nginx/error.log",
+        syslog: "/var/log/syslog",
+        auth: "/var/log/auth.log",
+      };
+      let cmd: string;
+      if (source === "pm2") {
+        if (!process_name) return { success: false, error: "process_name required for pm2" };
+        cmd = `pm2 logs ${process_name} --lines ${lines} --nostream`;
+      } else if (source === "custom") {
+        if (!custom_path) return { success: false, error: "custom_path required" };
+        cmd = `sudo tail -n ${lines} ${custom_path}`;
+      } else {
+        cmd = `sudo tail -n ${lines} ${logPaths[source]}`;
       }
-    },
-  });
-
-/**
- * createBucket — Create an Object Storage bucket.
- */
-export const createBucket = () =>
-  tool({
-    description:
-      "Create a new Object Storage bucket. Bucket names must be unique within a namespace.",
-    inputSchema: z.object({
-      namespaceName: z.string().describe("Object Storage namespace."),
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      bucketName: z.string().describe("Bucket name (unique within namespace)."),
-      publicAccessType: z
-        .enum(["NoPublicAccess", "ObjectRead", "ObjectReadWithoutList"])
-        .optional()
-        .default("NoPublicAccess")
-        .describe("Public access level. Default: NoPublicAccess."),
-      versioning: z
-        .enum(["Enabled", "Disabled"])
-        .optional()
-        .default("Disabled")
-        .describe("Object versioning. Default: Disabled."),
-      storageTier: z
-        .enum(["Standard", "Archive", "IntelligentTiering"])
-        .optional()
-        .default("Standard")
-        .describe("Storage tier. Default: Standard."),
-    }),
-    execute: async ({
-      namespaceName,
-      compartmentId,
-      bucketName,
-      publicAccessType,
-      versioning,
-      storageTier,
-    }) => {
-      try {
-        const client = objectStorageClient();
-        const response = await client.createBucket({
-          namespaceName,
-          createBucketDetails: {
-            name: bucketName,
-            compartmentId: comp(compartmentId),
-            publicAccessType: publicAccessType as any,
-            versioning: versioning as any,
-            storageTier: storageTier as any,
-          },
-        });
-        const b = response.bucket;
-        return {
-          success: true,
-          name: b.name,
-          namespace: b.namespace,
-          compartmentId: b.compartmentId,
-          message: `Bucket '${b.name}' created.`,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * deleteBucket — Delete an empty Object Storage bucket.
- */
-export const deleteBucket = () =>
-  tool({
-    description: "Delete an Object Storage bucket. The bucket must be empty first.",
-    inputSchema: z.object({
-      namespaceName: z.string().describe("Object Storage namespace."),
-      bucketName: z.string().describe("Bucket name to delete."),
-    }),
-    execute: async ({ namespaceName, bucketName }) => {
-      try {
-        const client = objectStorageClient();
-        await client.deleteBucket({ namespaceName, bucketName });
-        return { success: true, message: `Bucket '${bucketName}' deleted.` };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listObjects — List objects inside a bucket.
- */
-export const listObjects = () =>
-  tool({
-    description:
-      "List objects (files) inside an Object Storage bucket. " +
-      "Supports prefix filtering and pagination.",
-    inputSchema: z.object({
-      namespaceName: z.string().describe("Object Storage namespace."),
-      bucketName: z.string().describe("Bucket name."),
-      prefix: z.string().optional().describe("Filter objects with this key prefix."),
-      delimiter: z
-        .string()
-        .optional()
-        .describe("Character used to group object names (like '/' for directory-like listing)."),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(1000)
-        .optional()
-        .default(100)
-        .describe("Max objects to return. Default: 100."),
-    }),
-    execute: async ({ namespaceName, bucketName, prefix, delimiter, limit }) => {
-      try {
-        const client = objectStorageClient();
-        const response = await client.listObjects({
-          namespaceName,
-          bucketName,
-          prefix,
-          delimiter,
-          limit: limit ?? 100,
-        });
-        return {
-          success: true,
-          objects: (response.listObjects.objects ?? []).map((o) => ({
-            name: o.name,
-            size: o.size,
-            md5: o.md5,
-            timeCreated: o.timeCreated,
-            timeModified: o.timeModified,
-            storageTier: o.storageTier,
-          })),
-          prefixes: response.listObjects.prefixes ?? [],
-          nextStartWith: response.listObjects.nextStartWith,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * putObject — Upload a text or JSON object to Object Storage.
- */
-export const putObject = () =>
-  tool({
-    description:
-      "Upload a text, JSON, or string-serializable object to OCI Object Storage. " +
-      "For binary files use a pipeline; this tool handles text/JSON up to ~50MB.",
-    inputSchema: z.object({
-      namespaceName: z.string().describe("Object Storage namespace."),
-      bucketName: z.string().describe("Bucket name."),
-      objectName: z.string().describe("Object key / path. E.g. 'data/report.json'."),
-      content: z.string().describe("String content to upload."),
-      contentType: z
-        .string()
-        .optional()
-        .default("text/plain")
-        .describe("MIME type. E.g. 'application/json', 'text/csv'. Default: text/plain."),
-    }),
-    execute: async ({ namespaceName, bucketName, objectName, content, contentType }) => {
-      try {
-        const client = objectStorageClient();
-        const bodyBuffer = Buffer.from(content, "utf-8");
-        await client.putObject({
-          namespaceName,
-          bucketName,
-          objectName,
-          putObjectBody: Readable.from(bodyBuffer),
-          contentLength: bodyBuffer.byteLength,
-          contentType: contentType ?? "text/plain",
-        });
-        return {
-          success: true,
-          message: `Object '${objectName}' uploaded to bucket '${bucketName}' (${bodyBuffer.byteLength} bytes).`,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * getObject — Download a text object from Object Storage.
- */
-export const getObject = () =>
-  tool({
-    description:
-      "Download the content of an object from OCI Object Storage. " +
-      "Returns the object content as a UTF-8 string (truncated at 50KB for large files).",
-    inputSchema: z.object({
-      namespaceName: z.string().describe("Object Storage namespace."),
-      bucketName: z.string().describe("Bucket name."),
-      objectName: z.string().describe("Object key. E.g. 'data/report.json'."),
-    }),
-    execute: async ({ namespaceName, bucketName, objectName }) => {
-      try {
-        const client = objectStorageClient();
-        const response = await client.getObject({ namespaceName, bucketName, objectName });
-
-        const content = await streamToString(response.value as NodeJS.ReadableStream);
-        const MAX_CHARS = 50_000;
-        const truncated = content.length > MAX_CHARS;
-
-        return {
-          success: true,
-          objectName,
-          contentType: response.contentType,
-          contentLength: response.contentLength,
-          content: truncated ? content.slice(0, MAX_CHARS) + "\n\n[...truncated]" : content,
-          truncated,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * deleteObject — Delete an object from Object Storage.
- */
-export const deleteObject = () =>
-  tool({
-    description: "Delete an object from an OCI Object Storage bucket.",
-    inputSchema: z.object({
-      namespaceName: z.string().describe("Object Storage namespace."),
-      bucketName: z.string().describe("Bucket name."),
-      objectName: z.string().describe("Object key to delete."),
-    }),
-    execute: async ({ namespaceName, bucketName, objectName }) => {
-      try {
-        const client = objectStorageClient();
-        await client.deleteObject({ namespaceName, bucketName, objectName });
-        return { success: true, message: `Object '${objectName}' deleted from '${bucketName}'.` };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * createPreauthenticatedRequest — Generate a pre-auth (public) URL for an object.
- */
-export const createPreauthenticatedRequest = () =>
-  tool({
-    description:
-      "Create a Pre-Authenticated Request (PAR) — a temporary public URL to read or write " +
-      "an object in Object Storage without authentication. Specify the expiry time.",
-    inputSchema: z.object({
-      namespaceName: z.string().describe("Object Storage namespace."),
-      bucketName: z.string().describe("Bucket name."),
-      objectName: z
-        .string()
-        .optional()
-        .describe("Object key. Omit to create a bucket-level PAR."),
-      name: z.string().describe("Human-readable label for this PAR."),
-      accessType: z
-        .enum(["ObjectRead", "ObjectWrite", "ObjectReadWrite", "AnyObjectWrite", "AnyObjectRead", "AnyObjectReadWrite"])
-        .default("ObjectRead")
-        .describe("Access level. Default: ObjectRead."),
-      expiresInHours: z
-        .number()
-        .min(1)
-        .max(8760)
-        .default(24)
-        .describe("How many hours until this PAR expires. Default: 24h."),
-    }),
-    execute: async ({ namespaceName, bucketName, objectName, name, accessType, expiresInHours }) => {
-      try {
-        const client = objectStorageClient();
-        const expiresOn = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
-        const response = await client.createPreauthenticatedRequest({
-          namespaceName,
-          bucketName,
-          createPreauthenticatedRequestDetails: {
-            name,
-            objectName,
-            accessType: accessType as any,
-            timeExpires: expiresOn,
-          },
-        });
-        const par = response.preauthenticatedRequest;
-        const baseUrl = `https://objectstorage.${process.env.OCI_REGION ?? "us-ashburn-1"}.oraclecloud.com`;
-        return {
-          success: true,
-          parId: par.id,
-          name: par.name,
-          accessUri: par.accessUri,
-          fullUrl: `${baseUrl}${par.accessUri}`,
-          timeExpires: par.timeExpires,
-          message: `PAR created. Expires: ${par.timeExpires}.`,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
+      if (grep) cmd += ` | grep -i "${grep}"`;
+      if (grep_invert) cmd += ` | grep -iv "${grep_invert}"`;
+      const r = await sshExec(cmd, workDir(), 15_000);
+      return { success: r.code === 0 || !!r.stdout, source, content: r.stdout || r.stderr || "(no output)" };
     },
   });
 
 // =============================================================================
-// DATABASE (Autonomous Database)
+// SECTION 6 — NGINX MANAGEMENT
 // =============================================================================
 
-/**
- * listAutonomousDatabases — List Autonomous Databases.
- */
-export const listAutonomousDatabases = () =>
+export const oracleSSHNginx = ({ userId }: { userId: string }) =>
   tool({
-    description:
-      "List all Autonomous Databases (ATP/ADW) in a compartment. " +
-      "Returns OCIDs, display names, DB names, workload types, and lifecycle states.",
+    description: "Manage nginx: status, test, reload, restart, get_config, set_config, add_site. set_config always tests before applying.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      lifecycleState: z
-        .enum(["PROVISIONING", "AVAILABLE", "STOPPING", "STOPPED", "STARTING", "TERMINATING", "TERMINATED"])
-        .optional()
-        .describe("Filter by lifecycle state."),
+      action: z.enum(["status", "test", "reload", "restart", "get_config", "set_config", "add_site"]),
+      new_config: z.string().optional(),
+      config_path: z.string().optional().default("/etc/nginx/sites-available/default"),
+      site_name: z.string().optional(),
+      site_config: z.string().optional(),
     }),
-    execute: async ({ compartmentId, lifecycleState }) => {
+    execute: async ({ action, new_config, config_path, site_name, site_config }) => {
+      const cfgPath = config_path || "/etc/nginx/sites-available/default";
       try {
-        const client = databaseClient();
-        const response = await client.listAutonomousDatabases({
-          compartmentId: comp(compartmentId),
-          lifecycleState: lifecycleState as any,
-        });
-        return {
-          success: true,
-          databases: response.items.map((db) => ({
-            id: db.id,
-            displayName: db.displayName,
-            dbName: db.dbName,
-            lifecycleState: db.lifecycleState,
-            workloadType: db.dbWorkload,
-            cpuCoreCount: db.cpuCoreCount,
-            dataStorageSizeInTBs: db.dataStorageSizeInTBs,
-            isAutoScalingEnabled: db.isAutoScalingEnabled,
-            dbVersion: db.dbVersion,
-            timeCreated: db.timeCreated,
-            connectionStrings: db.connectionStrings,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * getAutonomousDatabase — Get Autonomous Database details.
- */
-export const getAutonomousDatabase = () =>
-  tool({
-    description: "Get detailed info about a specific Autonomous Database.",
-    inputSchema: z.object({
-      autonomousDatabaseId: z.string().describe("Autonomous Database OCID."),
-    }),
-    execute: async ({ autonomousDatabaseId }) => {
-      try {
-        const client = databaseClient();
-        const response = await client.getAutonomousDatabase({ autonomousDatabaseId });
-        const db = response.autonomousDatabase;
-        return {
-          success: true,
-          id: db.id,
-          displayName: db.displayName,
-          dbName: db.dbName,
-          lifecycleState: db.lifecycleState,
-          workloadType: db.dbWorkload,
-          cpuCoreCount: db.cpuCoreCount,
-          dataStorageSizeInTBs: db.dataStorageSizeInTBs,
-          isAutoScalingEnabled: db.isAutoScalingEnabled,
-          dbVersion: db.dbVersion,
-          serviceConsoleUrl: db.serviceConsoleUrl,
-          connectionStrings: db.connectionStrings,
-          isFreeTier: db.isFreeTier,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * createAutonomousDatabase — Provision a new Autonomous Database.
- */
-export const createAutonomousDatabase = () =>
-  tool({
-    description:
-      "Create a new Autonomous Database (ATP = Transaction Processing, ADW = Data Warehouse). " +
-      "Returns the new database OCID. Allow ~5 minutes for provisioning.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      displayName: z.string().describe("Display name."),
-      dbName: z
-        .string()
-        .describe("Database name (alphanumeric, no spaces, max 14 chars). E.g. 'MYDB1'."),
-      adminPassword: z
-        .string()
-        .describe("Admin password (12-30 chars, mix of uppercase, lowercase, number, special)."),
-      workloadType: z
-        .enum(["OLTP", "DW", "AJD", "APEX"])
-        .default("OLTP")
-        .describe("Workload type: OLTP=Transaction Processing, DW=Data Warehouse. Default: OLTP."),
-      cpuCoreCount: z.number().int().min(1).default(1).describe("CPU core count. Default: 1."),
-      dataStorageSizeInTBs: z
-        .number()
-        .int()
-        .min(1)
-        .default(1)
-        .describe("Storage in TB. Default: 1."),
-      isAutoScalingEnabled: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe("Enable auto-scaling. Default: false."),
-      isFreeTier: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe("Create on Always Free tier (1 OCPU, 20GB). Default: false."),
-    }),
-    execute: async ({
-      compartmentId,
-      displayName,
-      dbName,
-      adminPassword,
-      workloadType,
-      cpuCoreCount,
-      dataStorageSizeInTBs,
-      isAutoScalingEnabled,
-      isFreeTier,
-    }) => {
-      try {
-        const client = databaseClient();
-        const response = await client.createAutonomousDatabase({
-          createAutonomousDatabaseDetails: {
-            compartmentId: comp(compartmentId),
-            displayName,
-            dbName,
-            adminPassword,
-            dbWorkload: workloadType as any,
-            cpuCoreCount,
-            dataStorageSizeInTBs,
-            isAutoScalingEnabled: isAutoScalingEnabled ?? false,
-            isFreeTier: isFreeTier ?? false,
-          } as any,
-        });
-        const db = response.autonomousDatabase;
-        return {
-          success: true,
-          id: db.id,
-          displayName: db.displayName,
-          dbName: db.dbName,
-          lifecycleState: db.lifecycleState,
-          message: `Autonomous Database '${db.displayName}' provisioning (id: ${db.id}).`,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * autonomousDatabaseAction — Start or stop an Autonomous Database.
- */
-export const autonomousDatabaseAction = () =>
-  tool({
-    description: "Start or stop an Autonomous Database.",
-    inputSchema: z.object({
-      autonomousDatabaseId: z.string().describe("Autonomous Database OCID."),
-      action: z.enum(["start", "stop"]).describe("Action to perform."),
-    }),
-    execute: async ({ autonomousDatabaseId, action }) => {
-      try {
-        const client = databaseClient();
-        let db;
-        if (action === "start") {
-          const r = await client.startAutonomousDatabase({ autonomousDatabaseId });
-          db = r.autonomousDatabase;
-        } else {
-          const r = await client.stopAutonomousDatabase({ autonomousDatabaseId });
-          db = r.autonomousDatabase;
+        switch (action) {
+          case "status": {
+            const r = await sshExec("systemctl is-active nginx && sudo nginx -v 2>&1", workDir());
+            return { success: true, output: (r.stdout + r.stderr).trim() };
+          }
+          case "test": {
+            const r = await sshExec("sudo nginx -t 2>&1", workDir());
+            return { success: r.code === 0, valid: r.code === 0, output: (r.stdout + r.stderr).trim() };
+          }
+          case "reload": {
+            const test = await sshExec("sudo nginx -t 2>&1", workDir());
+            if (test.code !== 0) return { success: false, error: "Config invalid — reload aborted", details: (test.stdout + test.stderr).trim() };
+            const r = await sshExec("sudo systemctl reload nginx", workDir());
+            return { success: r.code === 0, output: r.stdout || "Reloaded" };
+          }
+          case "restart": {
+            const r = await sshExec("sudo systemctl restart nginx", workDir());
+            return { success: r.code === 0, output: r.stdout || "Restarted" };
+          }
+          case "get_config": {
+            const r = await sshExec(`sudo cat ${cfgPath}`, workDir());
+            return { success: r.code === 0, config: r.stdout, path: cfgPath };
+          }
+          case "set_config": {
+            if (!new_config) return { success: false, error: "new_config required" };
+            await sshExec(`sudo cp ${cfgPath} ${cfgPath}.bak`, workDir());
+            const wr = await b64Write(new_config, cfgPath, "sudo ");
+            if (wr.code !== 0) return { success: false, error: wr.stderr };
+            const test = await sshExec("sudo nginx -t 2>&1", workDir());
+            if (test.code !== 0) {
+              await sshExec(`sudo cp ${cfgPath}.bak ${cfgPath}`, workDir());
+              return { success: false, error: "Invalid config — original restored", details: (test.stdout + test.stderr).trim() };
+            }
+            await sshExec("sudo systemctl reload nginx", workDir());
+            return { success: true, message: "Config updated and nginx reloaded", backup: `${cfgPath}.bak` };
+          }
+          case "add_site": {
+            if (!site_name || !site_config) return { success: false, error: "site_name and site_config required" };
+            const sitePath = `/etc/nginx/sites-available/${site_name}`;
+            const linkPath = `/etc/nginx/sites-enabled/${site_name}`;
+            const wr = await b64Write(site_config, sitePath, "sudo ");
+            if (wr.code !== 0) return { success: false, error: wr.stderr };
+            await sshExec(`sudo ln -sf ${sitePath} ${linkPath}`, workDir());
+            const test = await sshExec("sudo nginx -t 2>&1", workDir());
+            if (test.code !== 0) {
+              await sshExec(`sudo rm -f ${sitePath} ${linkPath}`, workDir());
+              return { success: false, error: "Invalid site config — removed", details: (test.stdout + test.stderr).trim() };
+            }
+            await sshExec("sudo systemctl reload nginx", workDir());
+            return { success: true, message: `Site '${site_name}' added`, path: sitePath };
+          }
+          default: return { success: false, error: "Unknown action" };
         }
-        return {
-          success: true,
-          id: db.id,
-          lifecycleState: db.lifecycleState,
-          message: `Database ${action} initiated. State: ${db.lifecycleState}.`,
-        };
       } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * deleteAutonomousDatabase — Terminate an Autonomous Database.
- */
-export const deleteAutonomousDatabase = () =>
-  tool({
-    description: "Permanently delete (terminate) an Autonomous Database. Irreversible.",
-    inputSchema: z.object({
-      autonomousDatabaseId: z.string().describe("Autonomous Database OCID."),
-    }),
-    execute: async ({ autonomousDatabaseId }) => {
-      try {
-        const client = databaseClient();
-        await client.deleteAutonomousDatabase({ autonomousDatabaseId });
-        return { success: true, message: `Autonomous Database ${autonomousDatabaseId} termination initiated.` };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+        return { success: false, error: error.message };
       }
     },
   });
 
 // =============================================================================
-// CONTAINER ENGINE FOR KUBERNETES (OKE)
+// SECTION 7 — ENV MANAGEMENT
 // =============================================================================
 
-/**
- * listClusters — List OKE Kubernetes clusters.
- */
-export const listClusters = () =>
+export const oracleSSHEnvManager = ({ userId }: { userId: string }) =>
   tool({
-    description:
-      "List Kubernetes clusters (OKE) in a compartment. " +
-      "Returns cluster OCIDs, names, Kubernetes versions, and lifecycle states.",
+    description: "Manage .env file: read, list_keys (safe — no values), set, delete, backup. Restart PM2 with update_env after changes.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      lifecycleState: z
-        .enum(["CREATING", "ACTIVE", "FAILED", "DELETING", "DELETED", "UPDATING"])
-        .optional()
-        .describe("Filter by lifecycle state."),
+      action: z.enum(["read", "list_keys", "set", "delete", "backup"]),
+      env_file: z.string().optional(),
+      vars: z.record(z.string(), z.string()).optional(),
+      key: z.string().optional(),
     }),
-    execute: async ({ compartmentId, lifecycleState }) => {
-      try {
-        const client = containerEngineClient();
-        const response = await client.listClusters({
-          compartmentId: comp(compartmentId),
-          lifecycleState: [lifecycleState as any].filter(Boolean),
-        });
-        return {
-          success: true,
-          clusters: response.items.map((c) => ({
-            id: c.id,
-            name: c.name,
-            kubernetesVersion: c.kubernetesVersion,
-            lifecycleState: c.lifecycleState,
-            vcnId: c.vcnId,
-            endpointConfig: c.endpointConfig,
-            timeCreated: c.metadata?.timeCreated,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * getCluster — Get OKE cluster details.
- */
-export const getCluster = () =>
-  tool({
-    description: "Get detailed information about an OKE Kubernetes cluster.",
-    inputSchema: z.object({
-      clusterId: z.string().describe("Cluster OCID."),
-    }),
-    execute: async ({ clusterId }) => {
-      try {
-        const client = containerEngineClient();
-        const response = await client.getCluster({ clusterId });
-        const c = response.cluster;
-        return {
-          success: true,
-          id: c.id,
-          name: c.name,
-          kubernetesVersion: c.kubernetesVersion,
-          lifecycleState: c.lifecycleState,
-          vcnId: c.vcnId,
-          endpoints: c.endpoints,
-          availableKubernetesUpgrades: c.availableKubernetesUpgrades,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listNodePools — List OKE node pools for a cluster.
- */
-export const listNodePools = () =>
-  tool({
-    description: "List node pools for an OKE cluster.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      clusterId: z.string().optional().describe("Filter node pools for this cluster."),
-    }),
-    execute: async ({ compartmentId, clusterId }) => {
-      try {
-        const client = containerEngineClient();
-        const response = await client.listNodePools({
-          compartmentId: comp(compartmentId),
-          clusterId,
-        });
-        return {
-          success: true,
-          nodePools: response.items.map((np) => ({
-            id: np.id,
-            name: np.name,
-            clusterId: np.clusterId,
-            nodeShape: np.nodeShape,
-            kubernetesVersion: np.kubernetesVersion,
-            lifecycleState: np.lifecycleState,
-            nodeConfigDetails: np.nodeConfigDetails,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * deleteCluster — Delete an OKE cluster.
- */
-export const deleteCluster = () =>
-  tool({
-    description: "Delete an OKE Kubernetes cluster. Node pools must be deleted first.",
-    inputSchema: z.object({
-      clusterId: z.string().describe("Cluster OCID to delete."),
-    }),
-    execute: async ({ clusterId }) => {
-      try {
-        const client = containerEngineClient();
-        await client.deleteCluster({ clusterId });
-        return { success: true, message: `Cluster ${clusterId} deletion initiated.` };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+    execute: async ({ action, env_file, vars, key }) => {
+      const envFile = env_file || `${workDir()}/.env`;
+      switch (action) {
+        case "read": {
+          const r = await sshExec(`cat ${envFile}`, workDir());
+          return r.code === 0 ? { success: true, content: r.stdout } : { success: false, error: r.stderr };
+        }
+        case "list_keys": {
+          const r = await sshExec(`grep -v '^#' ${envFile} | grep '=' | cut -d= -f1 | sort`, workDir());
+          return { success: true, keys: r.stdout.split("\n").filter(Boolean) };
+        }
+        case "set": {
+          if (!vars) return { success: false, error: "vars required" };
+          const cmds = Object.entries(vars).map(([k, v]) => `sed -i '/^${k}=/d' ${envFile} && echo '${k}=${v}' >> ${envFile}`).join(" && ");
+          const r = await sshExec(cmds, workDir(), 15_000);
+          return r.code === 0 ? { success: true, keys_updated: Object.keys(vars) } : { success: false, error: r.stderr };
+        }
+        case "delete": {
+          if (!key) return { success: false, error: "key required" };
+          const r = await sshExec(`sed -i '/^${key}=/d' ${envFile}`, workDir());
+          return { success: r.code === 0, deleted: key };
+        }
+        case "backup": {
+          const backup = `${envFile}.backup.${Date.now()}`;
+          const r = await sshExec(`cp ${envFile} ${backup}`, workDir());
+          return r.code === 0 ? { success: true, backup_path: backup } : { success: false, error: r.stderr };
+        }
+        default: return { success: false, error: "Unknown action" };
       }
     },
   });
 
 // =============================================================================
-// LOAD BALANCER
+// SECTION 8 — CRON JOBS
 // =============================================================================
 
-/**
- * listLoadBalancers — List load balancers.
- */
-export const listLoadBalancers = () =>
+export const oracleSSHCron = ({ userId }: { userId: string }) =>
   tool({
-    description:
-      "List all Load Balancers in a compartment. Returns LB OCIDs, display names, IP addresses, and states.",
+    description: "Manage cron jobs: list, add, remove by pattern, or clear all. Use for scheduled deploys, backups, health checks.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      lifecycleState: z
-        .enum(["CREATING", "FAILED", "ACTIVE", "DELETING", "DELETED"])
-        .optional()
-        .describe("Filter by state."),
+      action: z.enum(["list", "add", "remove", "clear"]),
+      schedule: z.string().optional().describe("Cron expression e.g. '0 2 * * *'"),
+      command: z.string().optional(),
+      remove_pattern: z.string().optional(),
     }),
-    execute: async ({ compartmentId, lifecycleState }) => {
-      try {
-        const client = loadBalancerClient();
-        const response = await client.listLoadBalancers({
-          compartmentId: comp(compartmentId),
-          lifecycleState: lifecycleState as any,
-        });
-        return {
-          success: true,
-          loadBalancers: response.items.map((lb) => ({
-            id: lb.id,
-            displayName: lb.displayName,
-            lifecycleState: lb.lifecycleState,
-            shapeName: lb.shapeName,
-            ipAddresses: lb.ipAddresses?.map((ip) => ({
-              ipAddress: ip.ipAddress,
-              isPublic: ip.isPublic,
-            })),
-            timeCreated: lb.timeCreated,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * getLoadBalancer — Get load balancer details including backends.
- */
-export const getLoadBalancer = () =>
-  tool({
-    description:
-      "Get detailed info about a load balancer including backend sets, listeners, and certificates.",
-    inputSchema: z.object({
-      loadBalancerId: z.string().describe("Load Balancer OCID."),
-    }),
-    execute: async ({ loadBalancerId }) => {
-      try {
-        const client = loadBalancerClient();
-        const response = await client.getLoadBalancer({ loadBalancerId });
-        const lb = response.loadBalancer;
-        return {
-          success: true,
-          id: lb.id,
-          displayName: lb.displayName,
-          lifecycleState: lb.lifecycleState,
-          shapeName: lb.shapeName,
-          ipAddresses: lb.ipAddresses,
-          backendSets: lb.backendSets
-            ? Object.fromEntries(
-                Object.entries(lb.backendSets).map(([k, v]) => [
-                  k,
-                  {
-                    policy: v.policy,
-                    healthChecker: v.healthChecker,
-                    backendCount: v.backends?.length ?? 0,
-                  },
-                ])
-              )
-            : {},
-          listeners: lb.listeners
-            ? Object.fromEntries(
-                Object.entries(lb.listeners).map(([k, v]) => [
-                  k,
-                  { port: v.port, protocol: v.protocol, defaultBackendSetName: v.defaultBackendSetName },
-                ])
-              )
-            : {},
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * deleteLoadBalancer — Delete a load balancer.
- */
-export const deleteLoadBalancer = () =>
-  tool({
-    description: "Delete a load balancer permanently.",
-    inputSchema: z.object({
-      loadBalancerId: z.string().describe("Load Balancer OCID."),
-    }),
-    execute: async ({ loadBalancerId }) => {
-      try {
-        const client = loadBalancerClient();
-        await client.deleteLoadBalancer({ loadBalancerId });
-        return { success: true, message: `Load Balancer ${loadBalancerId} deletion initiated.` };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+    execute: async ({ action, schedule, command, remove_pattern }) => {
+      switch (action) {
+        case "list": {
+          const r = await sshExec("crontab -l 2>/dev/null || echo '(no cron jobs)'", workDir());
+          return { success: true, crontab: r.stdout };
+        }
+        case "add": {
+          if (!schedule || !command) return { success: false, error: "schedule and command required" };
+          const r = await sshExec(`(crontab -l 2>/dev/null; echo "${schedule} ${command}") | crontab -`, workDir());
+          return r.code === 0 ? { success: true, added: `${schedule} ${command}` } : { success: false, error: r.stderr };
+        }
+        case "remove": {
+          if (!remove_pattern) return { success: false, error: "remove_pattern required" };
+          const r = await sshExec(`crontab -l 2>/dev/null | grep -v "${remove_pattern}" | crontab -`, workDir());
+          return r.code === 0 ? { success: true, removed_pattern: remove_pattern } : { success: false, error: r.stderr };
+        }
+        case "clear": {
+          await sshExec("crontab -r 2>/dev/null; true", workDir());
+          return { success: true, message: "All cron jobs removed" };
+        }
+        default: return { success: false, error: "Unknown action" };
       }
     },
   });
 
 // =============================================================================
-// MONITORING & ALARMS
+// SECTION 9 — NETWORK & FIREWALL
 // =============================================================================
 
-/**
- * listMetrics — List available metrics for a namespace.
- */
-export const listMetrics = () =>
+export const oracleSSHNetwork = ({ userId }: { userId: string }) =>
   tool({
-    description:
-      "List available OCI monitoring metrics. Common namespaces: " +
-      "'oci_computeagent' (CPU/memory), 'oci_blockstore' (disk), 'oci_lbaas' (LB).",
+    description: "Network diagnostics and iptables firewall management: open ports, connections, ping, DNS, curl test, firewall rules.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      namespace: z
-        .string()
-        .optional()
-        .describe("Metric namespace. E.g. 'oci_computeagent', 'oci_blockstore'."),
-      name: z.string().optional().describe("Filter by metric name. E.g. 'CpuUtilization'."),
+      action: z.enum(["open_ports", "connections", "ping", "dns_lookup", "firewall_list", "firewall_open_port", "firewall_close_port", "firewall_save", "curl_test"]),
+      target: z.string().optional(),
+      port: z.number().int().optional(),
+      protocol: z.enum(["tcp", "udp"]).optional().default("tcp"),
     }),
-    execute: async ({ compartmentId, namespace, name }) => {
-      try {
-        const client = monitoringClient();
-        const response = await client.listMetrics({
-          compartmentId: comp(compartmentId),
-          listMetricsDetails: {
-            namespace,
-            name,
-          },
-        });
-        return {
-          success: true,
-          metrics: response.items.map((m) => ({
-            namespace: m.namespace,
-            name: m.name,
-            dimensions: m.dimensions,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * summarizeMetricsData — Query metric data for a time range.
- */
-export const summarizeMetricsData = () =>
-  tool({
-    description:
-      "Query OCI metric time-series data. " +
-      "Example query: 'CpuUtilization[1m].mean()' in namespace 'oci_computeagent'. " +
-      "Returns data points within the specified time window.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      namespace: z.string().describe("Metric namespace. E.g. 'oci_computeagent'."),
-      query: z
-        .string()
-        .describe("MQL metric query. E.g. 'CpuUtilization[1m].mean()'."),
-      startTimeIso: z
-        .string()
-        .optional()
-        .describe("Start time in ISO 8601. Defaults to 1 hour ago."),
-      endTimeIso: z
-        .string()
-        .optional()
-        .describe("End time in ISO 8601. Defaults to now."),
-      resolution: z
-        .string()
-        .optional()
-        .describe("Aggregation interval. E.g. '1m', '5m', '1h'."),
-    }),
-    execute: async ({ compartmentId, namespace, query, startTimeIso, endTimeIso, resolution }) => {
-      try {
-        const client = monitoringClient();
-        const endTime = endTimeIso ? new Date(endTimeIso) : new Date();
-        const startTime = startTimeIso ? new Date(startTimeIso) : new Date(endTime.getTime() - 3600_000);
-
-        const response = await client.summarizeMetricsData({
-          compartmentId: comp(compartmentId),
-          summarizeMetricsDataDetails: {
-            namespace,
-            query,
-            startTime,
-            endTime,
-            resolution,
-          },
-        });
-
-        return {
-          success: true,
-          metrics: response.items.map((item) => ({
-            namespace: item.namespace,
-            name: item.name,
-            dimensions: item.dimensions,
-            aggregatedDatapoints: item.aggregatedDatapoints?.map((dp) => ({
-              timestamp: dp.timestamp,
-              value: dp.value,
-            })),
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * listAlarms — List OCI Monitoring alarms.
- */
-export const listAlarms = () =>
-  tool({
-    description: "List all OCI Monitoring alarms in a compartment.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      lifecycleState: z
-        .enum(["ACTIVE", "DELETING", "DELETED"])
-        .optional()
-        .describe("Filter by alarm state."),
-    }),
-    execute: async ({ compartmentId, lifecycleState }) => {
-      try {
-        const client = monitoringClient();
-        const response = await client.listAlarms({
-          compartmentId: comp(compartmentId),
-          lifecycleState: lifecycleState as any,
-        });
-        return {
-          success: true,
-          alarms: response.items.map((a) => ({
-            id: a.id,
-            displayName: a.displayName,
-            namespace: a.namespace,
-            query: a.query,
-            severity: a.severity,
-            isEnabled: a.isEnabled,
-            lifecycleState: a.lifecycleState,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
-    },
-  });
-
-/**
- * getAlarmStatus — Get current firing status of all alarms.
- */
-export const getAlarmStatus = () =>
-  tool({
-    description: "Get the current FIRING / OK status of all alarms in a compartment.",
-    inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-    }),
-    execute: async ({ compartmentId }) => {
-      try {
-        const client = monitoringClient();
-        const response = await client.listAlarmsStatus({
-          compartmentId: comp(compartmentId),
-        });
-        return {
-          success: true,
-          alarmStatuses: response.items.map((a) => ({
-            id: a.id,
-            displayName: a.displayName,
-            severity: a.severity,
-            status: a.status,
-            timestampTriggered: a.timestampTriggered,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
+    execute: async ({ action, target, port, protocol }) => {
+      switch (action) {
+        case "open_ports": {
+          const r = await sshExec("sudo ss -tlnp", workDir());
+          return { success: true, output: r.stdout };
+        }
+        case "connections": {
+          const r = await sshExec("sudo ss -tnp | head -30", workDir());
+          return { success: true, output: r.stdout };
+        }
+        case "ping": {
+          if (!target) return { success: false, error: "target required" };
+          const r = await sshExec(`ping -c 4 ${target}`, workDir(), 15_000);
+          return { success: r.code === 0, output: r.stdout };
+        }
+        case "dns_lookup": {
+          if (!target) return { success: false, error: "target required" };
+          const r = await sshExec(`nslookup ${target}`, workDir(), 10_000);
+          return { success: true, output: (r.stdout + r.stderr).trim() };
+        }
+        case "firewall_list": {
+          const r = await sshExec("sudo iptables -L INPUT -n --line-numbers", workDir());
+          return { success: true, output: r.stdout };
+        }
+        case "firewall_open_port": {
+          if (!port) return { success: false, error: "port required" };
+          const r = await sshExec(`sudo iptables -I INPUT 4 -m state --state NEW -p ${protocol} --dport ${port} -j ACCEPT && sudo netfilter-persistent save`, workDir());
+          return { success: r.code === 0, message: `Port ${port}/${protocol} opened` };
+        }
+        case "firewall_close_port": {
+          if (!port) return { success: false, error: "port required" };
+          await sshExec(`sudo iptables -D INPUT -m state --state NEW -p ${protocol} --dport ${port} -j ACCEPT 2>/dev/null; sudo netfilter-persistent save`, workDir());
+          return { success: true, message: `Port ${port}/${protocol} closed` };
+        }
+        case "firewall_save": {
+          const r = await sshExec("sudo netfilter-persistent save", workDir());
+          return { success: r.code === 0, output: r.stdout };
+        }
+        case "curl_test": {
+          if (!target) return { success: false, error: "target required" };
+          const r = await sshExec(`curl -sI --max-time 10 ${target}`, workDir(), 15_000);
+          return { success: r.code === 0, output: (r.stdout + r.stderr).trim() };
+        }
+        default: return { success: false, error: "Unknown action" };
       }
     },
   });
 
 // =============================================================================
-// DNS
+// SECTION 10 — PACKAGE MANAGEMENT
 // =============================================================================
 
-/**
- * listDnsZones — List DNS zones.
- */
-export const listDnsZones = () =>
+export const oracleSSHPackages = ({ userId }: { userId: string }) =>
   tool({
-    description: "List all DNS zones in a compartment.",
+    description: "Manage Ubuntu packages via apt: install, remove, update, upgrade, search, list_installed. Use timeout_ms up to 120s for installs.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      zoneType: z
-        .enum(["PRIMARY", "SECONDARY"])
-        .optional()
-        .describe("Filter by zone type."),
+      action: z.enum(["install", "remove", "update", "upgrade", "search", "list_installed", "check"]),
+      packages: z.array(z.string()).optional(),
+      timeout_ms: z.number().int().optional().default(120_000),
     }),
-    execute: async ({ compartmentId, zoneType }) => {
-      try {
-        const client = dnsClient();
-        const response = await client.listZones({
-          compartmentId: comp(compartmentId),
-          zoneType: zoneType as any,
-        });
-        return {
-          success: true,
-          zones: response.items.map((z) => ({
-            id: z.id,
-            name: z.name,
-            zoneType: z.zoneType,
-            lifecycleState: z.lifecycleState,
-            serial: z.serial,
-            timeCreated: z.timeCreated,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
+    execute: async ({ action, packages, timeout_ms }) => {
+      const pkgs = packages?.join(" ") || "";
+      if (["install", "remove", "check"].includes(action) && !pkgs) return { success: false, error: "packages required" };
+      const cmds: Record<string, string> = {
+        install: `sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ${pkgs}`,
+        remove: `sudo apt-get remove -y ${pkgs}`,
+        update: "sudo apt-get update",
+        upgrade: "sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
+        search: `apt-cache search ${pkgs}`,
+        list_installed: "dpkg -l | grep '^ii' | awk '{print $2, $3}' | head -50",
+        check: `dpkg -l ${pkgs} 2>/dev/null | grep '^ii'`,
+      };
+      const r = await sshExec(cmds[action], workDir(), timeout_ms);
+      return { success: r.code === 0, action, output: (r.stdout + r.stderr).trim() };
     },
   });
 
-/**
- * getDnsZoneRecords — Get DNS records in a zone.
- */
-export const getDnsZoneRecords = () =>
+// =============================================================================
+// SECTION 11 — SYSTEMD SERVICE MANAGEMENT
+// =============================================================================
+
+export const oracleSSHService = ({ userId }: { userId: string }) =>
   tool({
-    description: "Get all DNS records in a zone. Optionally filter by record type (A, CNAME, MX, etc.).",
+    description: "Manage systemd services: start, stop, restart, reload, enable, disable, status, list. Works for nginx, cron, ssh, etc.",
     inputSchema: z.object({
-      zoneNameOrId: z.string().describe("Zone name (e.g. 'example.com') or OCID."),
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      rtype: z
-        .string()
-        .optional()
-        .describe("Filter by record type. E.g. 'A', 'CNAME', 'MX', 'TXT'."),
+      action: z.enum(["status", "start", "stop", "restart", "reload", "enable", "disable", "list"]),
+      service: z.string().optional(),
     }),
-    execute: async ({ zoneNameOrId, compartmentId, rtype }) => {
-      try {
-        const client = dnsClient();
-        const response = await client.getZoneRecords({
-          zoneNameOrId,
-          compartmentId: compartmentId ? comp(compartmentId) : undefined,
-          rtype,
-        });
-        return {
-          success: true,
-          records: response.recordCollection.items?.map((r) => ({
-            domain: r.domain,
-            rtype: r.rtype,
-            rdata: r.rdata,
-            ttl: r.ttl,
-            recordHash: r.recordHash,
-          })),
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
+    execute: async ({ action, service }) => {
+      if (action !== "list" && !service) return { success: false, error: "service required" };
+      const cmds: Record<string, string> = {
+        status: `sudo systemctl status ${service} --no-pager`,
+        start: `sudo systemctl start ${service}`,
+        stop: `sudo systemctl stop ${service}`,
+        restart: `sudo systemctl restart ${service}`,
+        reload: `sudo systemctl reload ${service}`,
+        enable: `sudo systemctl enable ${service}`,
+        disable: `sudo systemctl disable ${service}`,
+        list: "sudo systemctl list-units --type=service --state=running --no-pager",
+      };
+      const r = await sshExec(cmds[action], workDir(), 30_000);
+      return { success: r.code === 0, action, service, output: (r.stdout + r.stderr).trim() };
     },
   });
 
-/**
- * createDnsZone — Create a new DNS zone.
- */
-export const createDnsZone = () =>
+// =============================================================================
+// SECTION 12 — DISK & CLEANUP
+// =============================================================================
+
+export const oracleSSHDiskCleanup = ({ userId }: { userId: string }) =>
   tool({
-    description: "Create a new primary DNS zone (e.g. 'myapp.example.com').",
+    description: "Manage disk on the 1GB Oracle server: find large files, clean npm/apt/pm2 cache, remove old logs, check inode usage.",
     inputSchema: z.object({
-      compartmentId: z.string().optional().describe("Compartment OCID."),
-      name: z.string().describe("Zone name. E.g. 'myapp.example.com'."),
+      action: z.enum(["disk_usage", "large_files", "clean_npm", "clean_apt", "clean_pm2_logs", "clean_logs", "inode_usage", "dir_sizes"]),
+      path: z.string().optional(),
+      size_threshold: z.string().optional().default("+10M"),
     }),
-    execute: async ({ compartmentId, name }) => {
-      try {
-        const client = dnsClient();
-        const response = await client.createZone({
-          createZoneDetails: {
-            compartmentId: comp(compartmentId),
-            name,
-            zoneType: "PRIMARY",
-          } as any,
-        });
-        const z = response.zone;
-        return {
-          success: true,
-          id: z.id,
-          name: z.name,
-          lifecycleState: z.lifecycleState,
-          nameservers: z.nameservers,
-          message: `DNS zone '${z.name}' created.`,
-        };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
+    execute: async ({ action, path: scanPath, size_threshold }) => {
+      const target = scanPath || workDir();
+      const cmds: Record<string, string> = {
+        disk_usage: "df -h && echo '---' && du -sh /home/ubuntu/* 2>/dev/null | sort -hr | head -10",
+        large_files: `sudo find ${target} -type f -size ${size_threshold} 2>/dev/null | xargs ls -lh 2>/dev/null | sort -k5 -hr | head -20`,
+        clean_npm: "npm cache clean --force",
+        clean_apt: "sudo apt-get autoremove -y && sudo apt-get autoclean",
+        clean_pm2_logs: "pm2 flush && pm2 save",
+        clean_logs: "sudo find /var/log -name '*.gz' -delete 2>/dev/null; sudo journalctl --vacuum-size=50M",
+        inode_usage: "df -i /",
+        dir_sizes: `du -sh ${target}/* 2>/dev/null | sort -hr | head -20`,
+      };
+      const r = await sshExec(cmds[action], workDir(), 60_000);
+      return { success: r.code === 0, action, output: (r.stdout + r.stderr).trim() };
     },
   });
 
-/**
- * deleteDnsZone — Delete a DNS zone.
- */
-export const deleteDnsZone = () =>
+// =============================================================================
+// SECTION 13 — SSL (Let's Encrypt)
+// =============================================================================
+
+export const oracleSSHSSL = ({ userId }: { userId: string }) =>
   tool({
-    description: "Delete a DNS zone. All records in the zone will be deleted.",
+    description: "Manage Let's Encrypt SSL certs via certbot: install certbot, issue, renew, status, list. Requires a domain pointing to the server.",
     inputSchema: z.object({
-      zoneNameOrId: z.string().describe("Zone name or OCID to delete."),
-      compartmentId: z.string().optional().describe("Compartment OCID."),
+      action: z.enum(["install_certbot", "issue", "renew", "status", "list"]),
+      domain: z.string().optional(),
+      email: z.string().optional(),
     }),
-    execute: async ({ zoneNameOrId, compartmentId }) => {
-      try {
-        const client = dnsClient();
-        await client.deleteZone({
-          zoneNameOrId,
-          compartmentId: compartmentId ? comp(compartmentId) : undefined,
-        });
-        return { success: true, message: `DNS zone '${zoneNameOrId}' deletion initiated.` };
-      } catch (error: any) {
-        return { success: false, error: error?.message ?? String(error) };
-      }
+    execute: async ({ action, domain, email }) => {
+      if (action === "issue" && (!domain || !email)) return { success: false, error: "domain and email required" };
+      const cmds: Record<string, string> = {
+        install_certbot: "sudo apt-get install -y certbot python3-certbot-nginx",
+        issue: `sudo certbot --nginx -d ${domain} --email ${email} --agree-tos --non-interactive`,
+        renew: "sudo certbot renew --dry-run",
+        status: `sudo certbot certificates`,
+        list: "sudo certbot certificates",
+      };
+      const r = await sshExec(cmds[action], workDir(), 120_000);
+      return { success: r.code === 0, action, output: (r.stdout + r.stderr).trim() };
     },
   });
+
+// =============================================================================
+// EXPORT ALL — 23 tools, 13 sections, 0 extra npm packages
+// =============================================================================
+
+export const allOracleTools = (ctx: { userId: string }) => ({
+  oracleSSHExec: oracleSSHExec(ctx),
+  oracleSSHExecMany: oracleSSHExecMany(ctx),
+  oracleSSHReadFile: oracleSSHReadFile(ctx),
+  oracleSSHWriteFile: oracleSSHWriteFile(ctx),
+  oracleSSHListFiles: oracleSSHListFiles(ctx),
+  oracleSSHFileOps: oracleSSHFileOps(ctx),
+  oracleSSHUploadFile: oracleSSHUploadFile(ctx),
+  oracleSSHPM2: oracleSSHPM2(ctx),
+  oracleSSHDeploy: oracleSSHDeploy(ctx),
+  oracleSSHGit: oracleSSHGit(ctx),
+  oracleSSHSystemStats: oracleSSHSystemStats(ctx),
+  oracleSSHTailLogs: oracleSSHTailLogs(ctx),
+  oracleSSHNginx: oracleSSHNginx(ctx),
+  oracleSSHEnvManager: oracleSSHEnvManager(ctx),
+  oracleSSHCron: oracleSSHCron(ctx),
+  oracleSSHNetwork: oracleSSHNetwork(ctx),
+  oracleSSHPackages: oracleSSHPackages(ctx),
+  oracleSSHService: oracleSSHService(ctx),
+  oracleSSHDiskCleanup: oracleSSHDiskCleanup(ctx),
+  oracleSSHSSL: oracleSSHSSL(ctx),
+});
+
+// =============================================================================
+// TOOL INDEX
+// =============================================================================
+//
+// EXECUTION        oracleSSHExec, oracleSSHExecMany
+// FILES            oracleSSHReadFile, oracleSSHWriteFile, oracleSSHListFiles,
+//                  oracleSSHFileOps (move/copy/delete/mkdir/chmod/chown), oracleSSHUploadFile
+// PROCESSES        oracleSSHPM2 (status/restart/stop/start/delete/reload/logs/save/flush/describe)
+// DEPLOYMENT       oracleSSHDeploy, oracleSSHGit
+// MONITORING       oracleSSHSystemStats, oracleSSHTailLogs
+// NGINX            oracleSSHNginx (status/test/reload/restart/get_config/set_config/add_site)
+// ENV MANAGEMENT   oracleSSHEnvManager (read/list_keys/set/delete/backup)
+// CRON             oracleSSHCron (list/add/remove/clear)
+// NETWORK/FIREWALL oracleSSHNetwork (ports/ping/dns/curl/iptables)
+// PACKAGES         oracleSSHPackages (apt install/remove/update/search)
+// SYSTEMD          oracleSSHService (start/stop/restart/enable/disable/list)
+// DISK/CLEANUP     oracleSSHDiskCleanup (usage/large_files/clean_*/)
+// SSL              oracleSSHSSL (certbot issue/renew/status)

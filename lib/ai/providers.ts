@@ -75,14 +75,30 @@ export function getTitleModel() {
   return gateway.languageModel("google/gemini-2.5-flash-lite");
 }
 
-export function getArtifactModel(modelId?: string) {
+/**
+ * Returns a model safe for structured output (streamObject / generateObject).
+ *
+ * IMPORTANT: We intentionally IGNORE the user's chat modelId here.
+ * The reasons:
+ * 1. Thinking/reasoning models (Gemini thinking, Claude extended thinking, DeepSeek
+ *    thinking) are INCOMPATIBLE with streamObject structured output — they produce
+ *    "Corrupted thought signature" and similar errors.
+ * 2. OpenAI models with strict JSON schema validation reject `z.record()` with
+ *    optional properties (the styles field), causing 400 errors.
+ * 3. Artifact generation needs a fast, reliable, consistent model — not the most
+ *    powerful one the user happens to have selected for chat.
+ *
+ * We always use Gemini 3 Flash Preview as the artifact model. It:
+ * - Supports streamObject with complex schemas reliably
+ * - Is fast and cost-efficient
+ * - Does not have corrupted thinking mode issues
+ */
+export function getArtifactModel(_modelId?: string) {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("artifact-model");
   }
 
-  if (modelId) {
-    return getLanguageModel(modelId);
-  }
-
+  // Always use the stable, structured-output-safe model for artifacts.
+  // Never inherit the user's chat model here.
   return gateway.languageModel("google/gemini-3-flash-preview");
 }

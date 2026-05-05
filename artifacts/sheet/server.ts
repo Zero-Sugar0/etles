@@ -14,7 +14,19 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
       system: sheetPrompt,
       prompt: title,
       schema: z.object({
-        csv: z.string().describe("CSV data"),
+        title: z.string().describe("The main title of the spreadsheet"),
+        sheets: z.array(
+          z.object({
+            name: z.string().describe("Sheet name"),
+            csv: z.string().describe("CSV data"),
+            styles: z.record(z.object({
+              backgroundColor: z.string().optional(),
+              color: z.string().optional(),
+              bold: z.boolean().optional(),
+              textAlign: z.enum(["left", "center", "right"]).optional(),
+            })).optional().describe("Cell styles mapped by coordinate like A1, B2"),
+          }),
+        ),
       }),
     });
 
@@ -23,25 +35,17 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
 
       if (type === "object") {
         const { object } = delta;
-        const { csv } = object;
+        const content = JSON.stringify(object, null, 2);
 
-        if (csv) {
-          dataStream.write({
-            type: "data-sheetDelta",
-            data: csv,
-            transient: true,
-          });
+        dataStream.write({
+          type: "data-sheetDelta",
+          data: content,
+          transient: true,
+        });
 
-          draftContent = csv;
-        }
+        draftContent = content;
       }
     }
-
-    dataStream.write({
-      type: "data-sheetDelta",
-      data: draftContent,
-      transient: true,
-    });
 
     return draftContent;
   },
@@ -53,7 +57,19 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
       system: updateDocumentPrompt(document.content, "sheet"),
       prompt: description,
       schema: z.object({
-        csv: z.string(),
+        title: z.string().describe("The main title of the spreadsheet"),
+        sheets: z.array(
+          z.object({
+            name: z.string().describe("Sheet name"),
+            csv: z.string().describe("CSV data"),
+            styles: z.record(z.object({
+              backgroundColor: z.string().optional(),
+              color: z.string().optional(),
+              bold: z.boolean().optional(),
+              textAlign: z.enum(["left", "center", "right"]).optional(),
+            })).optional().describe("Cell styles mapped by coordinate like A1, B2"),
+          }),
+        ),
       }),
     });
 
@@ -62,17 +78,15 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
 
       if (type === "object") {
         const { object } = delta;
-        const { csv } = object;
+        const content = JSON.stringify(object, null, 2);
 
-        if (csv) {
-          dataStream.write({
-            type: "data-sheetDelta",
-            data: csv,
-            transient: true,
-          });
+        dataStream.write({
+          type: "data-sheetDelta",
+          data: content,
+          transient: true,
+        });
 
-          draftContent = csv;
-        }
+        draftContent = content;
       }
     }
 
