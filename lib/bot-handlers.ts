@@ -1,8 +1,8 @@
 import { Chat, toAiMessages } from "chat";
 import type { SlackAdapter } from "@chat-adapter/slack";
 import { streamText } from "ai";
-import { getGoogleModel, getLanguageModel } from "@/lib/ai/providers";
-import { createGuestUser, saveChat, saveMessages } from "@/lib/db/queries";
+import { getGoogleModel } from "@/lib/ai/providers";
+import { saveChat, saveMessages } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 
@@ -41,7 +41,6 @@ async function handleFirstMessage(
 
   await thread.subscribe();
 
-  const [guestUser] = await createGuestUser();
   const chatId = generateUUID();
 
   await thread.setState({ chatId });
@@ -150,7 +149,7 @@ export function attachHandlers(bot: Chat, platform: string, ownerUserId: string)
     }
 
     const messages: any[] = [];
-    for await (const msg of thread.allMessages) {
+    for await (const msg of thread.messages) {
       messages.push(msg);
     }
     const history = await toAiMessages(messages);

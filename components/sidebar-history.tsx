@@ -153,7 +153,6 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
         if (isCurrentChat) {
           router.replace("/chat");
-          router.refresh();
         }
 
         return "Chat deleted successfully";
@@ -164,9 +163,9 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (!user) {
     return (
-      <SidebarGroup>
+      <SidebarGroup className="px-3">
         <SidebarGroupContent>
-          <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
+          <div className="rounded-lg border border-sidebar-border/70 bg-sidebar-accent/40 px-3 py-4 text-center text-muted-foreground text-sm">
             Login to save and revisit previous chats!
           </div>
         </SidebarGroupContent>
@@ -176,8 +175,8 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (isLoading) {
     return (
-      <SidebarGroup>
-        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+      <SidebarGroup className="px-3">
+        <div className="px-2 py-1 font-medium text-[11px] text-sidebar-foreground/50 uppercase tracking-normal">
           Today
         </div>
         <SidebarGroupContent>
@@ -205,9 +204,9 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   if (hasEmptyChatHistory) {
     return (
-      <SidebarGroup>
+      <SidebarGroup className="px-3">
         <SidebarGroupContent>
-          <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
+          <div className="rounded-lg border border-sidebar-border/70 bg-sidebar-accent/40 px-3 py-4 text-center text-muted-foreground text-sm">
             Your conversations will appear here once you start chatting!
           </div>
         </SidebarGroupContent>
@@ -217,7 +216,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
   return (
     <>
-      <SidebarGroup>
+      <SidebarGroup className="px-3">
         <SidebarGroupContent>
           <SidebarMenu>
             {paginatedChatHistories &&
@@ -232,7 +231,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                   <div className="flex flex-col gap-6">
                     {groupedChats.today.length > 0 && (
                       <div>
-                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+                        <div className="px-2 py-1 font-medium text-[11px] text-sidebar-foreground/50 uppercase tracking-normal">
                           Today
                         </div>
                         {groupedChats.today.map((chat) => (
@@ -253,7 +252,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
                     {groupedChats.yesterday.length > 0 && (
                       <div>
-                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+                        <div className="px-2 py-1 font-medium text-[11px] text-sidebar-foreground/50 uppercase tracking-normal">
                           Yesterday
                         </div>
                         {groupedChats.yesterday.map((chat) => (
@@ -274,7 +273,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
                     {groupedChats.lastWeek.length > 0 && (
                       <div>
-                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+                        <div className="px-2 py-1 font-medium text-[11px] text-sidebar-foreground/50 uppercase tracking-normal">
                           Last 7 days
                         </div>
                         {groupedChats.lastWeek.map((chat) => (
@@ -295,7 +294,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
                     {groupedChats.lastMonth.length > 0 && (
                       <div>
-                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+                        <div className="px-2 py-1 font-medium text-[11px] text-sidebar-foreground/50 uppercase tracking-normal">
                           Last 30 days
                         </div>
                         {groupedChats.lastMonth.map((chat) => (
@@ -316,7 +315,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
 
                     {groupedChats.older.length > 0 && (
                       <div>
-                        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+                        <div className="px-2 py-1 font-medium text-[11px] text-sidebar-foreground/50 uppercase tracking-normal">
                           Older than last month
                         </div>
                         {groupedChats.older.map((chat) => (
@@ -348,7 +347,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
           />
 
           {hasReachedEnd ? (
-            <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
+            <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 rounded-lg border border-sidebar-border/60 bg-sidebar-accent/30 px-3 py-3 text-muted-foreground text-sm">
               You have reached the end of your chat history.
             </div>
           ) : (

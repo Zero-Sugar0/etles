@@ -21,6 +21,8 @@ const PLATFORMS = [
   { id: "resend", label: "Resend (Email)" }
 ];
 
+const MASK_PREFIX = "••••••••";
+
 const PLATFORM_CONFIGS: Record<string, {
   tokenLabel: string;
   tokenPlaceholder: string;
@@ -29,13 +31,54 @@ const PLATFORM_CONFIGS: Record<string, {
   extraFields?: { id: string; label: string; placeholder: string }[];
 }> = {
   slack: { tokenLabel: "Bot Token", tokenPlaceholder: "xoxb-...", secretLabel: "Signing Secret", secretPlaceholder: "..." },
-  discord: { tokenLabel: "Bot Token", tokenPlaceholder: "MT...", secretLabel: "Public Key", secretPlaceholder: "For webhook signature verification" },
-  teams: { tokenLabel: "App ID", tokenPlaceholder: "uuid...", secretLabel: "App Password", secretPlaceholder: "Client secret" },
-  gchat: { tokenLabel: "Service Account JSON", tokenPlaceholder: '{"type": "service_account", ...}', secretLabel: undefined }, 
+  discord: {
+    tokenLabel: "Bot Token",
+    tokenPlaceholder: "MT...",
+    secretLabel: "Public Key",
+    secretPlaceholder: "For webhook signature verification",
+    extraFields: [{ id: "applicationId", label: "Application ID", placeholder: "Discord app/client ID" }],
+  },
+  teams: {
+    tokenLabel: "App ID",
+    tokenPlaceholder: "uuid...",
+    secretLabel: "App Password",
+    secretPlaceholder: "Client secret",
+    extraFields: [
+      { id: "appTenantId", label: "Tenant ID", placeholder: "Azure tenant ID" },
+      { id: "appType", label: "App Type", placeholder: "SingleTenant or MultiTenant" },
+    ],
+  },
+  gchat: {
+    tokenLabel: "Service Account JSON",
+    tokenPlaceholder: '{"type": "service_account", ...}',
+    secretLabel: undefined,
+    extraFields: [
+      { id: "googleChatProjectNumber", label: "Project Number", placeholder: "Required for direct webhook JWT verification" },
+    ],
+  },
   telegram: { tokenLabel: "Bot Token", tokenPlaceholder: "123456:ABC-DEF...", secretLabel: undefined },
-  github: { tokenLabel: "App ID", tokenPlaceholder: "12345", secretLabel: "Private Key", secretPlaceholder: "-----BEGIN RSA PRIVATE KEY-----", extraFields: [{ id: "webhookSecret", label: "Webhook Secret", placeholder: "e.g. my-secret" }] },
+  github: {
+    tokenLabel: "Token or App ID",
+    tokenPlaceholder: "ghp_... or GitHub App ID",
+    secretLabel: "Private Key",
+    secretPlaceholder: "Leave blank when using a PAT",
+    extraFields: [
+      { id: "webhookSecret", label: "Webhook Secret", placeholder: "e.g. my-secret" },
+      { id: "installationId", label: "Installation ID", placeholder: "Required for single-install GitHub Apps" },
+      { id: "botUserId", label: "Bot User ID", placeholder: "Optional numeric GitHub bot user ID" },
+    ],
+  },
   linear: { tokenLabel: "API Key", tokenPlaceholder: "lin_api_...", secretLabel: "Webhook Secret", secretPlaceholder: "..." },
-  whatsapp: { tokenLabel: "System Access Token", tokenPlaceholder: "EAA...", secretLabel: "Verify Token", secretPlaceholder: "Custom webhook token", extraFields: [{ id: "phoneNumberId", label: "Phone Number ID", placeholder: "123456789" }] },
+  whatsapp: {
+    tokenLabel: "System Access Token",
+    tokenPlaceholder: "EAA...",
+    secretLabel: "App Secret",
+    secretPlaceholder: "Meta app secret for signature verification",
+    extraFields: [
+      { id: "verifyToken", label: "Verify Token", placeholder: "Custom webhook verification token" },
+      { id: "phoneNumberId", label: "Phone Number ID", placeholder: "123456789" },
+    ],
+  },
   resend: { tokenLabel: "API Key", tokenPlaceholder: "re_...", secretLabel: "Webhook Secret", secretPlaceholder: "whsec_...", extraFields: [{ id: "fromAddress", label: "From Address", placeholder: "bot@domain.com" }, { id: "fromName", label: "From Name", placeholder: "Etles AI" }] }
 };
 
@@ -96,7 +139,7 @@ export function BotIntegrationsPanel() {
     }
     
     // Prevent saving obfuscated dots explicitly
-    if (botToken.includes("••••••••") || signingSecret.includes("••••••••") || Object.values(extraConfig).some(val => typeof val === "string" && val.includes("••••••••"))) {
+    if (botToken === MASK_PREFIX || signingSecret === MASK_PREFIX || Object.values(extraConfig).some(val => val === MASK_PREFIX)) {
       toast.error("Please insert a completely unmasked secret value before saving.");
       return;
     }
@@ -115,7 +158,7 @@ export function BotIntegrationsPanel() {
       // ─── ADD THIS ───────────────────────────────────────────────────────────
       if (activePlatform === "telegram") {
         // The server already auto-registered the webhook — just confirm
-        toast.success("✅ Telegram webhook registered automatically!", {
+        toast.success("Telegram webhook registered automatically.", {
           description: `Bot is live at /api/telegram/${userId}`,
         });
       }

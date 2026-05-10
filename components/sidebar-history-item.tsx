@@ -46,7 +46,11 @@ const PureChatItem = ({
 
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive}>
+      <SidebarMenuButton
+        asChild
+        className="h-8 rounded-lg text-sidebar-foreground/80 data-[active=true]:bg-card/80 data-[active=true]:shadow-xs"
+        isActive={isActive}
+      >
         <Link href={`/chat/${chat.id}`} onClick={() => setOpenMobile(false)}>
           <span className="truncate">{chat.title}</span>
           {hasActiveAgentTask && (

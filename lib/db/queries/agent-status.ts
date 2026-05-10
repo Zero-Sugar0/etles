@@ -2,6 +2,7 @@
 
 import { auth } from "@/app/(auth)/auth";
 import { Redis } from "@upstash/redis";
+import { Client as QStashClient } from "@upstash/qstash";
 import { Index } from "@upstash/vector";
 import { getRecentAgentTasksByUserId, getUserBotIntegrations } from "../queries";
 
@@ -53,15 +54,21 @@ export async function getAgentStatus(serverUserId?: string): Promise<AgentStatus
   // 0. Fetch last runs from Redis
   let lastHeartbeat: { lastRun?: string; status?: string } | null = null;
   let lastSynthesis: { lastRun?: string; status?: string } | null = null;
+  let storedSchedules: Record<string, string> | null = null;
   
   if (redis) {
-    const [hb, syn, isPaused] = await Promise.all([
+    const [hb, syn, isPaused, schedules] = await Promise.all([
       redis.get(`agent:status:${userId}:heartbeat`),
       redis.get(`agent:status:${userId}:synthesis`),
       redis.get(`agent:status:${userId}:paused`),
+      redis.get<Record<string, string>>(`agent:heartbeat:schedules:${userId}`),
     ]);
     lastHeartbeat = typeof hb === 'string' ? JSON.parse(hb) : (hb as any);
     lastSynthesis = typeof syn === 'string' ? JSON.parse(syn) : (syn as any);
+    storedSchedules =
+      typeof schedules === "string"
+        ? JSON.parse(schedules)
+        : (schedules as Record<string, string> | null);
 
     if (isPaused === true || isPaused === "true") {
       return {
@@ -123,19 +130,13 @@ export async function getAgentStatus(serverUserId?: string): Promise<AgentStatus
   const activeCronJobs: AgentStatusData["cronJobs"] = [];
 
   const qstashToken = process.env.QSTASH_TOKEN;
-  const qstashUrl = process.env.QSTASH_URL || "https://qstash.upstash.io";
   
   if (qstashToken) {
     try {
-      const response = await fetch(`${qstashUrl}/v2/schedules`, {
-        headers: {
-          Authorization: `Bearer ${qstashToken}`,
-        },
-      });
-      if (response.ok) {
-        const schedules = await response.json() as any[];
+      const qstash = new QStashClient({ token: qstashToken });
+      const schedules = (await qstash.schedules.list()) as any[];
         
-        for (const s of schedules) {
+      for (const s of schedules) {
           try {
             const body = JSON.parse(s.body || "{}");
             if (body.userId !== userId) continue;
@@ -187,12 +188,21 @@ export async function getAgentStatus(serverUserId?: string): Promise<AgentStatus
           } catch (err) {
             console.error("Failed to parse schedule body:", err);
           }
-        }
       }
     } catch (e) {
       console.error("Failed to fetch QStash schedules:", e);
       heartbeatStatus.status = "error";
     }
+  }
+
+  if (
+    storedSchedules?.heartbeatScheduleId &&
+    heartbeatStatus.status === "inactive"
+  ) {
+    heartbeatStatus = {
+      status: lastHeartbeat?.status === "success" ? "active" : "pending",
+      lastRun: lastHeartbeat?.lastRun,
+    };
   }
 
   // If QStash listing failed to match this user but Redis shows a successful run, trust Redis.

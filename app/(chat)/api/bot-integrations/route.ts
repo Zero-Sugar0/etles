@@ -1,10 +1,96 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "../../../(auth)/auth";
-import { getUserBotIntegrations, saveBotIntegration } from "@/lib/db/queries";
+import {
+  getBotIntegration,
+  getUserBotIntegrations,
+  saveBotIntegration,
+} from "@/lib/db/queries";
 import {
   registerTelegramWebhook,
   validateTelegramToken,
 } from "@/lib/telegram/webhook-registration";
+
+const MASK_PREFIX = "••••••••";
+
+const SUPPORTED_PLATFORMS = new Set([
+  "slack",
+  "discord",
+  "teams",
+  "gchat",
+  "telegram",
+  "github",
+  "linear",
+  "whatsapp",
+  "resend",
+]);
+
+function isMasked(value: unknown) {
+  return typeof value === "string" && value.startsWith(MASK_PREFIX);
+}
+
+function maskSecret(value: string | null | undefined) {
+  return value ? `${MASK_PREFIX}${value.slice(-4)}` : "";
+}
+
+function maskExtraConfig(extraConfig: unknown) {
+  if (!extraConfig || typeof extraConfig !== "object") {
+    return extraConfig;
+  }
+
+  return Object.fromEntries(
+    Object.entries(extraConfig as Record<string, unknown>).map(([key, value]) => {
+      const shouldMask =
+        typeof value === "string" &&
+        /(secret|token|privateKey|apiKey|password)/i.test(key);
+
+      return [key, shouldMask ? maskSecret(value) : value];
+    }),
+  );
+}
+
+function validateExtraConfig(
+  platform: string,
+  signingSecret: string | null | undefined,
+  extraConfig: Record<string, unknown>,
+) {
+  const missing: string[] = [];
+
+  if (["slack", "discord", "teams", "github", "linear", "whatsapp", "resend"].includes(platform) && !signingSecret) {
+    missing.push(
+      platform === "discord"
+        ? "public key"
+        : platform === "teams"
+          ? "app password"
+          : platform === "whatsapp"
+            ? "verify token"
+            : "signing secret",
+    );
+  }
+
+  if (platform === "github" && !extraConfig.webhookSecret) {
+    missing.push("webhook secret");
+  }
+
+  if (platform === "discord" && !extraConfig.applicationId) {
+    missing.push("application ID");
+  }
+
+  if (platform === "whatsapp") {
+    if (!extraConfig.verifyToken) missing.push("verify token");
+    if (!extraConfig.phoneNumberId) missing.push("phone number ID");
+  }
+
+  if (platform === "resend") {
+    if (!extraConfig.fromAddress) missing.push("from address");
+    if (!extraConfig.fromName) missing.push("from name");
+  }
+
+  if (missing.length > 0) {
+    return `Missing required ${platform} field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}.`;
+  }
+
+  return null;
+}
 
 export async function GET() {
   const session = await auth();
@@ -16,8 +102,9 @@ export async function GET() {
     // Obfuscate tokens before sending to client for security
     const safeIntegrations = integrations.map((i: any) => ({
       ...i,
-      botToken: i.botToken ? "••••••••" + i.botToken.slice(-4) : "",
-      signingSecret: i.signingSecret ? "••••••••" + i.signingSecret.slice(-4) : "",
+      botToken: maskSecret(i.botToken),
+      signingSecret: maskSecret(i.signingSecret),
+      extraConfig: maskExtraConfig(i.extraConfig),
     }));
 
     return NextResponse.json(safeIntegrations);
@@ -33,20 +120,68 @@ export async function POST(req: NextRequest) {
   try {
     const { platform, botToken, signingSecret, extraConfig } = await req.json();
     
-    if (!platform || !botToken) {
+    if (!platform || !SUPPORTED_PLATFORMS.has(platform)) {
+      return NextResponse.json({ error: "Unsupported bot platform" }, { status: 400 });
+    }
+
+    const existing = await getBotIntegration({
+      userId: session.user.id,
+      platform,
+    });
+
+    const resolvedBotToken =
+      isMasked(botToken) && existing?.botToken ? existing.botToken : botToken;
+    const resolvedSigningSecret =
+      isMasked(signingSecret) && existing?.signingSecret
+        ? existing.signingSecret
+        : signingSecret || null;
+
+    const resolvedExtraConfig = {
+      ...((existing?.extraConfig as Record<string, unknown> | null) ?? {}),
+      ...((extraConfig as Record<string, unknown> | null) ?? {}),
+    };
+
+    for (const [key, value] of Object.entries(resolvedExtraConfig)) {
+      if (isMasked(value)) {
+        resolvedExtraConfig[key] =
+          (existing?.extraConfig as Record<string, unknown> | null)?.[key] ?? "";
+      }
+    }
+
+    if (!resolvedBotToken || isMasked(resolvedBotToken)) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    if (botToken.includes("••••••••") || signingSecret?.includes("••••••••")) {
+    if (isMasked(resolvedSigningSecret)) {
       return NextResponse.json(
         { error: "Please enter new keys to update configuration." },
         { status: 400 },
       );
     }
 
+    const validationError = validateExtraConfig(
+      platform,
+      resolvedSigningSecret,
+      resolvedExtraConfig,
+    );
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+
+    if (platform === "gchat") {
+      try {
+        JSON.parse(resolvedBotToken);
+      } catch {
+        return NextResponse.json(
+          { error: "Google Chat service account JSON is invalid." },
+          { status: 400 },
+        );
+      }
+    }
+
     // Validate Telegram token before saving — ensures token works and keys are stored correctly
     if (platform === "telegram") {
-      const validation = await validateTelegramToken(botToken);
+      const validation = await validateTelegramToken(resolvedBotToken);
       if (!validation.ok) {
         return NextResponse.json(
           { error: `Invalid Telegram bot token: ${validation.error}` },
@@ -58,9 +193,9 @@ export async function POST(req: NextRequest) {
     await saveBotIntegration({
       userId: session.user.id,
       platform,
-      botToken,
-      signingSecret,
-      extraConfig
+      botToken: resolvedBotToken,
+      signingSecret: resolvedSigningSecret,
+      extraConfig: resolvedExtraConfig
     });
 
     if (platform === "telegram") {
@@ -78,7 +213,7 @@ export async function POST(req: NextRequest) {
         );
       }
       const result = await registerTelegramWebhook(
-        botToken,
+        resolvedBotToken,
         session.user.id,
         baseUrl,
       );

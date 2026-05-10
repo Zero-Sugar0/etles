@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Redis } from "@upstash/redis";
+import { Client as QStashClient } from "@upstash/qstash";
 import { auth } from "@/app/(auth)/auth";
-import {
-  triggerHeartbeatWorkflow,
-  pauseUserCrons,
-  resumeUserCrons,
-} from "@/lib/workflow/client";
+import { triggerHeartbeatWorkflow } from "@/lib/workflow/client";
 
 function getRedis(): Redis | null {
   if (
@@ -20,6 +17,57 @@ function getRedis(): Redis | null {
   });
 }
 
+function getQStash(): QStashClient | null {
+  if (!process.env.QSTASH_TOKEN) return null;
+  return new QStashClient({ token: process.env.QSTASH_TOKEN });
+}
+
+function statusKey(userId: string) {
+  return `agent:heartbeat:schedules:${userId}`;
+}
+
+function fallbackScheduleIds(userId: string) {
+  return {
+    heartbeatScheduleId: `hb-${userId}`,
+    synthesisScheduleId: `syn-${userId}`,
+    morningScheduleId: `morning-${userId}`,
+    sandboxKeepaliveScheduleId: `sandbox-keepalive-${userId}`,
+  };
+}
+
+async function setSchedulesPaused(userId: string, paused: boolean) {
+  const qstash = getQStash();
+  if (!qstash) {
+    throw new Error("QSTASH_TOKEN not configured");
+  }
+
+  const redis = getRedis();
+  const stored = redis
+    ? await redis.get<Record<string, string>>(statusKey(userId))
+    : null;
+  const schedules = { ...fallbackScheduleIds(userId), ...(stored ?? {}) };
+  const ids = Object.entries(schedules)
+    .filter(([key, value]) => key.endsWith("ScheduleId") && !!value)
+    .map(([, value]) => value);
+
+  const settled = await Promise.allSettled(
+    ids.map((schedule) =>
+      paused
+        ? qstash.schedules.pause({ schedule })
+        : qstash.schedules.resume({ schedule }),
+    ),
+  );
+
+  const failures = settled.filter((result) => result.status === "rejected");
+  if (failures.length === ids.length) {
+    throw new Error(`Failed to ${paused ? "pause" : "resume"} heartbeat schedules`);
+  }
+
+  if (redis) {
+    await redis.set(`agent:status:${userId}:paused`, paused);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -32,24 +80,30 @@ export async function POST(req: NextRequest) {
   try {
     switch (action) {
       case "sync":
-        await triggerHeartbeatWorkflow({ userId });
+        if (!process.env.QSTASH_TOKEN || !process.env.BASE_URL) {
+          return NextResponse.json(
+            { error: "QStash workflow is not configured" },
+            { status: 503 },
+          );
+        }
+        {
+          const triggered = await triggerHeartbeatWorkflow({ userId });
+          if (!triggered) {
+            return NextResponse.json(
+              { error: "Heartbeat workflow could not be triggered" },
+              { status: 503 },
+            );
+          }
+        }
         break;
 
       case "pause": {
-        await pauseUserCrons(userId);
-        const redis = getRedis();
-        if (redis) {
-          await redis.set(`agent:status:${userId}:paused`, true);
-        }
+        await setSchedulesPaused(userId, true);
         break;
       }
 
       case "resume": {
-        await resumeUserCrons(userId);
-        const redis = getRedis();
-        if (redis) {
-          await redis.set(`agent:status:${userId}:paused`, false);
-        }
+        await setSchedulesPaused(userId, false);
         break;
       }
 

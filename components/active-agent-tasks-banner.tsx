@@ -34,7 +34,7 @@ export function ActiveAgentTasksBanner({
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 border-b border-border/50 bg-muted/30 px-3 py-2 text-sm",
+        "mx-2 mt-2 flex items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm shadow-xs backdrop-blur md:mx-3",
         className,
       )}
     >
@@ -58,7 +58,7 @@ export function ActiveAgentTasksBanner({
         </span>
       </div>
       <div className="flex shrink-0 items-center gap-1">
-        <Button asChild size="sm" type="button" variant="ghost">
+        <Button asChild className="h-7 rounded-lg" size="sm" type="button" variant="ghost">
           <Link
             className="text-muted-foreground text-xs"
             href="/settings/agents"
@@ -71,7 +71,7 @@ export function ActiveAgentTasksBanner({
             type="button"
             variant="ghost"
             size="sm"
-            className="shrink-0 text-muted-foreground hover:text-destructive"
+            className="h-7 shrink-0 rounded-lg text-muted-foreground hover:text-destructive"
             disabled={cancelling}
             onClick={() => handleCancel(tasks[0].id)}
           >

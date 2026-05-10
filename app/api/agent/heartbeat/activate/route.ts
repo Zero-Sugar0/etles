@@ -26,6 +26,15 @@ const SYNTHESIS_CRON = "0 8 * * 1"; // Mondays at 8am UTC
 
 const DEFAULT_MORNING_HOUR = 7; // 7am UTC default
 
+function scheduleIds(userId: string) {
+  return {
+    heartbeat: `hb-${userId}`,
+    synthesis: `syn-${userId}`,
+    morning: `morning-${userId}`,
+    sandboxKeepalive: `sandbox-keepalive-${userId}`,
+  };
+}
+
 function getQStash() {
   if (!process.env.QSTASH_TOKEN) return null;
   return new Client({ token: process.env.QSTASH_TOKEN });
@@ -45,6 +54,18 @@ function getRedis() {
 
 function statusKey(userId: string) {
   return `agent:heartbeat:schedules:${userId}`;
+}
+
+function getBaseUrl(req: NextRequest) {
+  return (
+    process.env.BASE_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : undefined) ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ||
+    new URL(req.url).origin
+  );
 }
 
 // ── GET: activation status ────────────────────────────────────────────────────
@@ -101,7 +122,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const baseUrl = process.env.BASE_URL;
+  const baseUrl = getBaseUrl(req);
   if (!baseUrl) {
     return NextResponse.json(
       { error: "BASE_URL not set. Required for heartbeat callbacks." },
@@ -119,6 +140,7 @@ export async function POST(req: NextRequest) {
   const morningHour = body.morningHour ?? DEFAULT_MORNING_HOUR;
   const morningCron = `0 ${morningHour} * * *`;
   const heartbeatSecret = process.env.AGENT_DELEGATE_SECRET ?? "dev-internal";
+  const ids = scheduleIds(userId);
 
   const results: Record<string, string> = {};
 
@@ -127,13 +149,13 @@ export async function POST(req: NextRequest) {
     const heartbeat = await (qstash.schedules as any).create({
       destination: `${baseUrl}/api/agent/heartbeat`,
       cron: HOURLY_CRON,
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ userId, type: "heartbeat" }),
       headers: {
         "Content-Type": "application/json",
         "x-heartbeat-secret": heartbeatSecret,
       },
       retries: 2,
-      deduplicationId: `heartbeat-hourly-${userId}`,
+      scheduleId: ids.heartbeat,
     });
     results.heartbeatScheduleId = heartbeat.scheduleId;
   } catch (err: any) {
@@ -152,7 +174,7 @@ export async function POST(req: NextRequest) {
         "x-heartbeat-secret": heartbeatSecret,
       },
       retries: 2,
-      deduplicationId: `heartbeat-synthesis-${userId}`,
+      scheduleId: ids.synthesis,
     });
     results.synthesisScheduleId = synthesis.scheduleId;
   } catch (err: any) {
@@ -170,7 +192,7 @@ export async function POST(req: NextRequest) {
         "x-heartbeat-secret": heartbeatSecret,
       },
       retries: 2,
-      deduplicationId: `heartbeat-morning-${userId}`,
+      scheduleId: ids.morning,
     });
     results.morningScheduleId = morning.scheduleId;
     results.morningCron = morningCron;
@@ -189,7 +211,7 @@ export async function POST(req: NextRequest) {
         "x-agent-secret": heartbeatSecret,
       },
       retries: 3,
-      deduplicationId: `sandbox-keepalive-${userId}`,
+      scheduleId: ids.sandboxKeepalive,
     });
     results.sandboxKeepaliveScheduleId = sandboxKeepalive.scheduleId;
   } catch (err: any) {

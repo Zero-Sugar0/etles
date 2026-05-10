@@ -306,7 +306,7 @@ export function Chat({
 
   return (
     <>
-      <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
+      <div className="chat-surface overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
         <ChatHeader
           chatId={id}
           isReadonly={isReadonly}
@@ -330,7 +330,7 @@ export function Chat({
           votes={votes}
         />
 
-        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background/95 px-2 pb-2.5 backdrop-blur-sm md:px-3 md:pb-3">
+        <div className="sticky bottom-0 z-10 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-gradient-to-t from-background via-background/95 to-background/0 px-2 pt-8 pb-3 backdrop-blur-[2px] md:px-3 md:pb-4">
           {!isReadonly && (
             <MultimodalInput
               attachments={attachments}

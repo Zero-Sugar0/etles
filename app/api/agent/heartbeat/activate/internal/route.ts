@@ -20,6 +20,14 @@ const HOURLY_CRON = "0 * * * *";
 const SYNTHESIS_CRON = "0 8 * * 1";
 const DEFAULT_MORNING_HOUR = 7;
 
+function scheduleIds(userId: string) {
+  return {
+    heartbeat: `hb-${userId}`,
+    synthesis: `syn-${userId}`,
+    morning: `morning-${userId}`,
+  };
+}
+
 function getQStash() {
   if (!process.env.QSTASH_TOKEN) return null;
   return new Client({ token: process.env.QSTASH_TOKEN });
@@ -36,6 +44,18 @@ function getRedis() {
 
 function statusKey(userId: string) {
   return `agent:heartbeat:schedules:${userId}`;
+}
+
+function getBaseUrl(req: NextRequest) {
+  return (
+    process.env.BASE_URL ||
+    process.env.RENDER_EXTERNAL_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : undefined) ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ||
+    new URL(req.url).origin
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -59,7 +79,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const baseUrl = process.env.BASE_URL;
+  const baseUrl = getBaseUrl(req);
   if (!baseUrl) {
     return NextResponse.json(
       { error: "BASE_URL not set" },
@@ -75,6 +95,7 @@ export async function POST(req: NextRequest) {
   const morningHour = body.morningHour ?? DEFAULT_MORNING_HOUR;
   const morningCron = `0 ${morningHour} * * *`;
   const heartbeatSecret = process.env.AGENT_DELEGATE_SECRET ?? "dev-internal";
+  const ids = scheduleIds(userId);
   const results: Record<string, string> = {};
 
   // Hourly heartbeat
@@ -82,13 +103,13 @@ export async function POST(req: NextRequest) {
     const heartbeat = await (qstash.schedules as any).create({
       destination: `${baseUrl}/api/agent/heartbeat`,
       cron: HOURLY_CRON,
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ userId, type: "heartbeat" }),
       headers: {
         "Content-Type": "application/json",
         "x-heartbeat-secret": heartbeatSecret,
       },
       retries: 2,
-      deduplicationId: `hb-${userId}`,
+      scheduleId: ids.heartbeat,
     });
     results.heartbeatScheduleId = heartbeat.scheduleId;
   } catch (err: any) {
@@ -106,7 +127,7 @@ export async function POST(req: NextRequest) {
         "x-heartbeat-secret": heartbeatSecret,
       },
       retries: 2,
-      deduplicationId: `syn-${userId}`,
+      scheduleId: ids.synthesis,
     });
     results.synthesisScheduleId = synthesis.scheduleId;
   } catch (err: any) {
@@ -124,7 +145,7 @@ export async function POST(req: NextRequest) {
         "x-heartbeat-secret": heartbeatSecret,
       },
       retries: 2,
-      deduplicationId: `morning-${userId}`,
+      scheduleId: ids.morning,
     });
     results.morningScheduleId = morning.scheduleId;
     results.morningCron = morningCron;

@@ -506,7 +506,7 @@ function PureMultimodalInput({
       />
 
       <PromptInput
-        className="rounded-lg border border-border bg-background p-2 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
+        className="panel-hairline rounded-2xl border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur-xl transition-all duration-200 hover:border-muted-foreground/40 focus-within:border-primary/50 focus-within:shadow-xl"
         onSubmit={(event) => {
           event.preventDefault();
           if (!input.trim() && attachments.length === 0) {
@@ -554,7 +554,7 @@ function PureMultimodalInput({
         )}
         <div className="flex flex-row items-start gap-1 sm:gap-2">
           <PromptInputTextarea
-            className="grow resize-none border-0! border-none! bg-transparent p-1.5 text-sm outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
+            className="grow resize-none border-0! border-none! bg-transparent p-2 text-sm leading-6 outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             data-testid="multimodal-input"
             disableAutoResize={true}
             maxHeight={200}
@@ -566,7 +566,7 @@ function PureMultimodalInput({
             value={input}
           />
         </div>
-        <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
+        <PromptInputToolbar className="border-top-0! border-t-0! px-0.5 pb-0.5 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">
             <AttachmentsButton
               fileInputRef={fileInputRef}
@@ -579,7 +579,7 @@ function PureMultimodalInput({
             />
             <Button
               className={cn(
-                "h-7 gap-1.5 px-2 text-xs transition-all duration-300",
+                "h-8 gap-1.5 rounded-lg px-2.5 text-xs transition-all duration-300",
                 isAgentMode && "agent-active"
               )}
               disabled={status !== "ready"}
@@ -617,7 +617,7 @@ function PureMultimodalInput({
               <StopButton setMessages={setMessages} stop={stop} />
             ) : (
               <PromptInputSubmit
-              className="size-8 rounded-lg bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
+              className="size-8 rounded-lg bg-primary text-primary-foreground shadow-sm transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
               data-testid="send-button"
               disabled={!input.trim() || uploadQueue.length > 0}
               status={status}
@@ -669,7 +669,7 @@ function PureAttachmentsButton({
 
   return (
             <Button
-              className="aspect-square h-7 rounded-md p-1 transition-colors hover:bg-accent"
+              className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
       data-testid="attachments-button"
       disabled={status !== "ready" || isReasoningModel}
       onClick={(event) => {
@@ -712,7 +712,7 @@ function PureModelSelectorCompact({
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
-        <Button className="h-7 w-auto max-w-[190px] gap-1.5 px-2 text-xs" variant="ghost">
+        <Button className="h-8 w-auto max-w-[190px] gap-1.5 rounded-lg px-2.5 text-xs" variant="ghost">
           {provider && <ModelSelectorLogo provider={provider} />}
           <ModelSelectorName>{selectedModel.name}</ModelSelectorName>
         </Button>
@@ -766,7 +766,7 @@ function PureStopButton({
 }) {
   return (
     <Button
-      className="size-7 rounded-md bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
+      className="size-8 rounded-lg bg-foreground p-1 text-background transition-colors duration-200 hover:bg-foreground/90 disabled:bg-muted disabled:text-muted-foreground"
       data-testid="stop-button"
       onClick={(event) => {
         event.preventDefault();

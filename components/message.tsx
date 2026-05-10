@@ -259,9 +259,9 @@ const PurePreviewMessage = ({
                   {conversationalText.trim() && (
                     <MessageContent
                       className={cn({
-                        "break-words w-fit min-w-[32px] max-w-full rounded-2xl px-3 py-2 text-left bg-zinc-800 text-zinc-100 text-[13px] leading-relaxed border border-white/[0.05] shadow-sm ml-auto":
+                        "ml-auto w-fit min-w-[32px] max-w-full break-words rounded-2xl rounded-br-md border border-primary/15 bg-foreground px-3.5 py-2.5 text-left text-[13px] text-background leading-relaxed shadow-sm":
                           message.role === "user",
-                        "bg-transparent px-0 py-0 text-left w-full text-[13px]":
+                        "w-full bg-transparent px-0 py-0 text-left text-[13px] leading-relaxed":
                           message.role === "assistant",
                       })}
                       data-testid="message-content"
@@ -915,7 +915,7 @@ const PurePreviewMessage = ({
           })}
 
           {!isReadonly && (
-            <div className="opacity-100 md:opacity-0 md:group-hover/message:opacity-100 group-focus-within/message:opacity-100 transition-opacity duration-150 mt-1 md:mt-1.5">
+            <div className="mt-1 opacity-100 transition-opacity duration-150 group-focus-within/message:opacity-100 md:mt-1.5 md:opacity-0 md:group-hover/message:opacity-100">
               <MessageActions
                 chatId={chatId}
                 isLoading={isLoading}
@@ -949,7 +949,8 @@ export const ThinkingMessage = () => {
         </div> */}
 
         <div className="flex w-full flex-col gap-2 md:gap-4">
-          <div className="flex items-center gap-1 p-0 text-muted-foreground text-sm">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1.5 text-muted-foreground text-sm shadow-xs backdrop-blur">
+            <SparklesIcon size={14} />
             <span className="animate-pulse">Thinking</span>
             <span className="inline-flex">
               <span className="animate-bounce [animation-delay:0ms]">.</span>

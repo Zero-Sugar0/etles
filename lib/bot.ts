@@ -1,4 +1,4 @@
-import { Chat } from "chat";
+import { Chat, ConsoleLogger } from "chat";
 import { createSlackAdapter } from "@chat-adapter/slack";
 import { createTeamsAdapter } from "@chat-adapter/teams";
 import { createGoogleChatAdapter } from "@chat-adapter/gchat";
@@ -18,9 +18,19 @@ import { attachHandlers } from "./bot-handlers";
 let _state: ReturnType<typeof createPostgresState> | null = null;
 function getSharedState() {
   if (!_state) {
-    _state = createPostgresState({ url: process.env.POSTGRES_URL || "" });
+    _state = createPostgresState({
+      url: process.env.POSTGRES_URL || process.env.DATABASE_URL || "",
+    });
   }
   return _state;
+}
+
+function parseJsonConfig(value: string, platform: string) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error(`Invalid ${platform} JSON credentials`);
+  }
 }
 
 export async function buildUserBot(userId: string, platform: string) {
@@ -32,6 +42,7 @@ export async function buildUserBot(userId: string, platform: string) {
   }
 
   const state = getSharedState();
+  const extraConfig = (integration.extraConfig as Record<string, any> | null) ?? {};
   let adapter;
 
   switch (platform) {
@@ -46,18 +57,22 @@ export async function buildUserBot(userId: string, platform: string) {
       adapter = createTeamsAdapter({
         appId: integration.botToken,
         appPassword: integration.signingSecret || "",
+        appTenantId: extraConfig.appTenantId,
+        appType: extraConfig.appType || "SingleTenant",
       });
       break;
 
     case "gchat":
       adapter = createGoogleChatAdapter({
-        credentials: JSON.parse(integration.botToken),
+        credentials: parseJsonConfig(integration.botToken, "Google Chat"),
+        googleChatProjectNumber: extraConfig.googleChatProjectNumber,
       });
       break;
 
     case "discord":
       adapter = createDiscordAdapter({
         botToken: integration.botToken,
+        applicationId: extraConfig.applicationId,
         publicKey: integration.signingSecret || undefined,
       });
       break;
@@ -71,11 +86,25 @@ export async function buildUserBot(userId: string, platform: string) {
       break;
 
     case "github":
-      adapter = createGitHubAdapter({
-        appId: integration.botToken,
-        privateKey: integration.signingSecret || "",
-        webhookSecret: (integration.extraConfig as any)?.webhookSecret || "",
-      });
+      adapter = integration.signingSecret
+        ? createGitHubAdapter({
+            appId: integration.botToken,
+            installationId: extraConfig.installationId
+              ? Number(extraConfig.installationId)
+              : undefined,
+            privateKey: integration.signingSecret,
+            webhookSecret: extraConfig.webhookSecret || "",
+            botUserId: extraConfig.botUserId
+              ? Number(extraConfig.botUserId)
+              : undefined,
+          })
+        : createGitHubAdapter({
+            token: integration.botToken,
+            webhookSecret: extraConfig.webhookSecret || "",
+            botUserId: extraConfig.botUserId
+              ? Number(extraConfig.botUserId)
+              : undefined,
+          });
       break;
 
     case "linear":
@@ -88,18 +117,20 @@ export async function buildUserBot(userId: string, platform: string) {
     case "whatsapp":
       adapter = createWhatsAppAdapter({
         accessToken: integration.botToken,
-        verifyToken: integration.signingSecret || "",
-        phoneNumberId: (integration.extraConfig as any)?.phoneNumberId,
+        appSecret: integration.signingSecret || "",
+        logger: new ConsoleLogger("info"),
+        phoneNumberId: extraConfig.phoneNumberId,
+        userName: "Etles",
+        verifyToken: extraConfig.verifyToken,
       });
       break;
 
     case "resend": {
-      const config = integration.extraConfig as any;
       adapter = createResendAdapter({
         apiKey: integration.botToken,
         webhookSecret: integration.signingSecret || "",
-        fromAddress: config?.fromAddress || "bot@etles.app",
-        fromName: config?.fromName || "Etles AI",
+        fromAddress: extraConfig.fromAddress || "bot@etles.app",
+        fromName: extraConfig.fromName || "Etles AI",
       });
       break;
     }
