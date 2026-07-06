@@ -111,6 +111,25 @@ export async function createUser(email: string, password: string) {
   }
 }
 
+export async function updateUserNames(userId: string, firstName: string, lastName: string) {
+  try {
+    return await db
+      .update(user)
+      .set({ firstName, lastName })
+      .where(eq(user.id, userId));
+  } catch (_error) {
+    throw new ChatbotError("bad_request:database", "Failed to update user names");
+  }
+}
+
+export async function getUserById(id: string): Promise<User[]> {
+  try {
+    return await db.select().from(user).where(eq(user.id, id));
+  } catch (_error) {
+    throw new ChatbotError("bad_request:database", "Failed to get user by id");
+  }
+}
+
 export async function createGuestUser() {
   const email = `guest-${Date.now()}`;
   const password = generateHashedPassword(generateUUID());

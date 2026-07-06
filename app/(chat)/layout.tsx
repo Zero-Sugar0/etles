@@ -6,13 +6,14 @@ import { DataStreamProvider } from "@/components/data-stream-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { auth } from "@/app/(auth)/auth";
 import { headers } from "next/headers";
+import { getUserById } from "@/lib/db/queries";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Script
         src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"
-        strategy="beforeInteractive"
+        strategy="afterInteractive"
       />
       <DataStreamProvider>
         <Suspense fallback={<div className="flex h-dvh" />}>
@@ -27,14 +28,22 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const [session, cookieStore] = await Promise.all([auth(), cookies()]);
   const isCollapsed = cookieStore.get("sidebar_state")?.value !== "true";
 
-  // Check onboarding status on server-side
+  let dbUser = undefined;
   if (session?.user?.id) {
-    // Keep layout clean, move to page for actual logic
+    const users = await getUserById(session.user.id);
+    if (users && users.length > 0) {
+      dbUser = {
+        ...session.user,
+        firstName: users[0].firstName,
+        lastName: users[0].lastName,
+        email: users[0].email,
+      };
+    }
   }
 
   return (
     <SidebarProvider defaultOpen={!isCollapsed}>
-      <AppSidebar user={session?.user} />
+      <AppSidebar user={dbUser || session?.user} />
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
   );

@@ -38,6 +38,11 @@ export function SidebarUserNav({ user }: { user: User }) {
   const { setTheme, resolvedTheme } = useTheme();
 
   const isGuest = guestRegex.test(data?.user?.email ?? "");
+  const displayName = isGuest
+    ? "Guest"
+    : user?.firstName && user?.lastName
+      ? `${user.firstName} ${user.lastName}`
+      : (user?.firstName || user?.lastName || user?.email || "");
 
   return (
     <SidebarMenu>
@@ -68,8 +73,8 @@ export function SidebarUserNav({ user }: { user: User }) {
                   src={`https://avatar.vercel.sh/${user.email}`}
                   width={24}
                 />
-                <span className="truncate" data-testid="user-email">
-                  {isGuest ? "Guest" : user?.email}
+                <span className="truncate font-medium text-sm" data-testid="user-email">
+                  {displayName}
                 </span>
                 <ChevronUp className="ml-auto" />
               </SidebarMenuButton>

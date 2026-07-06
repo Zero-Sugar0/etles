@@ -1,6 +1,7 @@
 import type { Geo } from "@vercel/functions";
 import type { TailMessage } from "@/lib/session-tail";
 import type { ArtifactKind } from "@/components/artifact";
+import { chatModels } from "./models";
 
 export const artifactsPrompt = `
 Artifacts is a special user interface mode that helps users with writing, editing, and other content creation tasks. When artifact is open, it is on the right side of the screen, while the conversation is on the left side. When creating or updating documents, changes are reflected in real-time on the artifacts and visible to the user.
@@ -116,12 +117,13 @@ export const getBasePrompt = ({
   selectedChatModel: string;
   skipArtifacts?: boolean;
 }) => {
+  const model = chatModels.find((m) => m.id === selectedChatModel);
+  const isReasoning = model
+    ? model.features.reasoning
+    : (selectedChatModel.includes("reasoning") || selectedChatModel.includes("thinking") || selectedChatModel.includes("think"));
+
   // reasoning models and Telegram don't need artifacts prompt
-  if (
-    skipArtifacts ||
-    selectedChatModel.includes("reasoning") ||
-    selectedChatModel.includes("thinking")
-  ) {
+  if (skipArtifacts || isReasoning) {
     return regularPrompt;
   }
 

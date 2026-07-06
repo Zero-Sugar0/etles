@@ -56,6 +56,11 @@ import {
   listSubAgents,
 } from "@/lib/ai/tools/subagents";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
+import {
+  readScratchpad,
+  writeScratchpad,
+  clearScratchpad,
+} from "@/lib/ai/tools/scratchpad";
 import { launchMission, getMissionStatus } from "@/lib/ai/tools/missions";
 import { queueApproval } from "@/lib/ai/tools/queue-approval";
 import {
@@ -343,6 +348,9 @@ export async function POST(request: Request) {
                 "updateDocument",
                 "editDocument",
                 "requestSuggestions",
+                "readScratchpad",
+                "writeScratchpad",
+                "clearScratchpad",
                 "saveMemory",
                 "recallMemory",
                 "searchPastConversations",
@@ -474,6 +482,9 @@ export async function POST(request: Request) {
           tools: {
             ...composioTools,
             getWeather,
+            readScratchpad: readScratchpad({ userId: session.user.id!, keyId: id }),
+            writeScratchpad: writeScratchpad({ userId: session.user.id!, keyId: id }),
+            clearScratchpad: clearScratchpad({ userId: session.user.id!, keyId: id }),
             generateImage: generateImageTool(dataStream),
             generateVideo: generateVideoTool(),
             renderChart,

@@ -664,14 +664,16 @@ function PureAttachmentsButton({
   status: UseChatHelpers<ChatMessage>["status"];
   selectedModelId: string;
 }) {
-  const isReasoningModel =
-    selectedModelId.includes("reasoning") || selectedModelId.includes("think");
+  const selectedModel = chatModels.find((m) => m.id === selectedModelId);
+  const hasVision = selectedModel
+    ? selectedModel.features.vision
+    : (!selectedModelId.includes("reasoning") && !selectedModelId.includes("think") && !selectedModelId.includes("thinking"));
 
   return (
             <Button
               className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
       data-testid="attachments-button"
-      disabled={status !== "ready" || isReasoningModel}
+      disabled={status !== "ready" || !hasVision}
       onClick={(event) => {
         event.preventDefault();
         fileInputRef.current?.click();
@@ -706,6 +708,14 @@ function PureModelSelectorCompact({
     openai: "OpenAI",
     google: "Google",
     xai: "xAI",
+    deepseek: "DeepSeek",
+    minimax: "MiniMax",
+    zai: "Zhipu GLM",
+    inception: "Inception",
+    alibaba: "Qwen",
+    perplexity: "Perplexity",
+    nvidia: "NVIDIA",
+    moonshotai: "Moonshot AI",
     reasoning: "Reasoning",
   };
 

@@ -33,6 +33,11 @@ import {
   waitForChildAgents,
   getCollaborationStatus,
 } from "@/lib/ai/tools/collaborate";
+import {
+  readScratchpad,
+  writeScratchpad,
+  clearScratchpad,
+} from "@/lib/ai/tools/scratchpad";
 import { notifyParentAgent } from "@/lib/agent/agent-bus";
 import type { DBMessage } from "@/lib/db/schema";
 import { saveMessages, updateAgentTask } from "@/lib/db/queries";
@@ -167,6 +172,9 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     ...composioTools,
     ...persistentSandboxTools,
     ...collaborationTools,
+    readScratchpad: readScratchpad({ userId, keyId: chatId || taskId }),
+    writeScratchpad: writeScratchpad({ userId, keyId: chatId || taskId }),
+    clearScratchpad: clearScratchpad({ userId, keyId: chatId || taskId }),
     getWeather,
     generateImage: generateImageTool(),
     generateVideo: generateVideoTool(),
@@ -410,7 +418,7 @@ Execute the task now. Summarize what you did in your final response.`;
   const model =
     subagentModel && subagentModel.startsWith("google/")
       ? getGoogleModel(subagentModel)
-      : getGoogleModel("google/gemini-3-flash-preview");
+      : getGoogleModel("google/gemini-3.5-flash");
 
   try {
     const userContent: any[] = [{ type: "text", text: `Task: ${promptTask}` }];
