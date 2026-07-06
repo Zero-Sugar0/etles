@@ -21,7 +21,7 @@ import {
   saveChat,
   saveMessages,
 } from "@/lib/db/queries";
-import { getGoogleModel } from "@/lib/ai/providers";
+import { getLanguageModel } from "@/lib/ai/providers";
 import { systemPrompt } from "@/lib/ai/prompts";
 import { buildEtlesTelegramTools } from "@/lib/ai/build-etles-telegram-tools";
 import { getSessionTail, saveSessionTail } from "@/lib/session-tail";
@@ -219,7 +219,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
     });
 
     const { text, toolCalls } = await generateText({
-      model: getGoogleModel("gemini-3-flash-preview"),
+      model: getLanguageModel("google/gemini-3-flash-preview"),
       system: corePrompt,
       messages: allMessages,
       stopWhen: stepCountIs(25),

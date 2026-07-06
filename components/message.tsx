@@ -4,6 +4,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import { ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 import { parseSubAgentHandoffMarker } from "@/lib/agent/sub-agent-handoff-markers";
 import { decodeWorkflowProgress } from "@/lib/agent/workflow-progress";
@@ -73,6 +74,46 @@ const PurePreviewMessage = ({
   requiresScrollPadding: boolean;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
+  const [isPending, setIsPending] = useState(false);
+  const router = useRouter();
+
+  const handleApprovalAction = async (draftId: string, action: "approve" | "reject" | "edit", editPrompt?: string) => {
+    if (isPending) return;
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/approval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ draftId, action, editPrompt, messageId: message.id }),
+      });
+      if (res.ok) {
+        if (action === "approve") {
+          toast.success("Action approved and executing...");
+        } else if (action === "reject") {
+          toast.success("Action rejected");
+        } else if (action === "edit") {
+          toast.success("Revision requested");
+        }
+
+        // Fetch latest messages to sync the client state immediately
+        const syncRes = await fetch(`/api/chat/${chatId}/messages`);
+        if (syncRes.ok) {
+          const data = await syncRes.json();
+          if (data.messages) {
+            setMessages(data.messages);
+          }
+        }
+        router.refresh();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.error || "Action failed");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   const attachmentsFromMessage = message.parts.filter(
     (part) => part.type === "file"
@@ -740,10 +781,72 @@ const PurePreviewMessage = ({
                   : undefined;
 
               // Special handling for queueApproval result
-              if ((type as any) === "tool-queueApproval" && "output" in part && (part.output as any).status === "pending_approval") {
+              const isQueueApproval = (type as any) === "tool-queueApproval" && "output" in part && part.output && typeof part.output === "object";
+              const approvalStatus = isQueueApproval ? (part.output as any).status : undefined;
+
+              if (isQueueApproval && (approvalStatus === "pending_approval" || approvalStatus === "approved" || approvalStatus === "rejected" || approvalStatus === "edited")) {
                 const output = part.output as any;
                 const draftId = output.draftId;
-                
+
+                if (approvalStatus !== "pending_approval") {
+                  const config = {
+                    approved: {
+                      bg: "bg-emerald-500/5",
+                      border: "border-emerald-500/10",
+                      text: "text-emerald-400",
+                      icon: <CheckCircle2 size={16} className="text-emerald-500" />,
+                      title: "Action Approved",
+                      sub: "The action was approved and is executing.",
+                    },
+                    rejected: {
+                      bg: "bg-rose-500/5",
+                      border: "border-rose-500/10",
+                      text: "text-rose-400",
+                      icon: <XCircle size={16} className="text-rose-500" />,
+                      title: "Action Rejected",
+                      sub: "The action was declined and cancelled.",
+                    },
+                    edited: {
+                      bg: "bg-amber-500/5",
+                      border: "border-amber-500/10",
+                      text: "text-amber-400",
+                      icon: <Pencil size={16} className="text-amber-500" />,
+                      title: "Revision Requested",
+                      sub: "You requested changes to this action.",
+                    },
+                  }[approvalStatus as "approved" | "rejected" | "edited"] || {
+                    bg: "bg-muted/10",
+                    border: "border-border/50",
+                    text: "text-foreground/80",
+                    icon: <CheckCircle2 size={16} className="text-muted-foreground" />,
+                    title: "Action Completed",
+                    sub: "This action has been completed.",
+                  };
+
+                  return (
+                    <div className="w-[min(100%,500px)] animate-fade-in" key={toolCallId}>
+                       <Tool defaultOpen={true}>
+                          <ToolHeader state="output-available" type="tool-queueApproval" />
+                          <ToolContent>
+                             <div className={cn("px-4 py-3 border-b text-sm font-medium flex items-center gap-2.5", config.bg, config.border, config.text)}>
+                               {config.icon}
+                               <span>{config.title}</span>
+                             </div>
+                             <div className="px-4 py-3 bg-muted/5 text-xs text-muted-foreground space-y-1">
+                               <div className="font-semibold text-foreground/90">{output.summary}</div>
+                               {output.preview && (
+                                 <div className="mt-1 line-clamp-2 text-muted-foreground/70 italic border-l-2 border-border/50 pl-2">
+                                   {output.preview}
+                                 </div>
+                               )}
+                               <div className="pt-1.5 text-[11px] text-muted-foreground/60">{config.sub}</div>
+                             </div>
+                          </ToolContent>
+                       </Tool>
+                    </div>
+                  );
+                }
+
                 return (
                   <div className="w-[min(100%,500px)]" key={toolCallId}>
                      <Tool defaultOpen={true}>
@@ -758,64 +861,43 @@ const PurePreviewMessage = ({
                              approval={{ id: draftId }}
                            >
                              <ConfirmationRequest>
-                               <div className="flex flex-col w-full gap-3">
-                                 <ConfirmationActions className="flex flex-col sm:flex-row gap-2 w-full justify-end">
-                                   <ConfirmationAction
-                                     variant="outline"
-                                     className="w-full sm:w-auto h-9 text-xs border-destructive/20 text-destructive hover:bg-destructive/5"
-                                     onClick={async () => {
-                                       const res = await fetch("/api/approval", {
-                                         method: "POST",
-                                         body: JSON.stringify({ draftId, action: "reject" }),
-                                       });
-                                       if (res.ok) {
-                                         toast.success("Action rejected");
-                                         // In a real app, we might want to refresh the chat or update local state
-                                       }
-                                     }}
-                                   >
-                                     <XCircle size={14} className="mr-1" />
-                                     Reject
-                                   </ConfirmationAction>
+                                <div className="flex flex-col w-full gap-3">
+                                  <ConfirmationActions className="flex flex-row gap-2 w-full justify-between items-center">
+                                    <ConfirmationAction
+                                      variant="outline"
+                                      disabled={isPending}
+                                      className="flex-1 h-9 text-xs border-destructive/20 text-destructive hover:bg-destructive/5"
+                                      onClick={() => handleApprovalAction(draftId, "reject")}
+                                    >
+                                      <XCircle size={14} className="mr-1" />
+                                      Reject
+                                    </ConfirmationAction>
 
-                                   <ConfirmationAction
-                                     variant="outline"
-                                     className="w-full sm:w-auto h-9 text-xs border-primary/20"
-                                     onClick={() => {
-                                        const editPrompt = window.prompt("What settings would you like to change?");
-                                        if (editPrompt) {
-                                          fetch("/api/approval", {
-                                            method: "POST",
-                                            body: JSON.stringify({ draftId, action: "edit", editPrompt }),
-                                          }).then(() => {
-                                            toast.success("Revision requested");
-                                          });
-                                        }
-                                     }}
-                                   >
-                                     <Pencil size={14} className="mr-1" />
-                                     Edit
-                                   </ConfirmationAction>
+                                    <ConfirmationAction
+                                      variant="outline"
+                                      disabled={isPending}
+                                      className="flex-1 h-9 text-xs border-primary/20"
+                                      onClick={() => {
+                                         const editPrompt = window.prompt("What settings would you like to change?");
+                                         if (editPrompt) {
+                                           handleApprovalAction(draftId, "edit", editPrompt);
+                                         }
+                                      }}
+                                    >
+                                      <Pencil size={14} className="mr-1" />
+                                      Edit
+                                    </ConfirmationAction>
 
-                                   <ConfirmationAction
-                                     className="w-full sm:w-auto h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                                     onClick={async () => {
-                                       const res = await fetch("/api/approval", {
-                                         method: "POST",
-                                         body: JSON.stringify({ draftId, action: "approve" }),
-                                       });
-                                       if (res.ok) {
-                                         toast.success("Action approved and executing...");
-                                       } else {
-                                         toast.error("Execution failed");
-                                       }
-                                     }}
-                                   >
-                                     <CheckCircle2 size={14} className="mr-1" />
-                                     Approve
-                                   </ConfirmationAction>
-                                 </ConfirmationActions>
-                               </div>
+                                    <ConfirmationAction
+                                      disabled={isPending}
+                                      className="flex-1 h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                                      onClick={() => handleApprovalAction(draftId, "approve")}
+                                    >
+                                      <CheckCircle2 size={14} className="mr-1" />
+                                      Approve
+                                    </ConfirmationAction>
+                                  </ConfirmationActions>
+                                </div>
                              </ConfirmationRequest>
                            </Confirmation>
                         </ToolContent>

@@ -570,201 +570,206 @@ function PureMultimodalInput({
         type="file"
       />
 
-      {queuedMessages.length > 0 && (
-        <Queue className="mb-1 w-full bg-card/75 border-border/60 shadow-md backdrop-blur-md max-w-full animate-in fade-in slide-in-from-bottom-1">
-          <QueueSection defaultOpen={true}>
-            <QueueSectionTrigger className="hover:bg-muted/60">
-              <QueueSectionLabel
-                count={queuedMessages.length}
-                label={queuedMessages.length === 1 ? "Message Queued" : "Messages Queued"}
-                icon={
-                  <span className="size-4 text-primary animate-pulse flex items-center justify-center shrink-0">
-                    <BotIcon />
-                  </span>
-                }
-              />
-            </QueueSectionTrigger>
-            <QueueSectionContent>
-              <QueueList className="mt-1">
-                {queuedMessages.map((msg) => (
-                  <QueueItem key={msg.id} className="relative flex flex-row items-start justify-between py-1.5 border-b border-border/30 last:border-0">
-                    <div className="flex items-start gap-2.5 grow min-w-0">
-                      <QueueItemIndicator completed={false} className="mt-1.5 shrink-0" />
-                      <div className="flex flex-col min-w-0 grow gap-0.5">
-                        <QueueItemContent className="text-foreground/90 text-xs font-sans font-medium line-clamp-2">
-                          {msg.isAgentMode ? (
-                            <span className="font-semibold text-primary mr-1 select-none">[Agent]</span>
-                          ) : null}
-                          {msg.text || "(empty message)"}
-                        </QueueItemContent>
-                        {msg.attachments.length > 0 && (
-                          <QueueItemAttachment className="mt-1 flex flex-wrap gap-1.5">
-                            {msg.attachments.map((att) => (
-                              <div key={att.url} className="flex items-center gap-1">
-                                {att.contentType?.startsWith("image/") ? (
-                                  <QueueItemImage src={att.url} className="h-6 w-6 rounded object-cover border border-border/40 shadow-2xs" />
-                                ) : (
-                                  <QueueItemFile>{att.name}</QueueItemFile>
-                                )}
-                              </div>
-                            ))}
-                          </QueueItemAttachment>
-                        )}
-                      </div>
-                    </div>
-                    <QueueItemActions className="shrink-0 ml-2">
-                      <QueueItemAction
-                        className="text-[10px] h-6 px-2 font-medium rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive opacity-15 group-hover:opacity-100 transition-all"
-                        onClick={() => {
-                          setQueuedMessages((prev) => prev.filter((m) => m.id !== msg.id));
-                        }}
-                      >
-                        Remove
-                      </QueueItemAction>
-                    </QueueItemActions>
-                  </QueueItem>
-                ))}
-              </QueueList>
-            </QueueSectionContent>
-          </QueueSection>
-        </Queue>
-      )}
-
-      <PromptInput
-        className="panel-hairline rounded-2xl border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur-xl transition-all duration-200 hover:border-muted-foreground/40 focus-within:border-primary/50 focus-within:shadow-xl"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!input.trim() && attachments.length === 0) {
-            return;
-          }
-          if (status !== "ready") {
-            setQueuedMessages((prev) => [
-              ...prev,
-              {
-                id: generateUUID(),
-                text: input,
-                attachments: attachments,
-                isAgentMode: isAgentMode || input.trim().toLowerCase().startsWith("/agent "),
-              },
-            ]);
-            setInput("");
-            setAttachments([]);
-            resetHeight();
-            toast.success("Message added to queue!");
-          } else {
-            submitForm();
-          }
-        }}
-      >
-        {(attachments.length > 0 || uploadQueue.length > 0) && (
-          <div
-            className="flex flex-row items-end gap-2 overflow-x-scroll"
-            data-testid="attachments-preview"
-          >
-            {attachments.map((attachment) => (
-              <PreviewAttachment
-                attachment={attachment}
-                key={attachment.url}
-                onRemove={() => {
-                  setAttachments((currentAttachments) =>
-                    currentAttachments.filter((a) => a.url !== attachment.url)
-                  );
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
+      <div className="flex flex-col w-full gap-0">
+        {queuedMessages.length > 0 && (
+          <Queue className="w-full bg-card/95 border-border/70 shadow-none backdrop-blur-xl max-w-full animate-in fade-in slide-in-from-bottom-1 rounded-t-2xl rounded-b-none border-b-0 pb-0">
+            <QueueSection defaultOpen={true}>
+              <QueueSectionTrigger className="hover:bg-muted/60">
+                <QueueSectionLabel
+                  count={queuedMessages.length}
+                  label={queuedMessages.length === 1 ? "Message Queued" : "Messages Queued"}
+                  icon={
+                    <span className="size-4 text-primary animate-pulse flex items-center justify-center shrink-0">
+                      <BotIcon />
+                    </span>
                   }
-                }}
-              />
-            ))}
-
-            {uploadQueue.map((filename) => (
-              <PreviewAttachment
-                attachment={{
-                  url: "",
-                  name: filename,
-                  contentType: "",
-                }}
-                isUploading={true}
-                key={filename}
-              />
-            ))}
-          </div>
+                />
+              </QueueSectionTrigger>
+              <QueueSectionContent>
+                <QueueList className="mt-1">
+                  {queuedMessages.map((msg) => (
+                    <QueueItem key={msg.id} className="relative flex flex-row items-start justify-between py-1.5 border-b border-border/30 last:border-0">
+                      <div className="flex items-start gap-2.5 grow min-w-0">
+                        <QueueItemIndicator completed={false} className="mt-1.5 shrink-0" />
+                        <div className="flex flex-col min-w-0 grow gap-0.5">
+                          <QueueItemContent className="text-foreground/90 text-xs font-sans font-medium line-clamp-2">
+                            {msg.isAgentMode ? (
+                              <span className="font-semibold text-primary mr-1 select-none">[Agent]</span>
+                            ) : null}
+                            {msg.text || "(empty message)"}
+                          </QueueItemContent>
+                          {msg.attachments.length > 0 && (
+                            <QueueItemAttachment className="mt-1 flex flex-wrap gap-1.5">
+                              {msg.attachments.map((att) => (
+                                <div key={att.url} className="flex items-center gap-1">
+                                  {att.contentType?.startsWith("image/") ? (
+                                    <QueueItemImage src={att.url} className="h-6 w-6 rounded object-cover border border-border/40 shadow-2xs" />
+                                  ) : (
+                                    <QueueItemFile>{att.name}</QueueItemFile>
+                                  )}
+                                </div>
+                              ))}
+                            </QueueItemAttachment>
+                          )}
+                        </div>
+                      </div>
+                      <QueueItemActions className="shrink-0 ml-2">
+                        <QueueItemAction
+                          className="text-[10px] h-6 px-2 font-medium rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive opacity-15 group-hover:opacity-100 transition-all"
+                          onClick={() => {
+                            setQueuedMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                          }}
+                        >
+                          Remove
+                        </QueueItemAction>
+                      </QueueItemActions>
+                    </QueueItem>
+                  ))}
+                </QueueList>
+              </QueueSectionContent>
+            </QueueSection>
+          </Queue>
         )}
-        <div className="flex flex-row items-start gap-1 sm:gap-2">
-          <PromptInputTextarea
-            className="grow resize-none border-0! border-none! bg-transparent p-2 text-sm leading-6 outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
-            data-testid="multimodal-input"
-            disableAutoResize={true}
-            maxHeight={200}
-            minHeight={40}
-            onChange={handleInput}
-            placeholder="Send a message..."
-            ref={textareaRef}
-            rows={1}
-            value={input}
-          />
-        </div>
-        <PromptInputToolbar className="border-top-0! border-t-0! px-0.5 pb-0.5 shadow-none dark:border-0 dark:border-transparent!">
-          <PromptInputTools className="gap-0 sm:gap-0.5">
-            <AttachmentsButton
-              fileInputRef={fileInputRef}
-              selectedModelId={selectedModelId}
-              status={status}
-            />
-            <ModelSelectorCompact
-              onModelChange={onModelChange}
-              selectedModelId={selectedModelId}
-            />
-            <Button
-              className={cn(
-                "h-8 gap-1.5 rounded-lg px-2.5 text-xs transition-all duration-300",
-                isAgentMode && "agent-active"
-              )}
-              disabled={status !== "ready"}
-              onClick={(event) => {
-                event.preventDefault();
-                setIsAgentMode(!isAgentMode);
-                textareaRef.current?.focus();
-              }}
-              variant="ghost"
-            >
-              <BotIcon />
-              Agent
-            </Button>
-          </PromptInputTools>
 
-          <div className="flex items-center gap-1 sm:gap-2">
-            <Button
-              className={cn(
-                "aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent",
-                isRecording && "animate-pulse text-red-500 hover:text-red-600"
-              )}
-              data-testid="mic-button"
-              disabled={status !== "ready"}
-              onClick={(event) => {
-                event.preventDefault();
-                toggleRecording();
-              }}
-              title={isRecording ? "Stop recording" : "Start recording"}
-              variant="ghost"
+        <PromptInput
+          className={cn(
+            "panel-hairline rounded-2xl border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur-xl transition-all duration-200 hover:border-muted-foreground/40 focus-within:border-primary/50 focus-within:shadow-xl",
+            queuedMessages.length > 0 && "rounded-t-none border-t-border/40"
+          )}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!input.trim() && attachments.length === 0) {
+              return;
+            }
+            if (status !== "ready") {
+              setQueuedMessages((prev) => [
+                ...prev,
+                {
+                  id: generateUUID(),
+                  text: input,
+                  attachments: attachments,
+                  isAgentMode: isAgentMode || input.trim().toLowerCase().startsWith("/agent "),
+                },
+              ]);
+              setInput("");
+              setAttachments([]);
+              resetHeight();
+              toast.success("Message added to queue!");
+            } else {
+              submitForm();
+            }
+          }}
+        >
+          {(attachments.length > 0 || uploadQueue.length > 0) && (
+            <div
+              className="flex flex-row items-end gap-2 overflow-x-scroll"
+              data-testid="attachments-preview"
             >
-              <MicIcon size={16} />
-            </Button>
+              {attachments.map((attachment) => (
+                <PreviewAttachment
+                  attachment={attachment}
+                  key={attachment.url}
+                  onRemove={() => {
+                    setAttachments((currentAttachments) =>
+                      currentAttachments.filter((a) => a.url !== attachment.url)
+                    );
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = "";
+                    }
+                  }}
+                />
+              ))}
 
-            {status === "submitted" || status === "streaming" ? (
-              <StopButton setMessages={setMessages} stop={stop} />
-            ) : (
-              <PromptInputSubmit
-              className="size-8 rounded-lg bg-primary text-primary-foreground shadow-sm transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
-              data-testid="send-button"
-              disabled={!input.trim() || uploadQueue.length > 0}
-              status={status}
-            >
-              <ArrowUpIcon size={14} />
-            </PromptInputSubmit>
-            )}
+              {uploadQueue.map((filename) => (
+                <PreviewAttachment
+                  attachment={{
+                    url: "",
+                    name: filename,
+                    contentType: "",
+                  }}
+                  isUploading={true}
+                  key={filename}
+                />
+              ))}
+            </div>
+          )}
+          <div className="flex flex-row items-start gap-1 sm:gap-2">
+            <PromptInputTextarea
+              className="grow resize-none border-0! border-none! bg-transparent p-2 text-sm leading-6 outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground/80 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
+              data-testid="multimodal-input"
+              disableAutoResize={true}
+              maxHeight={200}
+              minHeight={40}
+              onChange={handleInput}
+              placeholder="Send a message..."
+              ref={textareaRef}
+              rows={1}
+              value={input}
+            />
           </div>
-        </PromptInputToolbar>
-      </PromptInput>
+          <PromptInputToolbar className="border-top-0! border-t-0! px-0.5 pb-0.5 shadow-none dark:border-0 dark:border-transparent!">
+            <PromptInputTools className="gap-0 sm:gap-0.5">
+              <AttachmentsButton
+                fileInputRef={fileInputRef}
+                selectedModelId={selectedModelId}
+                status={status}
+              />
+              <ModelSelectorCompact
+                onModelChange={onModelChange}
+                selectedModelId={selectedModelId}
+              />
+              <Button
+                className={cn(
+                  "h-8 gap-1.5 rounded-lg px-2.5 text-xs transition-all duration-300",
+                  isAgentMode && "agent-active"
+                )}
+                disabled={status !== "ready"}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setIsAgentMode(!isAgentMode);
+                  textareaRef.current?.focus();
+                }}
+                variant="ghost"
+              >
+                <BotIcon />
+                Agent
+              </Button>
+            </PromptInputTools>
+
+            <div className="flex items-center gap-1 sm:gap-2">
+              <Button
+                className={cn(
+                  "aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent",
+                  isRecording && "animate-pulse text-red-500 hover:text-red-600"
+                )}
+                data-testid="mic-button"
+                disabled={status !== "ready"}
+                onClick={(event) => {
+                  event.preventDefault();
+                  toggleRecording();
+                }}
+                title={isRecording ? "Stop recording" : "Start recording"}
+                variant="ghost"
+              >
+                <MicIcon size={16} />
+              </Button>
+
+              {(status === "submitted" || status === "streaming") && !input.trim() ? (
+                <StopButton setMessages={setMessages} stop={stop} />
+              ) : (
+                <PromptInputSubmit
+                  className="size-8 rounded-lg bg-primary text-primary-foreground shadow-sm transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
+                  data-testid="send-button"
+                  disabled={!input.trim() || uploadQueue.length > 0}
+                  status={status}
+                >
+                  <ArrowUpIcon size={14} />
+                </PromptInputSubmit>
+              )}
+            </div>
+          </PromptInputToolbar>
+        </PromptInput>
+      </div>
     </div>
   );
 }

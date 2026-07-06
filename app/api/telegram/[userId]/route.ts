@@ -23,7 +23,7 @@ import {
   saveChat,
   saveMessages,
 } from "@/lib/db/queries";
-import { getGoogleModel } from "@/lib/ai/providers";
+import { getLanguageModel } from "@/lib/ai/providers";
 import { systemPrompt } from "@/lib/ai/prompts";
 import { buildEtlesTelegramTools } from "@/lib/ai/build-etles-telegram-tools";
 import { getSessionTail, saveSessionTail } from "@/lib/session-tail";
@@ -403,7 +403,7 @@ async function routeMessage({
   const stopTyping = startTypingHeartbeat(botToken, telegramChatId);
 
   const { text: aiText, toolCalls } = await generateText({
-    model: getGoogleModel("gemini-2.5-flash"),
+    model: getLanguageModel("google/gemini-2.5-flash"),
     system: cachedPrompt,
     messages: allMessages,
     stopWhen: stepCountIs(25),

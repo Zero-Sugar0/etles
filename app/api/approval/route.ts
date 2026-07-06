@@ -1,6 +1,6 @@
 import { auth } from "@/app/(auth)/auth";
 import { type PendingApproval, approvalKey } from "@/app/api/telegram/callback/route-utils";
-import { saveMessages } from "@/lib/db/queries";
+import { saveMessages, getMessageById, updateMessage } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
@@ -17,13 +17,40 @@ const redis =
 
 const composio = new Composio({ provider: new VercelProvider() });
 
+async function updateApprovalMessageStatus(messageId: string, action: "approve" | "reject" | "edit") {
+  try {
+    const dbMessages = await getMessageById({ id: messageId });
+    if (dbMessages && dbMessages.length > 0) {
+      const dbMessage = dbMessages[0];
+      const parts = dbMessage.parts as any[];
+      if (Array.isArray(parts)) {
+        const updatedParts = parts.map((p: any) => {
+          if (p.type === "tool-queueApproval" && p.output && typeof p.output === "object") {
+            return {
+              ...p,
+              output: {
+                ...p.output,
+                status: action === "approve" ? "approved" : action === "reject" ? "rejected" : "edited",
+              },
+            };
+          }
+          return p;
+        });
+        await updateMessage({ id: messageId, parts: updatedParts });
+      }
+    }
+  } catch (error) {
+    console.error("[Approval API] Failed to update message status in DB:", error);
+  }
+}
+
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { draftId, action, editPrompt } = await request.json();
+  const { draftId, action, editPrompt, messageId } = await request.json();
 
   if (!redis) {
     return NextResponse.json({ error: "Storage unavailable" }, { status: 500 });
@@ -66,6 +93,10 @@ export async function POST(request: Request) {
         }] as any,
       });
 
+      if (messageId) {
+        await updateApprovalMessageStatus(messageId, "approve");
+      }
+
       await redis.del(approvalKey(draftId));
       return NextResponse.json({ success: true, result });
     } catch (error: any) {
@@ -86,6 +117,10 @@ export async function POST(request: Request) {
       }] as any,
     });
 
+    if (messageId) {
+      await updateApprovalMessageStatus(messageId, "reject");
+    }
+
     await redis.del(approvalKey(draftId));
     return NextResponse.json({ success: true });
   }
@@ -105,6 +140,10 @@ export async function POST(request: Request) {
         }
       ] as any
      })
+
+     if (messageId) {
+       await updateApprovalMessageStatus(messageId, "edit");
+     }
 
      // We don't delete the draft yet, as the agent might want to resubmit it.
      // But maybe we should delete it to avoid stale approvals.
