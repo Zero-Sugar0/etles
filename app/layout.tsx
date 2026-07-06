@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Source_Serif_4, JetBrains_Mono, Instrument_Serif, Barlow } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
-import { SerwistProvider } from "./serwist";
 
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
@@ -104,10 +103,8 @@ export default function RootLayout({
           disableTransitionOnChange
           enableSystem
         >
-          <SerwistProvider swUrl="/sw.js">
-            <Toaster position="top-center" />
-            <SessionProvider>{children}</SessionProvider>
-          </SerwistProvider>
+          <Toaster position="top-center" />
+          <SessionProvider>{children}</SessionProvider>
         </ThemeProvider>
       </body>
     </html>

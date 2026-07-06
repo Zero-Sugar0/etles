@@ -10,9 +10,6 @@ coverage
 
 tsconfig.tsbuildinfo
 
-# Serwist
-public/sw*
-
 # next.js
 .next/
 out/

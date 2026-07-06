@@ -17,7 +17,7 @@ import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import { generateText, stepCountIs } from "ai";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
-import { getGoogleModel } from "@/lib/ai/providers";
+import { getGoogleModel, getLanguageModel } from "@/lib/ai/providers";
 import { generateImageTool } from "@/lib/ai/tools/generate-image";
 import { generateVideoTool } from "@/lib/ai/tools/generate-video";
 import { getWeather } from "@/lib/ai/tools/get-weather";
@@ -414,11 +414,10 @@ You now have the full capability to run truly multi-agent operations. Use this p
 
 Execute the task now. Summarize what you did in your final response.`;
 
-  const subagentModel = process.env.SUBAGENT_MODEL?.trim();
-  const model =
-    subagentModel && subagentModel.startsWith("google/")
-      ? getGoogleModel(subagentModel)
-      : getGoogleModel("google/gemini-3.5-flash");
+  const subagentModel = process.env.SUBAGENT_MODEL?.trim() || "minimax/minimax-m3";
+  const model = subagentModel.startsWith("google/")
+    ? getGoogleModel(subagentModel)
+    : getLanguageModel(subagentModel);
 
   try {
     const userContent: any[] = [{ type: "text", text: `Task: ${promptTask}` }];
