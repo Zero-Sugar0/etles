@@ -17,24 +17,24 @@ export type ChatModel = {
 export const chatModels: ChatModel[] = [
   // Anthropic
   {
-    id: "anthropic/claude-3-haiku",
-    name: "Claude 3 Haiku",
-    provider: "anthropic",
-    description: "Fast and lightweight model",
-    features: { reasoning: false, vision: true, tools: true },
-  },
-  {
-    id: "anthropic/claude-3.5-haiku",
-    name: "Claude 3.5 Haiku",
-    provider: "anthropic",
-    description: "Efficient and smart lightweight model",
-    features: { reasoning: false, vision: true, tools: true },
-  },
-  {
     id: "anthropic/claude-haiku-4.5",
     name: "Claude Haiku 4.5",
     provider: "anthropic",
     description: "Fast and affordable, great for everyday tasks",
+    features: { reasoning: true, vision: true, tools: true },
+  },
+  {
+    id: "anthropic/claude-sonnet-4.5",
+    name: "Claude Sonnet 4.5",
+    provider: "anthropic",
+    description: "Flagship balanced model with superb thinking and vision capabilities",
+    features: { reasoning: true, vision: true, tools: true },
+  },
+  {
+    id: "anthropic/claude-sonnet-4.8",
+    name: "Claude Sonnet 4.8",
+    provider: "anthropic",
+    description: "Advanced next-generation flagship model",
     features: { reasoning: true, vision: true, tools: true },
   },
   {
@@ -337,10 +337,17 @@ export const chatModels: ChatModel[] = [
     features: { reasoning: true, vision: false, tools: true },
   },
   {
-    id: "anthropic/claude-3.7-sonnet-thinking",
-    name: "Claude 3.7 Sonnet",
+    id: "anthropic/claude-sonnet-4.5-thinking",
+    name: "Claude Sonnet 4.5 Thinking",
     provider: "reasoning",
-    description: "Extended thinking for complex problems",
+    description: "Extended thinking flagship model",
+    features: { reasoning: true, vision: true, tools: true },
+  },
+  {
+    id: "anthropic/claude-sonnet-4.8-thinking",
+    name: "Claude Sonnet 4.8 Thinking",
+    provider: "reasoning",
+    description: "Supreme extended thinking model",
     features: { reasoning: true, vision: true, tools: true },
   },
   {

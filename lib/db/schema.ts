@@ -2,6 +2,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
+  integer,
   json,
   pgTable,
   primaryKey,
@@ -241,3 +242,49 @@ export const userSkill = pgTable("UserSkill", {
 });
 
 export type UserSkill = InferSelectModel<typeof userSkill>;
+
+export const mission = pgTable("Mission", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  chatId: uuid("chatId")
+    .references(() => chat.id),
+  goal: text("goal").notNull(),
+  startupDescription: text("startupDescription"),
+  productUrl: varchar("productUrl", { length: 255 }),
+  status: varchar("status", {
+    enum: ["pending", "running", "paused", "completed", "failed"],
+  })
+    .notNull()
+    .default("pending"),
+  durationDays: integer("durationDays").notNull().default(14),
+  currentDay: integer("currentDay").notNull().default(1),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type Mission = InferSelectModel<typeof mission>;
+
+export const campaignQueue = pgTable("CampaignQueue", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  missionId: uuid("missionId")
+    .notNull()
+    .references(() => mission.id),
+  channel: varchar("channel", {
+    enum: ["email", "linkedin", "reddit"],
+  }).notNull(),
+  recipient: text("recipient").notNull(),
+  content: text("content").notNull(),
+  scheduledFor: timestamp("scheduledFor").notNull(),
+  status: varchar("status", {
+    enum: ["pending_review", "approved", "rejected", "sent", "failed"],
+  })
+    .notNull()
+    .default("pending_review"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type CampaignQueueItem = InferSelectModel<typeof campaignQueue>;
+

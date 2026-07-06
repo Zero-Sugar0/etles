@@ -42,6 +42,10 @@ import {
   voteDeprecated,
   userSkill,
   type UserSkill,
+  mission,
+  type Mission,
+  campaignQueue,
+  type CampaignQueueItem,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
@@ -1197,3 +1201,200 @@ export async function searchUserMessages({
     throw new ChatbotError("bad_request:database", "Failed to search messages");
   }
 }
+
+export async function createMission({
+  userId,
+  chatId,
+  goal,
+  startupDescription,
+  productUrl,
+  durationDays = 14,
+}: {
+  userId: string;
+  chatId?: string;
+  goal: string;
+  startupDescription?: string;
+  productUrl?: string;
+  durationDays?: number;
+}): Promise<Mission> {
+  try {
+    const [created] = await db
+      .insert(mission)
+      .values({
+        userId,
+        chatId,
+        goal,
+        startupDescription,
+        productUrl,
+        durationDays,
+        status: "pending",
+        currentDay: 1,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return created;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to create mission");
+  }
+}
+
+export async function getMissionById(id: string): Promise<Mission | null> {
+  try {
+    const [selected] = await db.select().from(mission).where(eq(mission.id, id));
+    return selected || null;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to get mission by id");
+  }
+}
+
+export async function getMissionsByUserId(userId: string): Promise<Mission[]> {
+  try {
+    return await db
+      .select()
+      .from(mission)
+      .where(eq(mission.userId, userId))
+      .orderBy(desc(mission.createdAt));
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to get missions by user id");
+  }
+}
+
+export async function updateMissionStatus(
+  id: string,
+  status: Mission["status"]
+): Promise<Mission> {
+  try {
+    const [updated] = await db
+      .update(mission)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(mission.id, id))
+      .returning();
+    return updated;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to update mission status");
+  }
+}
+
+export async function updateMissionDay(
+  id: string,
+  currentDay: number
+): Promise<Mission> {
+  try {
+    const [updated] = await db
+      .update(mission)
+      .set({ currentDay, updatedAt: new Date() })
+      .where(eq(mission.id, id))
+      .returning();
+    return updated;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to update mission day");
+  }
+}
+
+export async function createCampaignQueueItem({
+  missionId,
+  channel,
+  recipient,
+  content,
+  scheduledFor,
+  status = "pending_review",
+}: {
+  missionId: string;
+  channel: CampaignQueueItem["channel"];
+  recipient: string;
+  content: string;
+  scheduledFor: Date;
+  status?: CampaignQueueItem["status"];
+}): Promise<CampaignQueueItem> {
+  try {
+    const [created] = await db
+      .insert(campaignQueue)
+      .values({
+        missionId,
+        channel,
+        recipient,
+        content,
+        scheduledFor,
+        status,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return created;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to create campaign queue item");
+  }
+}
+
+export async function getCampaignQueueByMissionId(
+  missionId: string
+): Promise<CampaignQueueItem[]> {
+  try {
+    return await db
+      .select()
+      .from(campaignQueue)
+      .where(eq(campaignQueue.missionId, missionId))
+      .orderBy(asc(campaignQueue.scheduledFor));
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to get campaign queue items");
+  }
+}
+
+export async function getPendingCampaignQueueItems(): Promise<CampaignQueueItem[]> {
+  try {
+    return await db
+      .select()
+      .from(campaignQueue)
+      .where(eq(campaignQueue.status, "pending_review"))
+      .orderBy(asc(campaignQueue.scheduledFor));
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to get pending campaign queue items");
+  }
+}
+
+export async function updateCampaignQueueStatus(
+  id: string,
+  status: CampaignQueueItem["status"]
+): Promise<CampaignQueueItem> {
+  try {
+    const [updated] = await db
+      .update(campaignQueue)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(campaignQueue.id, id))
+      .returning();
+    return updated;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to update campaign queue status");
+  }
+}
+
+export async function updateCampaignQueueContent(
+  id: string,
+  content: string
+): Promise<CampaignQueueItem> {
+  try {
+    const [updated] = await db
+      .update(campaignQueue)
+      .set({ content, updatedAt: new Date() })
+      .where(eq(campaignQueue.id, id))
+      .returning();
+    return updated;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to update campaign queue content");
+  }
+}
+
+export async function deleteCampaignQueueItem(id: string): Promise<CampaignQueueItem> {
+  try {
+    const [deleted] = await db
+      .delete(campaignQueue)
+      .where(eq(campaignQueue.id, id))
+      .returning();
+    return deleted;
+  } catch (error) {
+    throw new ChatbotError("bad_request:database", "Failed to delete campaign queue item");
+  }
+}
+
+

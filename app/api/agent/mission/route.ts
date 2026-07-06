@@ -6,7 +6,7 @@ import { WorkflowContext } from "@upstash/workflow";
 import { createWorkflow, serveMany } from "@upstash/workflow/nextjs";
 import { generateText } from "ai";
 import { getLanguageModel } from "@/lib/ai/providers";
-import { saveMessages } from "@/lib/db/queries";
+import { saveMessages, updateMissionStatus, createCampaignQueueItem } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 
 export const maxDuration = 300;
@@ -136,9 +136,18 @@ Rules:
 - Sound like a thoughtful founder, not a sales robot`,
       });
 
+      await createCampaignQueueItem({
+        missionId,
+        channel: "email",
+        recipient: lead.email,
+        content: text,
+        scheduledFor: new Date(),
+        status: "pending_review",
+      });
+
       await postToChat(
         chatId,
-        `📤 **Outreach → ${lead.name}** (${lead.company}, ${lead.role})\n\n${text}`
+        `📬 **Outreach email to ${lead.name} (${lead.company}) drafted & queued for review!**\n\n**Draft:**\n\n${text}\n\n_Please approve or edit this email in your Campaign Dashboard to send it._`
       );
     });
 
@@ -170,9 +179,18 @@ End with a DIFFERENT, lower-friction ask.
 3 sentences MAX.`,
       });
 
+      await createCampaignQueueItem({
+        missionId,
+        channel: "email",
+        recipient: lead.email,
+        content: text,
+        scheduledFor: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        status: "pending_review",
+      });
+
       await postToChat(
         chatId,
-        `📤 **Follow-up #1 → ${lead.name}**\n\n${text}`
+        `📬 **Follow-up #1 to ${lead.name} drafted & queued for review!**\n\n**Draft:**\n\n${text}\n\n_Please approve or edit this email in your Campaign Dashboard to send it._`
       );
     });
 
@@ -201,9 +219,18 @@ observation, or a counterintuitive take.
 1-2 sentences. Short enough to read in 5 seconds. No pitch.`,
       });
 
+      await createCampaignQueueItem({
+        missionId,
+        channel: "email",
+        recipient: lead.email,
+        content: text,
+        scheduledFor: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        status: "pending_review",
+      });
+
       await postToChat(
         chatId,
-        `📤 **Angle shift → ${lead.name}**\n\n${text}`
+        `📬 **Angle shift follow-up to ${lead.name} drafted & queued for review!**\n\n**Draft:**\n\n${text}\n\n_Please approve or edit this email in your Campaign Dashboard._`
       );
     });
 
@@ -232,9 +259,18 @@ Example tone: "Totally understand if the timing isn't right. I'll leave it here 
 This email often gets the highest reply rate because it removes all pressure.`,
       });
 
+      await createCampaignQueueItem({
+        missionId,
+        channel: "email",
+        recipient: lead.email,
+        content: text,
+        scheduledFor: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+        status: "pending_review",
+      });
+
       await postToChat(
         chatId,
-        `📤 **Break-up email → ${lead.name}** (sequence complete)\n\n${text}`
+        `📬 **Break-up email to ${lead.name} drafted & queued for review!**\n\n**Draft:**\n\n${text}\n\n_Please approve or edit this email in your Campaign Dashboard._`
       );
     });
   }
@@ -244,7 +280,7 @@ This email often gets the highest reply rate because it removes all pressure.`,
 
 const socialCampaignWorkflow = createWorkflow(
   async (context: WorkflowContext<SocialPayload>) => {
-    const { chatId, productDescription, targetAudience, durationDays } =
+    const { missionId, chatId, productDescription, targetAudience, durationDays } =
       context.requestPayload;
 
     const themes = [
@@ -278,9 +314,18 @@ Rules:
 - Sound like a smart founder who has earned the right to share this`,
         });
 
+        await createCampaignQueueItem({
+          missionId,
+          channel: "linkedin",
+          recipient: "LinkedIn Feed",
+          content: text,
+          scheduledFor: new Date(Date.now() + (day - 1) * 24 * 60 * 60 * 1000),
+          status: "pending_review",
+        });
+
         await postToChat(
           chatId,
-          `📱 **Day ${day} social post ready**\n\n${text}\n\n_Say "post it" to publish, or edit first._`
+          `📱 **Day ${day} LinkedIn post drafted & queued for review!**\n\n**Draft:**\n\n${text}\n\n_Please approve or edit this post in your Campaign Dashboard to publish._`
         );
       });
 
@@ -295,7 +340,7 @@ Rules:
 
 const communityWorkflow = createWorkflow(
   async (context: WorkflowContext<CommunityPayload>) => {
-    const { chatId, productDescription, communities } = context.requestPayload;
+    const { missionId, chatId, productDescription, communities } = context.requestPayload;
 
     for (let i = 0; i < communities.length; i++) {
       const community = communities[i];
@@ -317,9 +362,25 @@ Rules:
 - If this community rejects product plugs: DON'T PLUG IT. Provide value only.`,
         });
 
+        const channelMap: Record<string, "email" | "linkedin" | "reddit"> = {
+          email: "email",
+          linkedin: "linkedin",
+          reddit: "reddit",
+        };
+        const channel = channelMap[community.platform.toLowerCase()] || "reddit";
+
+        await createCampaignQueueItem({
+          missionId,
+          channel,
+          recipient: community.name,
+          content: text,
+          scheduledFor: new Date(Date.now() + i * 4 * 60 * 60 * 1000),
+          status: "pending_review",
+        });
+
         await postToChat(
           chatId,
-          `🏘️ **Community post ready for ${community.name} (${community.platform})**\n\n${text}\n\n_Say "post it" to publish._`
+          `🏘️ **Community post for ${community.name} (${community.platform}) drafted & queued for review!**\n\n**Draft:**\n\n${text}\n\n_Please approve or edit this post in your Campaign Dashboard._`
         );
       });
 
@@ -336,6 +397,10 @@ const missionWorkflow = createWorkflow(
   async (context: WorkflowContext<MissionPayload>) => {
     const { missionId, userId, chatId, goal, startupDescription, productUrl } =
       context.requestPayload;
+
+    await context.run("update-mission-running", async () => {
+      await updateMissionStatus(missionId, "running");
+    });
 
     // ── Step 1: AI strategist plans the full campaign ────────────────────────
     const plan = await context.run("plan-mission", async () => {
@@ -468,6 +533,7 @@ Tone: crisp, direct. No fluff.`,
 
     // ── Step 5: Mission complete ────────────────────────────────────────────
     await context.run("mission-complete", async () => {
+      await updateMissionStatus(missionId, "completed");
       await postToChat(
         chatId,
         `🏁 **Mission complete: ${goal}**

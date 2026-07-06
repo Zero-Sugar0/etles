@@ -1,7 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { Client } from "@upstash/workflow";
-import { createAgentTask } from "@/lib/db/queries";
+import { createAgentTask, createMission } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 
 function getMissionWorkflowClient(): Client | null {
@@ -62,6 +62,15 @@ export const launchMission = ({
           url: missionUrl,
           body: { missionId, userId, chatId, goal, startupDescription, productUrl },
           retries: 3,
+        });
+
+        // Save to Mission table
+        await createMission({
+          userId,
+          chatId,
+          goal,
+          startupDescription,
+          productUrl,
         });
 
         // Track in DB so getMissionStatus can find it

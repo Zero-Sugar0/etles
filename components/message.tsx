@@ -48,6 +48,7 @@ import {
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Pencil } from "lucide-react";
 import { Video } from "./ai-elements/video";
+import { ExpandableToolPill } from "./ai-elements/message";
 
 const PurePreviewMessage = ({
   addToolApprovalResponse,
@@ -829,85 +830,18 @@ const PurePreviewMessage = ({
               const approvalId = (part as any).approval?.id;
 
               return (
-                <div
-                  className={cn("w-[min(100%,500px)]", {
-                    "-mt-2": isConsecutiveTool,
-                  })}
+                <ExpandableToolPill
                   key={actualToolCallId}
-                >
-                  <Tool
-                    defaultOpen={
-                      actualState === "approval-requested" || actualState === "output-error"
-                    }
-                  >
-                    <ToolHeader state={actualState as any} type={type as any} />
-                    <ToolContent>
-                      {"input" in part && !!part.input && (
-                        <ToolInput input={part.input} />
-                      )}
-                      
-                      {actualState === "approval-requested" && approvalId && (
-                        <Confirmation
-                          className="mx-4 mb-4"
-                          state={actualState as any}
-                          approval={{ id: approvalId }}
-                        >
-                          <ConfirmationRequest>
-                            <ConfirmationTitle>
-                              Approve execution of {type}?
-                            </ConfirmationTitle>
-                            <ConfirmationActions>
-                              <ConfirmationAction
-                                variant="outline"
-                                onClick={() => {
-                                  addToolApprovalResponse({
-                                    id: approvalId,
-                                    approved: false,
-                                  });
-                                }}
-                              >
-                                Deny
-                              </ConfirmationAction>
-                              <ConfirmationAction
-                                onClick={() => {
-                                  addToolApprovalResponse({
-                                    id: approvalId,
-                                    approved: true,
-                                  });
-                                }}
-                              >
-                                Allow
-                              </ConfirmationAction>
-                            </ConfirmationActions>
-                          </ConfirmationRequest>
-                        </Confirmation>
-                      )}
-
-                      {"output" in part && !!part.output && (
-                        <>
-                          {redirectUrl && (
-                            <div className="px-4 pb-3">
-                              <Button
-                                asChild
-                                className="w-full gap-2"
-                                size="sm"
-                              >
-                                <Link href={redirectUrl} target="_blank">
-                                  <ExternalLink className="size-4" />
-                                  Connect Account
-                                </Link>
-                              </Button>
-                            </div>
-                          )}
-                          <ToolOutput
-                            errorText={rawError}
-                            output={part.output as any}
-                          />
-                        </>
-                      )}
-                    </ToolContent>
-                  </Tool>
-                </div>
+                  actualToolCallId={actualToolCallId}
+                  type={type}
+                  state={actualState}
+                  part={part}
+                  rawError={rawError}
+                  redirectUrl={redirectUrl}
+                  isConsecutiveTool={isConsecutiveTool}
+                  approvalId={approvalId}
+                  addToolApprovalResponse={addToolApprovalResponse}
+                />
               );
             }
 

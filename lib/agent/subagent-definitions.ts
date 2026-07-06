@@ -10,6 +10,10 @@ import { registryAgents as marketingGrowthAgents } from "./registry/marketing-gr
 import { registryAgents as devOpsQaAgents } from "./registry/dev-ops-qa";
 import { registryAgents as creativeDesignAgents } from "./registry/creative-design";
 import { registryAgents as supportServicesAgents } from "./registry/support-services";
+import { registryAgents as hrPeopleAgents } from "./registry/hr-people";
+import { registryAgents as productStrategyAgents } from "./registry/product-strategy";
+import { registryAgents as securityComplianceAgents } from "./registry/security-compliance";
+
 
 export type AgentSlug =
   | "inbox_operator"
@@ -52,7 +56,18 @@ export type AgentSlug =
   | "procurement_operator"
   | "qa_tester"
   | "knowledge_librarian"
-  | "travel_concierge";
+  | "travel_concierge"
+  | "employee_engagement"
+  | "performance_tracker"
+  | "onboarding_buddy"
+  | "product_strategist"
+  | "ux_researcher"
+  | "pricing_optimizer"
+  | "compliance_officer"
+  | "privacy_guardian"
+  | "ai_model_operator"
+  | "tax_treasury"
+  | "documentation_writer";
 
 export interface SubAgentDefinition {
   slug: AgentSlug;
@@ -125,6 +140,17 @@ const AGENT_TOOLKIT_EXPANSIONS: Partial<Record<AgentSlug, string[]>> = {
   qa_tester: ["github", "gitlab", "linear", "jira", "sentry", "browser_use"],
   knowledge_librarian: ["confluence", "dropbox", "box", "airtable", "webflow", "github"],
   travel_concierge: ["airbnb", "uber", "googlemaps", "expensify", "tripadvisor", "googlecalendar"],
+  employee_engagement: ["slack", "microsoftteams", "googlecalendar", "typeform"],
+  performance_tracker: ["jira", "linear", "github", "notion", "googlesheets"],
+  onboarding_buddy: ["gmail", "slack", "bamboohr", "googledrive", "calendly", "notion"],
+  product_strategist: ["notion", "confluence", "jira", "linear", "googledocs", "googlesheets"],
+  ux_researcher: ["posthog", "figma", "notion", "googlesheets", "googledrive"],
+  pricing_optimizer: ["stripe", "chargebee", "looker", "metabase", "googlesheets", "semrush"],
+  compliance_officer: ["aws", "gcp", "azure", "github", "jira", "slack", "notion"],
+  privacy_guardian: ["postgres", "mysql", "mongodb", "bigquery", "zendesk", "intercom", "notion"],
+  ai_model_operator: ["datadog", "grafana", "sentry", "googlesheets", "slack", "notion"],
+  tax_treasury: ["quickbooks", "xero", "netsuite", "stripe", "deel", "ramp", "brex", "googlesheets"],
+  documentation_writer: ["intercom", "zendesk", "helpscout", "notion", "confluence", "slack", "gmail"],
 };
 
 function uniqueToolkits(toolkits: string[]): string[] {
@@ -149,6 +175,9 @@ const BASE_SUBAGENT_DEFINITIONS: SubAgentDefinition[] = [
   ...(devOpsQaAgents as any),
   ...(creativeDesignAgents as any),
   ...(supportServicesAgents as any),
+  ...(hrPeopleAgents as any),
+  ...(productStrategyAgents as any),
+  ...(securityComplianceAgents as any),
 ];
 
 export const SUBAGENT_DEFINITIONS: SubAgentDefinition[] =

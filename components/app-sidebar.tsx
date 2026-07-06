@@ -12,7 +12,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from "@/components/icons";
-import { BookText, Bot } from "lucide-react";
+import { BookText, Bot, Megaphone } from "lucide-react";
 import {
   getChatHistoryPaginationKey,
   SidebarHistory,
@@ -115,6 +115,18 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   >
                     <Bot className="size-4" />
                     <span>Subagents</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    className="h-9 rounded-lg"
+                    onClick={() => {
+                      setOpenMobile(false);
+                      router.push("/campaigns");
+                    }}
+                  >
+                    <Megaphone className="size-4" />
+                    <span>Campaigns</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
