@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { Response } from "./response";
+import { Shimmer } from "../ai-elements/shimmer";
 
 type ReasoningContextValue = {
   isStreaming: boolean;
@@ -140,7 +141,7 @@ export const ReasoningTrigger = memo(
           <>
             <BrainIcon className="size-3" />
             {isStreaming || duration === 0 ? (
-              <span>Thinking</span>
+              <Shimmer duration={1.5}>Thinking</Shimmer>
             ) : (
               <span>{duration}s</span>
             )}

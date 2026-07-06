@@ -49,6 +49,7 @@ import { toast } from "sonner";
 import { CheckCircle2, XCircle, Pencil } from "lucide-react";
 import { Video } from "./ai-elements/video";
 import { ExpandableToolPill } from "./ai-elements/message";
+import { Shimmer } from "./ai-elements/shimmer";
 
 const PurePreviewMessage = ({
   addToolApprovalResponse,
@@ -883,10 +884,9 @@ export const ThinkingMessage = () => {
         </div> */}
 
         <div className="flex w-full flex-col gap-2 md:gap-4">
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1.5 text-muted-foreground text-sm shadow-xs backdrop-blur">
-            <SparklesIcon size={14} />
-            <span className="animate-pulse">Thinking</span>
-            <span className="inline-flex">
+          <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-card/70 px-3 py-1.5 text-muted-foreground text-sm shadow-xs backdrop-blur">
+            <Shimmer duration={1.5}>Thinking</Shimmer>
+            <span className="inline-flex opacity-80">
               <span className="animate-bounce [animation-delay:0ms]">.</span>
               <span className="animate-bounce [animation-delay:150ms]">.</span>
               <span className="animate-bounce [animation-delay:300ms]">.</span>

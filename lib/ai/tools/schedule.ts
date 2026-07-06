@@ -142,6 +142,7 @@ export const setCronJob = ({ userId, baseUrl }: { userId: string; baseUrl: strin
           }),
           headers: { "Content-Type": "application/json" },
           retries: 3,
+          scheduleId: `cron-${userId}-${taskId}`,
           deduplicationId: `${userId}-${name}`,
         } as any);
 
@@ -185,14 +186,10 @@ export const listSchedules = ({ userId }: { userId: string }) =>
         const client = getQStashClient();
         const all = await client.schedules.list();
 
-        // Filter schedules that belong to this user by checking the body
+        // Filter schedules that belong to this user using deterministic scheduleId prefix
         const userSchedules = all.filter((s) => {
-          try {
-            const body = JSON.parse(s.body ?? "{}");
-            return body.userId === userId;
-          } catch {
-            return false;
-          }
+          const scheduleId = s.scheduleId || "";
+          return scheduleId.startsWith(`cron-${userId}-`);
         });
 
         if (!userSchedules.length) {

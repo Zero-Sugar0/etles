@@ -32,6 +32,22 @@ import {
   DEFAULT_CHAT_MODEL,
   modelsByProvider,
 } from "@/lib/ai/models";
+import {
+  Queue,
+  QueueSection,
+  QueueSectionTrigger,
+  QueueSectionLabel,
+  QueueSectionContent,
+  QueueList,
+  QueueItem,
+  QueueItemIndicator,
+  QueueItemContent,
+  QueueItemActions,
+  QueueItemAction,
+  QueueItemAttachment,
+  QueueItemFile,
+  QueueItemImage,
+} from "@/components/ai-elements/queue";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, generateUUID } from "@/lib/utils";
 import {
@@ -101,6 +117,12 @@ function PureMultimodalInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const [isAgentMode, setIsAgentMode] = useState(false);
+  const [queuedMessages, setQueuedMessages] = useState<Array<{
+    id: string;
+    text: string;
+    attachments: Attachment[];
+    isAgentMode: boolean;
+  }>>([]);
 
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -238,6 +260,49 @@ function PureMultimodalInput({
       resetHeight,
     ]
   );
+
+  const isProcessingQueueRef = useRef(false);
+
+  useEffect(() => {
+    if (status === "ready" && queuedMessages.length > 0 && !isProcessingQueueRef.current) {
+      isProcessingQueueRef.current = true;
+      
+      const nextMessage = queuedMessages[0];
+      if (!nextMessage) {
+        isProcessingQueueRef.current = false;
+        return;
+      }
+
+      // Dequeue message
+      setQueuedMessages((prev) => prev.slice(1));
+
+      toast.info("Auto-dispatching queued message...");
+
+      setTimeout(() => {
+        if (nextMessage.isAgentMode) {
+          triggerAgent(nextMessage.text);
+        } else {
+          window.history.pushState({}, "", `/chat/${chatId}`);
+          sendMessage({
+            role: "user",
+            parts: [
+              ...nextMessage.attachments.map((attachment) => ({
+                type: "file" as const,
+                url: attachment.url,
+                name: attachment.name,
+                mediaType: attachment.contentType,
+              })),
+              {
+                type: "text" as const,
+                text: nextMessage.text,
+              },
+            ],
+          });
+        }
+        isProcessingQueueRef.current = false;
+      }, 100);
+    }
+  }, [status, queuedMessages, triggerAgent, sendMessage, chatId]);
 
   const submitForm = useCallback(async () => {
     // ── Agent Mode Handling ──────────────────────────────────────────────────
@@ -505,6 +570,66 @@ function PureMultimodalInput({
         type="file"
       />
 
+      {queuedMessages.length > 0 && (
+        <Queue className="mb-1 w-full bg-card/75 border-border/60 shadow-md backdrop-blur-md max-w-full animate-in fade-in slide-in-from-bottom-1">
+          <QueueSection defaultOpen={true}>
+            <QueueSectionTrigger className="hover:bg-muted/60">
+              <QueueSectionLabel
+                count={queuedMessages.length}
+                label={queuedMessages.length === 1 ? "Message Queued" : "Messages Queued"}
+                icon={
+                  <span className="size-4 text-primary animate-pulse flex items-center justify-center shrink-0">
+                    <BotIcon />
+                  </span>
+                }
+              />
+            </QueueSectionTrigger>
+            <QueueSectionContent>
+              <QueueList className="mt-1">
+                {queuedMessages.map((msg) => (
+                  <QueueItem key={msg.id} className="relative flex flex-row items-start justify-between py-1.5 border-b border-border/30 last:border-0">
+                    <div className="flex items-start gap-2.5 grow min-w-0">
+                      <QueueItemIndicator completed={false} className="mt-1.5 shrink-0" />
+                      <div className="flex flex-col min-w-0 grow gap-0.5">
+                        <QueueItemContent className="text-foreground/90 text-xs font-sans font-medium line-clamp-2">
+                          {msg.isAgentMode ? (
+                            <span className="font-semibold text-primary mr-1 select-none">[Agent]</span>
+                          ) : null}
+                          {msg.text || "(empty message)"}
+                        </QueueItemContent>
+                        {msg.attachments.length > 0 && (
+                          <QueueItemAttachment className="mt-1 flex flex-wrap gap-1.5">
+                            {msg.attachments.map((att) => (
+                              <div key={att.url} className="flex items-center gap-1">
+                                {att.contentType?.startsWith("image/") ? (
+                                  <QueueItemImage src={att.url} className="h-6 w-6 rounded object-cover border border-border/40 shadow-2xs" />
+                                ) : (
+                                  <QueueItemFile>{att.name}</QueueItemFile>
+                                )}
+                              </div>
+                            ))}
+                          </QueueItemAttachment>
+                        )}
+                      </div>
+                    </div>
+                    <QueueItemActions className="shrink-0 ml-2">
+                      <QueueItemAction
+                        className="text-[10px] h-6 px-2 font-medium rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive opacity-15 group-hover:opacity-100 transition-all"
+                        onClick={() => {
+                          setQueuedMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                        }}
+                      >
+                        Remove
+                      </QueueItemAction>
+                    </QueueItemActions>
+                  </QueueItem>
+                ))}
+              </QueueList>
+            </QueueSectionContent>
+          </QueueSection>
+        </Queue>
+      )}
+
       <PromptInput
         className="panel-hairline rounded-2xl border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur-xl transition-all duration-200 hover:border-muted-foreground/40 focus-within:border-primary/50 focus-within:shadow-xl"
         onSubmit={(event) => {
@@ -513,7 +638,19 @@ function PureMultimodalInput({
             return;
           }
           if (status !== "ready") {
-            toast.error("Please wait for the model to finish its response!");
+            setQueuedMessages((prev) => [
+              ...prev,
+              {
+                id: generateUUID(),
+                text: input,
+                attachments: attachments,
+                isAgentMode: isAgentMode || input.trim().toLowerCase().startsWith("/agent "),
+              },
+            ]);
+            setInput("");
+            setAttachments([]);
+            resetHeight();
+            toast.success("Message added to queue!");
           } else {
             submitForm();
           }

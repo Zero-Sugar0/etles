@@ -1,9 +1,11 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ArrowDownIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { ArrowDownIcon, TerminalIcon, StopCircleIcon, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
+import { useActiveAgentTasks } from "@/hooks/use-active-agent-tasks";
+import { Button } from "./ui/button";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
@@ -45,6 +47,25 @@ function PureMessages({
   } = useMessages({
     status,
   });
+
+  const { tasks: activeTasks, mutate: mutateTasks } = useActiveAgentTasks(chatId);
+  const [cancellingTasks, setCancellingTasks] = useState<Record<string, boolean>>({});
+
+  const handleCancelTask = async (taskId: string) => {
+    setCancellingTasks((prev) => ({ ...prev, [taskId]: true }));
+    try {
+      const res = await fetch(`/api/agent/tasks/${taskId}/cancel`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        await mutateTasks();
+      }
+    } catch (err) {
+      console.error("Failed to cancel task", err);
+    } finally {
+      setCancellingTasks((prev) => ({ ...prev, [taskId]: false }));
+    }
+  };
 
   const highlightFailTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -155,6 +176,77 @@ function PureMessages({
                 (part) => "state" in part && part.state === "approval-responded"
               )
             ) && <ThinkingMessage />}
+
+          {activeTasks && activeTasks.length > 0 && (
+            <div className="flex flex-col gap-2 mt-3 mb-5 border border-border/50 bg-muted/20 dark:bg-muted/10 rounded-xl p-3 shadow-2xs backdrop-blur-xs transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
+              {/* Header of the unified console */}
+              <div className="flex items-center justify-between px-1.5 pb-2.5 border-b border-border/45 select-none">
+                <div className="flex items-center gap-2">
+                  <TerminalIcon className="size-3.5 text-primary animate-pulse" />
+                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-foreground">
+                    Active Agent Console
+                  </span>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-primary/10 text-primary">
+                    {activeTasks.length} running
+                  </span>
+                </div>
+              </div>
+
+              {/* Console Rows */}
+              <div className="flex flex-col divide-y divide-border/20 max-h-[220px] overflow-y-auto">
+                {activeTasks.map((task) => {
+                  const isStopping = !!cancellingTasks[task.id];
+                  return (
+                    <div
+                      key={task.id}
+                      className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 py-2.5 px-1.5 hover:bg-muted/30 transition-colors duration-150 group"
+                    >
+                      {/* Left Side: Pulse + Agent Slug */}
+                      <div className="flex items-center gap-2.5 min-w-0 md:w-[170px] shrink-0">
+                        <span className="relative flex size-1.5 shrink-0">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75"></span>
+                          <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500"></span>
+                        </span>
+                        <div className="flex items-center gap-1.5 min-w-0 font-mono text-xs font-semibold">
+                          <span className="text-foreground truncate uppercase tracking-wide">
+                            {task.agentType.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/50 shrink-0">
+                            ({task.id.slice(0, 6)})
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Center Side: Interactive terminal prompt line */}
+                      <div className="flex items-center gap-2 min-w-0 grow">
+                        <span className="text-primary/70 font-mono text-xs shrink-0 select-none font-bold">&gt;</span>
+                        <p className="font-mono text-xs text-muted-foreground truncate leading-none md:max-w-[420px] hover:text-foreground transition-colors duration-150 select-all cursor-text" title={task.task}>
+                          {task.task}
+                        </p>
+                      </div>
+
+                      {/* Right Side: Action Trigger */}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 rounded-md text-[10px] font-mono font-semibold text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors duration-150 shrink-0 gap-1 ml-auto md:ml-0 opacity-80 group-hover:opacity-100"
+                        disabled={isStopping}
+                        onClick={() => handleCancelTask(task.id)}
+                      >
+                        {isStopping ? (
+                          <Loader2 className="size-3 animate-spin text-destructive" />
+                        ) : (
+                          <StopCircleIcon className="size-3 text-destructive/75" />
+                        )}
+                        <span>{isStopping ? "stopping..." : "stop"}</span>
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div
             className="min-h-[24px] min-w-[24px] shrink-0"

@@ -68,6 +68,13 @@ import {
   listGoals,
   deleteGoal,
 } from "@/lib/ai/tools/goals";
+import {
+  createPlan,
+  addPlanTask,
+  updatePlanTask,
+  listPlans,
+  deletePlan,
+} from "@/lib/ai/tools/planner";
 import { launchMission, getMissionStatus } from "@/lib/ai/tools/missions";
 import {
   tavilySearch,
@@ -297,6 +304,11 @@ export const { POST } = serve<AgentRunWorkflowPayload>(async (context) => {
         logGoalProgress: logGoalProgress({ userId }),
         listGoals: listGoals({ userId }),
         deleteGoal: deleteGoal({ userId }),
+        createPlan: createPlan({ userId }),
+        addPlanTask: addPlanTask({ userId }),
+        updatePlanTask: updatePlanTask({ userId }),
+        listPlans: listPlans({ userId }),
+        deletePlan: deletePlan({ userId }),
       };
 
       const memorySection = memoryContext

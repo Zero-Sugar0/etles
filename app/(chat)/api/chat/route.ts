@@ -84,6 +84,13 @@ import {
   deleteGoal,
 } from "@/lib/ai/tools/goals";
 import {
+  createPlan,
+  addPlanTask,
+  updatePlanTask,
+  listPlans,
+  deletePlan,
+} from "@/lib/ai/tools/planner";
+import {
   tavilySearch,
   tavilyExtract,
   tavilyCrawl,
@@ -299,6 +306,99 @@ export async function POST(request: Request) {
       }
     }
 
+    let assistantMessageId: string | null = null;
+    const stepsData: Array<{
+      text: string;
+      reasoning: string;
+      toolCalls: any[];
+      toolResults: any[];
+      isFinished: boolean;
+    }> = [];
+    let currentStepIndex = 0;
+    const accumulatedParts: any[] = [];
+
+    const getOrCreateStep = (index: number) => {
+      if (!stepsData[index]) {
+        stepsData[index] = {
+          text: "",
+          reasoning: "",
+          toolCalls: [],
+          toolResults: [],
+          isFinished: false,
+        };
+      }
+      return stepsData[index];
+    };
+
+    const rebuildAccumulatedParts = () => {
+      accumulatedParts.length = 0;
+
+      for (const step of stepsData) {
+        if (!step) continue;
+
+        if (step.reasoning) {
+          accumulatedParts.push({
+            type: "reasoning",
+            text: step.reasoning,
+          });
+        }
+
+        if (step.text) {
+          accumulatedParts.push({
+            type: "text",
+            text: step.text,
+          });
+        }
+
+        if (step.toolCalls && step.toolCalls.length > 0) {
+          for (const tc of step.toolCalls) {
+            accumulatedParts.push({
+              type: "tool-call",
+              toolCallId: tc.toolCallId,
+              toolName: tc.toolName,
+              args: tc.args,
+            });
+          }
+        }
+
+        if (step.toolResults && step.toolResults.length > 0) {
+          for (const tr of step.toolResults) {
+            accumulatedParts.push({
+              type: "tool-result",
+              toolCallId: tr.toolCallId,
+              toolName: tr.toolName,
+              result: tr.result,
+              isError: tr.isError,
+            });
+          }
+        }
+      }
+    };
+
+    const saveIntermediateMessages = async () => {
+      if (!assistantMessageId || accumulatedParts.length === 0) return;
+      try {
+        await upsertMessages({
+          messages: [
+            {
+              id: assistantMessageId,
+              role: "assistant",
+              parts: accumulatedParts,
+              createdAt: new Date(),
+              attachments: [],
+              chatId: id,
+            },
+          ],
+        });
+      } catch (error) {
+        console.error("Failed to save intermediate messages:", error);
+      }
+    };
+
+    request.signal.addEventListener("abort", () => {
+      void saveIntermediateMessages();
+    });
+
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
@@ -383,6 +483,11 @@ export async function POST(request: Request) {
                 "logGoalProgress",
                 "listGoals",
                 "deleteGoal",
+                "createPlan",
+                "addPlanTask",
+                "updatePlanTask",
+                "listPlans",
+                "deletePlan",
                 "tavilySearch",
                 "tavilyExtract",
                 "tavilyCrawl",
@@ -581,6 +686,11 @@ export async function POST(request: Request) {
                   logGoalProgress: logGoalProgress({ userId: session.user.id! }),
                   listGoals: listGoals({ userId: session.user.id! }),
                   deleteGoal: deleteGoal({ userId: session.user.id! }),
+                  createPlan: createPlan({ userId: session.user.id! }),
+                  addPlanTask: addPlanTask({ userId: session.user.id! }),
+                  updatePlanTask: updatePlanTask({ userId: session.user.id! }),
+                  listPlans: listPlans({ userId: session.user.id! }),
+                  deletePlan: deletePlan({ userId: session.user.id! }),
                   tavilySearch,
                   tavilyExtract,
                   tavilyCrawl,
@@ -651,6 +761,37 @@ export async function POST(request: Request) {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
           },
+          onChunk: ({ chunk }) => {
+            const step = getOrCreateStep(currentStepIndex);
+            if (chunk.type === "text-delta") {
+              const delta = (chunk as any).textDelta || "";
+              step.text += delta;
+            } else if (chunk.type === "reasoning-delta") {
+              const delta = (chunk as any).reasoningDelta || "";
+              step.reasoning += delta;
+            }
+            rebuildAccumulatedParts();
+          },
+          onStepFinish: async (stepResult) => {
+            const step = getOrCreateStep(currentStepIndex);
+            step.text = stepResult.text || "";
+
+            const reasoningVal = (stepResult as any).reasoning;
+            step.reasoning = typeof reasoningVal === "string"
+              ? reasoningVal
+              : (Array.isArray(reasoningVal)
+                  ? reasoningVal.map((r: any) => r.text || "").join("")
+                  : "");
+
+            step.toolCalls = stepResult.toolCalls || [];
+            step.toolResults = stepResult.toolResults || [];
+            step.isFinished = true;
+
+            currentStepIndex++;
+
+            rebuildAccumulatedParts();
+            await saveIntermediateMessages();
+          },
         });
 
         dataStream.merge(
@@ -663,7 +804,13 @@ export async function POST(request: Request) {
           updateChatTitleById({ chatId: id, title });
         }
       },
-      generateId: generateUUID,
+      generateId: () => {
+        const newId = generateUUID();
+        if (!assistantMessageId) {
+          assistantMessageId = newId;
+        }
+        return newId;
+      },
       onFinish: async ({ messages: finishedMessages }) => {
         if (isToolApprovalFlow) {
           for (const finishedMsg of finishedMessages) {
@@ -674,7 +821,7 @@ export async function POST(request: Request) {
                 parts: finishedMsg.parts,
               });
             } else {
-              await saveMessages({
+              await upsertMessages({
                 messages: [
                   {
                     id: finishedMsg.id,
@@ -696,7 +843,7 @@ export async function POST(request: Request) {
           );
 
           if (newMessages.length > 0) {
-            await saveMessages({
+            await upsertMessages({
               messages: newMessages.map((currentMessage) => ({
                 id: currentMessage.id,
                 role: currentMessage.role,

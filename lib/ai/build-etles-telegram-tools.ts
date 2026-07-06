@@ -53,6 +53,13 @@ import {
   deleteGoal,
 } from "@/lib/ai/tools/goals";
 import {
+  createPlan,
+  addPlanTask,
+  updatePlanTask,
+  listPlans,
+  deletePlan,
+} from "@/lib/ai/tools/planner";
+import {
   tavilySearch,
   tavilyExtract,
   tavilyCrawl,
@@ -141,6 +148,11 @@ export function buildEtlesTelegramTools({
     logGoalProgress: logGoalProgress({ userId }),
     listGoals: listGoals({ userId }),
     deleteGoal: deleteGoal({ userId }),
+    createPlan: createPlan({ userId }),
+    addPlanTask: addPlanTask({ userId }),
+    updatePlanTask: updatePlanTask({ userId }),
+    listPlans: listPlans({ userId }),
+    deletePlan: deletePlan({ userId }),
     tavilySearch,
     tavilyExtract,
     tavilyCrawl,

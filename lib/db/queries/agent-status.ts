@@ -138,10 +138,40 @@ export async function getAgentStatus(serverUserId?: string): Promise<AgentStatus
         
       for (const s of schedules) {
           try {
-            const body = JSON.parse(s.body || "{}");
-            if (body.userId !== userId) continue;
+            const scheduleId = s.scheduleId || s.id || "";
+            if (!scheduleId) continue;
 
-            if (!body.type || body.type === "heartbeat") {
+            const isHeartbeat = scheduleId === `hb-${userId}`;
+            const isSynthesis = scheduleId === `syn-${userId}`;
+            const isMorningBriefing = scheduleId === `morning-${userId}`;
+            const isSandboxKeepalive = scheduleId === `sandbox-keepalive-${userId}`;
+            const isCustomCron = scheduleId.startsWith(`cron-${userId}-`);
+
+            // If it doesn't match any of this user's schedules, skip it!
+            if (!isHeartbeat && !isSynthesis && !isMorningBriefing && !isSandboxKeepalive && !isCustomCron) {
+              continue;
+            }
+
+            // Parse body if present, but fallback gracefully if omitted
+            let body: any = {};
+            try {
+              body = typeof s.body === "string" ? JSON.parse(s.body) : (s.body || {});
+            } catch {
+              // Body missing or malformed is fine since we match by scheduleId
+            }
+
+            // QStash schedule list returns nextScheduleTime in milliseconds
+            const nextRunVal = s.nextScheduleTime || (s.nextRun ? s.nextRun * 1000 : undefined);
+            const nextRunStr = (nextRunVal && typeof nextRunVal === "number")
+              ? new Date(nextRunVal).toISOString()
+              : undefined;
+
+            // QStash createdAt is already returned as a millisecond timestamp
+            const createdAtDate = (s.createdAt && typeof s.createdAt === "number")
+              ? new Date(s.createdAt)
+              : new Date();
+
+            if (isHeartbeat) {
               // Determine status: 
               // - "active" if last run was success
               // - "error" if last run failed
@@ -153,40 +183,25 @@ export async function getAgentStatus(serverUserId?: string): Promise<AgentStatus
               heartbeatStatus = {
                 status,
                 lastRun: lastHeartbeat?.lastRun,
-                nextRun: (s.nextRun && typeof s.nextRun === "number") 
-                  ? new Date(s.nextRun * 1000).toISOString() 
-                  : undefined,
+                nextRun: nextRunStr,
               };
-            } else if (body.type === "weekly_synthesis") {
+            } else if (isSynthesis) {
               // Force synthesis savedAt if not from vector
               if (!synthesisData.savedAt) {
                  synthesisData.savedAt = lastSynthesis?.lastRun;
               }
-            } else if (!body.type) {
-              // Skip non-typed schedules (old format)
-              continue;
-            } else if (body.type === "cron") {
-              const scheduleId =
-                typeof s.scheduleId === "string"
-                  ? s.scheduleId
-                  : typeof s.id === "string"
-                    ? s.id
-                    : String(s.scheduleId ?? s.id ?? "");
+            } else if (isCustomCron) {
               activeCronJobs.push({
                 id: scheduleId,
                 task: body.name || "Unnamed Job",
                 status: "active",
-                createdAt: (s.createdAt && typeof s.createdAt === "number") 
-                  ? new Date(s.createdAt * 1000) 
-                  : new Date(),
+                createdAt: createdAtDate,
                 cron: s.cron,
-                nextRun: (s.nextRun && typeof s.nextRun === "number") 
-                  ? new Date(s.nextRun * 1000).toISOString() 
-                  : undefined,
+                nextRun: nextRunStr,
               });
             }
           } catch (err) {
-            console.error("Failed to parse schedule body:", err);
+            console.error("Failed to parse schedule:", err);
           }
       }
     } catch (e) {

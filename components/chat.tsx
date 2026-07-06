@@ -313,8 +313,6 @@ export function Chat({
           selectedVisibilityType={initialVisibilityType}
         />
 
-        <ActiveAgentTasksBanner chatId={id} />
-
         <Messages
           addToolApprovalResponse={addToolApprovalResponse}
           chatId={id}

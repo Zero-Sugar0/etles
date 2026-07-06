@@ -13,6 +13,7 @@
  */
 
 import { Client } from "@upstash/workflow";
+import { Client as QStashClient } from "@upstash/qstash";
 
 const token = process.env.QSTASH_TOKEN;
 const appBaseUrl =
@@ -320,40 +321,34 @@ export async function triggerCollaborationWorkflow(
 
 export async function registerUserCrons(userId: string): Promise<void> {
   const token = process.env.QSTASH_TOKEN;
-  const qstashUrl = process.env.QSTASH_URL || "https://qstash.upstash.io";
   if (!token || !appBaseUrl) return;
 
   const heartbeatUrl = `${appBaseUrl}/api/agent/heartbeat`;
+  const qstash = new QStashClient({
+    token,
+    baseUrl: process.env.QSTASH_URL,
+  });
 
   // Hourly heartbeat: every hour at minute 0
-  // scheduleId must be passed as the Upstash-Schedule-Id header (not a body field)
-  await fetch(`${qstashUrl}/v2/schedules`, {
-    method: "POST",
+  await qstash.schedules.create({
+    destination: heartbeatUrl,
+    cron: "0 * * * *",
+    body: JSON.stringify({ userId, type: "heartbeat" }),
     headers: {
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "Upstash-Schedule-Id": `hb-${userId}`,
     },
-    body: JSON.stringify({
-      url: heartbeatUrl,
-      cron: "0 * * * *",
-      body: JSON.stringify({ userId, type: "heartbeat" }),
-    }),
+    scheduleId: `hb-${userId}`,
   });
 
   // Weekly synthesis: every Monday at 8am UTC
-  await fetch(`${qstashUrl}/v2/schedules`, {
-    method: "POST",
+  await qstash.schedules.create({
+    destination: heartbeatUrl,
+    cron: "0 8 * * 1",
+    body: JSON.stringify({ userId, type: "weekly_synthesis" }),
     headers: {
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "Upstash-Schedule-Id": `syn-${userId}`,
     },
-    body: JSON.stringify({
-      url: heartbeatUrl,
-      cron: "0 8 * * 1",
-      body: JSON.stringify({ userId, type: "weekly_synthesis" }),
-    }),
+    scheduleId: `syn-${userId}`,
   });
 }
 

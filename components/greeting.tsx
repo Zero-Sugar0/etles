@@ -15,13 +15,13 @@ export const Greeting = () => {
     >
       <motion.div
         animate={{ opacity: 1, y: 0 }}
-        className="mb-4 inline-flex w-fit items-center gap-2 rounded-full border border-border/70 bg-card/70 px-3 py-1.5 font-medium text-muted-foreground text-xs shadow-xs backdrop-blur"
+        className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-card/70 px-3 py-1.5 font-medium text-muted-foreground text-xs shadow-xs backdrop-blur"
         exit={{ opacity: 0, y: 10 }}
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.35 }}
       >
         <span className="size-1.5 rounded-full bg-primary" />
-        Etles workspace is ready
+        Etles is active
       </motion.div>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
@@ -30,7 +30,7 @@ export const Greeting = () => {
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.45 }}
       >
-        What should we move forward today?
+        What's the goal today?
       </motion.div>
       <motion.p
         animate={{ opacity: 1, y: 0 }}
@@ -39,8 +39,7 @@ export const Greeting = () => {
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.55 }}
       >
-        Ask a question, hand off a task to an agent, or turn a loose idea into a
-        concrete next step.
+        Ask a question, start a task, or brainstorm an idea.
       </motion.p>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
@@ -51,7 +50,7 @@ export const Greeting = () => {
       >
         {highlights.map(({ icon: Icon, label }) => (
           <div
-            className="flex items-center gap-2 rounded-lg border border-border/70 bg-card/65 px-3 py-2 text-muted-foreground text-xs shadow-xs backdrop-blur"
+            className="flex items-center gap-2 rounded-lg bg-card/65 px-3 py-2 text-muted-foreground text-xs shadow-xs backdrop-blur"
             key={label}
           >
             <Icon className="size-3.5 text-primary" />

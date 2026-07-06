@@ -32,7 +32,10 @@ function getToolkits(): Promise<any[]> {
   }
   globalToolkitsPromise = fetch("/api/connections")
     .then((res) => {
-      if (!res.ok) throw new Error("Failed to fetch toolkits");
+      if (!res.ok) {
+        console.warn("Failed to fetch toolkits: API responded with status", res.status);
+        return { toolkits: [] };
+      }
       return res.json();
     })
     .then((data) => {
@@ -53,49 +56,342 @@ export function parseToolNameDetails(type: string): {
   actionName: string;
 } {
   const raw = type.replace(/^tool-/, "");
+  const lowerRaw = raw.toLowerCase();
 
-  // Handle standard built-in tools
-  if (raw === "getWeather") {
+  // 1. Weather
+  if (lowerRaw === "getweather") {
     return { appSlug: "weather", appLabel: "weather", actionName: "get_weather" };
   }
-  if (raw === "renderChart") {
-    return { appSlug: "chart", appLabel: "chart", actionName: "render_chart" };
+
+  // 2. Chart Rendering
+  if (lowerRaw === "renderchart") {
+    return { appSlug: "chart", appLabel: "chart", actionName: "render" };
   }
-  if (raw === "createDocument") {
-    return { appSlug: "document", appLabel: "document", actionName: "create" };
+
+  // 3. Document Editing & suggestions (using Google Docs style icon)
+  if (lowerRaw === "createdocument") {
+    return { appSlug: "google-docs", appLabel: "document", actionName: "create" };
   }
-  if (raw === "updateDocument") {
-    return { appSlug: "document", appLabel: "document", actionName: "update" };
+  if (lowerRaw === "updatedocument") {
+    return { appSlug: "google-docs", appLabel: "document", actionName: "update" };
   }
-  if (raw === "requestSuggestions") {
-    return { appSlug: "document", appLabel: "document", actionName: "request_suggestions" };
+  if (lowerRaw === "editdocument") {
+    return { appSlug: "google-docs", appLabel: "document", actionName: "edit" };
+  }
+  if (lowerRaw === "requestsuggestions") {
+    return { appSlug: "google-docs", appLabel: "document", actionName: "suggest" };
+  }
+
+  // 4. Scratchpad (using Notion style icon)
+  if (lowerRaw === "readscratchpad") {
+    return { appSlug: "notion", appLabel: "scratchpad", actionName: "read" };
+  }
+  if (lowerRaw === "writescratchpad") {
+    return { appSlug: "notion", appLabel: "scratchpad", actionName: "write" };
+  }
+  if (lowerRaw === "clearscratchpad") {
+    return { appSlug: "notion", appLabel: "scratchpad", actionName: "clear" };
+  }
+
+  // 5. Generative Media
+  if (lowerRaw === "generateimage") {
+    return { appSlug: "image", appLabel: "AI Image", actionName: "generate" };
+  }
+  if (lowerRaw === "generatevideo") {
+    return { appSlug: "image", appLabel: "AI Video", actionName: "generate" };
+  }
+
+  // 6. Memory Tools (database.svg)
+  if (lowerRaw === "savememory") {
+    return { appSlug: "database", appLabel: "memory", actionName: "save" };
+  }
+  if (lowerRaw === "recallmemory") {
+    return { appSlug: "database", appLabel: "memory", actionName: "recall" };
+  }
+  if (lowerRaw === "updatememory") {
+    return { appSlug: "database", appLabel: "memory", actionName: "update" };
+  }
+  if (lowerRaw === "deletememory") {
+    return { appSlug: "database", appLabel: "memory", actionName: "delete" };
+  }
+  if (lowerRaw === "searchpastconversations") {
+    return { appSlug: "database", appLabel: "history", actionName: "search" };
+  }
+
+  // 7. Scheduling (clock/calendar)
+  if (lowerRaw === "setreminder") {
+    return { appSlug: "clock", appLabel: "reminder", actionName: "set" };
+  }
+  if (lowerRaw === "setcronjob") {
+    return { appSlug: "calendar", appLabel: "cron job", actionName: "set" };
+  }
+  if (lowerRaw === "listschedules") {
+    return { appSlug: "calendar", appLabel: "schedules", actionName: "list" };
+  }
+  if (lowerRaw === "deleteschedule") {
+    return { appSlug: "calendar", appLabel: "schedule", actionName: "delete" };
+  }
+
+  // 8. Triggers (zapier)
+  if (lowerRaw === "setuptrigger") {
+    return { appSlug: "zapier", appLabel: "trigger", actionName: "setup" };
+  }
+  if (lowerRaw === "listactivetriggers") {
+    return { appSlug: "zapier", appLabel: "triggers", actionName: "list" };
+  }
+  if (lowerRaw === "removetrigger") {
+    return { appSlug: "zapier", appLabel: "trigger", actionName: "remove" };
+  }
+
+  // 9. Sub-agents (mcp.svg)
+  if (lowerRaw === "delegatetosubagent") {
+    return { appSlug: "mcp", appLabel: "subagent", actionName: "delegate" };
+  }
+  if (lowerRaw === "getsubagentresult") {
+    return { appSlug: "mcp", appLabel: "subagent", actionName: "get_result" };
+  }
+  if (lowerRaw === "listsubagents") {
+    return { appSlug: "mcp", appLabel: "subagents", actionName: "list" };
+  }
+
+  // 10. Missions
+  if (lowerRaw === "launchmission") {
+    return { appSlug: "daytona", appLabel: "mission", actionName: "launch" };
+  }
+  if (lowerRaw === "getmissionstatus") {
+    return { appSlug: "daytona", appLabel: "mission", actionName: "status" };
+  }
+
+  // 11. Approvals
+  if (lowerRaw === "queueapproval") {
+    return { appSlug: "todoist", appLabel: "approval", actionName: "queue" };
+  }
+
+  // 12. Proactive Actions
+  if (lowerRaw === "activateheartbeat") {
+    return { appSlug: "clock", appLabel: "heartbeat", actionName: "activate" };
+  }
+  if (lowerRaw === "getagentsystemstatus") {
+    return { appSlug: "clock", appLabel: "agent status", actionName: "get" };
+  }
+  if (lowerRaw === "setmorningbriefingtime") {
+    return { appSlug: "google-calendar", appLabel: "morning briefing", actionName: "set" };
+  }
+
+  // 13. Knowledge Graph
+  if (lowerRaw === "upsertknowledgeentity") {
+    return { appSlug: "database", appLabel: "knowledge graph", actionName: "upsert_entity" };
+  }
+  if (lowerRaw === "addknowledgerelation") {
+    return { appSlug: "database", appLabel: "knowledge graph", actionName: "add_relation" };
+  }
+  if (lowerRaw === "getknowledgeentity") {
+    return { appSlug: "database", appLabel: "knowledge graph", actionName: "get_entity" };
+  }
+  if (lowerRaw === "searchknowledgegraph") {
+    return { appSlug: "database", appLabel: "knowledge graph", actionName: "search" };
+  }
+  if (lowerRaw === "deleteknowledgeentity") {
+    return { appSlug: "database", appLabel: "knowledge graph", actionName: "delete_entity" };
+  }
+  if (lowerRaw === "deleteknowledgerelation") {
+    return { appSlug: "database", appLabel: "knowledge graph", actionName: "delete_relation" };
+  }
+
+  // 14. Goals
+  if (lowerRaw === "addgoal") {
+    return { appSlug: "todoist", appLabel: "goals", actionName: "add" };
+  }
+  if (lowerRaw === "updategoal") {
+    return { appSlug: "todoist", appLabel: "goals", actionName: "update" };
+  }
+  if (lowerRaw === "loggoalprogress") {
+    return { appSlug: "todoist", appLabel: "goals", actionName: "log_progress" };
+  }
+  if (lowerRaw === "listgoals") {
+    return { appSlug: "todoist", appLabel: "goals", actionName: "list" };
+  }
+  if (lowerRaw === "deletegoal") {
+    return { appSlug: "todoist", appLabel: "goals", actionName: "delete" };
+  }
+
+  // 14b. Planner & Checklists
+  if (lowerRaw === "createplan") {
+    return { appSlug: "todoist", appLabel: "planner", actionName: "create" };
+  }
+  if (lowerRaw === "addplantask") {
+    return { appSlug: "todoist", appLabel: "planner", actionName: "add_task" };
+  }
+  if (lowerRaw === "updateplantask") {
+    return { appSlug: "todoist", appLabel: "planner", actionName: "update_task" };
+  }
+  if (lowerRaw === "listplans") {
+    return { appSlug: "todoist", appLabel: "planner", actionName: "list" };
+  }
+  if (lowerRaw === "deleteplan") {
+    return { appSlug: "todoist", appLabel: "planner", actionName: "delete" };
+  }
+
+  // 15. Tavily Search
+  if (lowerRaw.startsWith("tavily")) {
+    const action = lowerRaw.slice(6);
+    return {
+      appSlug: "tavily",
+      appLabel: "tavily",
+      actionName: action ? action : "search",
+    };
+  }
+
+  // 16. Wiki
+  if (lowerRaw === "wikiquery") {
+    return { appSlug: "wikipedia", appLabel: "wiki", actionName: "query" };
+  }
+  if (lowerRaw === "wikiingest") {
+    return { appSlug: "wikipedia", appLabel: "wiki", actionName: "ingest" };
+  }
+
+  // 17. Twilio & WhatsApp
+  if (lowerRaw.startsWith("twiliowhatsapp")) {
+    const action = raw.slice(14);
+    const parsedAction = action
+      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      : "execute";
+    return {
+      appSlug: "whatsapp",
+      appLabel: "WhatsApp",
+      actionName: parsedAction || "execute",
+    };
+  }
+  if (lowerRaw.startsWith("twilio") && !lowerRaw.startsWith("twiliowhatsapp")) {
+    const action = raw.slice(6);
+    const parsedAction = action
+      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      : "execute";
+    return {
+      appSlug: "twilio",
+      appLabel: "Twilio",
+      actionName: parsedAction || "execute",
+    };
+  }
+
+  // 18. Daytona Sandbox Tools
+  const daytonaToolsList = [
+    "createsandbox",
+    "listsandboxes",
+    "deletesandbox",
+    "executecommand",
+    "runcode",
+    "listfiles",
+    "readfile",
+    "writefile",
+    "createdirectory",
+    "searchfiles",
+    "replaceinfiles",
+    "gitclone",
+    "gitstatus",
+    "gitcommit",
+    "gitpush",
+    "gitpull",
+    "gitbranch",
+    "getpreviewlink",
+    "runbackgroundprocess",
+    "lspdiagnostics",
+    "archivesandbox",
+  ];
+  if (daytonaToolsList.includes(lowerRaw)) {
+    const hasCaps = /[A-Z]/.test(raw);
+    const parsedAction = hasCaps
+      ? raw.replace(/([A-Z])/g, "_$1").toLowerCase()
+      : raw.replace(/(sandbox|files|infiles|link|process|diagnostics)/g, "_$1").toLowerCase().replace(/^_+/, "");
+    return {
+      appSlug: "daytona",
+      appLabel: "daytona",
+      actionName: parsedAction || raw,
+    };
+  }
+
+  // 19. Sandbox Status / Run tools starting with 'sandbox'
+  if (lowerRaw.startsWith("sandbox")) {
+    const action = raw.slice(7);
+    const parsedAction = action
+      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      : "execute";
+    return {
+      appSlug: "daytona",
+      appLabel: "sandbox",
+      actionName: parsedAction || "execute",
+    };
+  }
+
+  // 20. Daytona Browser Tools
+  if (lowerRaw.startsWith("browser")) {
+    const action = raw.slice(7);
+    const parsedAction = action
+      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      : "execute";
+    return {
+      appSlug: "brave",
+      appLabel: "browser",
+      actionName: parsedAction || "execute",
+    };
+  }
+
+  // 21. Oracle Tools
+  if (lowerRaw.startsWith("oracle")) {
+    const action = raw.slice(6);
+    const parsedAction = action
+      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      : "execute";
+    return {
+      appSlug: "aws", // cloud host logo fallback
+      appLabel: "oracle cloud",
+      actionName: parsedAction || "execute",
+    };
   }
 
   // Handle Composio meta-tools
-  if (raw === "COMPOSIO_SEARCH_TOOLS") {
+  if (lowerRaw === "composio_search_tools") {
     return { appSlug: "composio", appLabel: "composio", actionName: "search_tools" };
   }
-  if (raw === "COMPOSIO_MULTI_EXECUTE_TOOL") {
+  if (lowerRaw === "composio_multi_execute_tool") {
     return { appSlug: "composio", appLabel: "composio", actionName: "execute_actions" };
   }
-  if (raw === "COMPOSIO_MANAGE_CONNECTIONS") {
+  if (lowerRaw === "composio_manage_connections") {
     return { appSlug: "composio", appLabel: "composio", actionName: "manage_connections" };
   }
-  if (raw === "COMPOSIO_INITIATE_CONNECTION") {
+  if (lowerRaw === "composio_initiate_connection") {
     return { appSlug: "composio", appLabel: "composio", actionName: "connect_account" };
   }
-  if (raw === "COMPOSIO_GET_CONNECTION_STATUS") {
+  if (lowerRaw === "composio_get_connection_status") {
     return { appSlug: "composio", appLabel: "composio", actionName: "check_connection" };
   }
 
-  // Extract by underscores
+  // Extract by underscores (Composio integrations or custom tools)
   const underscoreIndex = raw.indexOf("_");
   if (underscoreIndex !== -1) {
     const prefix = raw.slice(0, underscoreIndex);
     const action = raw.slice(underscoreIndex + 1);
+    
+    let finalSlug = prefix.toLowerCase();
+    let finalLabel = prefix.toLowerCase();
+    
+    if (finalSlug === "composio" && action) {
+      // Find the second underscore or get the first word after composio__
+      const normalizedAction = action.replace(/^_+/, "");
+      const nextUnderscore = normalizedAction.indexOf("_");
+      if (nextUnderscore !== -1) {
+        const actualApp = normalizedAction.slice(0, nextUnderscore);
+        finalSlug = actualApp.toLowerCase();
+        finalLabel = actualApp.toLowerCase();
+      } else {
+        finalSlug = normalizedAction.toLowerCase();
+        finalLabel = normalizedAction.toLowerCase();
+      }
+    }
+
     return {
-      appSlug: prefix.toLowerCase(),
-      appLabel: prefix.toLowerCase(),
+      appSlug: finalSlug,
+      appLabel: finalLabel,
       actionName: action.toLowerCase(),
     };
   }

@@ -283,6 +283,25 @@ export function Weather({
 }: {
   weatherAtLocation?: WeatherAtLocation;
 }) {
+  if (
+    !weatherAtLocation ||
+    "error" in weatherAtLocation ||
+    !weatherAtLocation.hourly ||
+    !weatherAtLocation.hourly.temperature_2m ||
+    !weatherAtLocation.current ||
+    !weatherAtLocation.daily ||
+    !weatherAtLocation.daily.sunrise ||
+    !weatherAtLocation.daily.sunset
+  ) {
+    const errMsg = (weatherAtLocation as any)?.error || "Invalid weather data format.";
+    return (
+      <div className="flex w-full flex-col gap-2 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-xs text-red-500 backdrop-blur-xs">
+        <div className="font-semibold text-red-600 dark:text-red-400">Weather Lookup Failed</div>
+        <div className="text-red-500/80">{errMsg}</div>
+      </div>
+    );
+  }
+
   const currentHigh = Math.max(
     ...weatherAtLocation.hourly.temperature_2m.slice(0, 24)
   );

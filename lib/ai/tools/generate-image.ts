@@ -1,10 +1,17 @@
 //lib/ai/tools/generate-image.ts
-import { GoogleGenAI } from "@google/genai";
-import { tool, type UIMessageStreamWriter } from "ai";
+import { generateImage, tool, type UIMessageStreamWriter } from "ai";
+import { gateway } from "@ai-sdk/gateway";
 import { z } from "zod";
 import type { ChatMessage } from "@/lib/types";
 import { put } from "@vercel/blob";
 import { generateUUID } from "@/lib/utils";
+
+function mapAspectRatioToOpenAISize(aspectRatio?: string): `${number}x${number}` {
+  if (aspectRatio === "16:9") return "1792x1024";
+  if (aspectRatio === "9:16") return "1024x1792";
+  // Default to square 1024x1024
+  return "1024x1024";
+}
 
 export const generateImageTool = (
   dataStream?: UIMessageStreamWriter<ChatMessage>
@@ -34,17 +41,26 @@ export const generateImageTool = (
         .optional()
         .default("1K")
         .describe("Resolution size of the generated image. Use 2K or 4K only if specified."),
+      provider: z
+        .enum(["google", "openai"])
+        .optional()
+        .default("google")
+        .describe("The provider/model to use. 'google' uses gemini-3.1-flash-image-preview. 'openai' uses openai-image-2 (openai/gpt-image-2). Default is google."),
       editReferenceImageUrl: z
         .string()
         .url()
         .optional()
         .describe("ONLY use this if the user wants to EDIT an existing image. Do NOT use this for generating a new image. Provide the exact URL the user specified."),
     }),
-    execute: async ({ prompt, aspectRatio, resolution, editReferenceImageUrl }) => {
+    execute: async ({ prompt, aspectRatio, resolution, provider, editReferenceImageUrl }) => {
       try {
-        const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY });
+        const modelId = provider === "openai"
+          ? "openai/gpt-image-2"
+          : "google/gemini-3.1-flash-image-preview";
 
-        let contentsPayload: any = prompt;
+        console.log(`[Image Gen] Generating image using ${modelId} via Vercel AI SDK & AI Gateway`);
+
+        let promptInput: any = prompt;
 
         if (editReferenceImageUrl) {
           try {
@@ -63,45 +79,29 @@ export const generateImageTool = (
             }
             
             const arrayBuffer = await res.arrayBuffer();
-            const base64Image = Buffer.from(arrayBuffer).toString("base64");
-            const mimeType = res.headers.get("content-type") || "image/png";
+            const buffer = Buffer.from(arrayBuffer);
 
-            contentsPayload = [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64Image,
-                },
-              },
-            ];
+            promptInput = {
+              text: prompt,
+              images: [buffer],
+            };
           } catch (e: any) {
             console.error("Failed to load editReferenceImageUrl. Falling back to plain text-to-image:", e);
             // Gracefully fallback to simple text generation if the URL was hallucinated or expired
-            contentsPayload = prompt;
+            promptInput = prompt;
           }
         }
 
-        const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-image-preview",
-          contents: contentsPayload,
-          config: {
-            responseModalities: ["IMAGE"],
-            imageConfig: { 
-              aspectRatio,
-              imageSize: resolution,
-            },
-          } as any,
+        const size = provider === "openai" ? mapAspectRatioToOpenAISize(aspectRatio) : undefined;
+
+        const result = await generateImage({
+          model: gateway.imageModel(modelId),
+          prompt: promptInput,
+          aspectRatio: provider === "google" ? aspectRatio : undefined,
+          size,
         });
 
-        let base64Image = "";
-
-        for (const part of response.candidates?.[0]?.content?.parts || []) {
-          if (part.inlineData && part.inlineData.data) {
-            base64Image = part.inlineData.data as string;
-            break;
-          }
-        }
+        const base64Image = result.image.base64;
 
         if (!base64Image) {
           throw new Error("No image data found in response");
@@ -123,7 +123,9 @@ export const generateImageTool = (
           originalPrompt: prompt,
           aspectRatioGenerated: aspectRatio,
           resolution,
-          edited: !!editReferenceImageUrl && contentsPayload !== prompt, // true only if we successfully attached an image part
+          providerUsed: provider,
+          modelUsed: modelId,
+          edited: !!editReferenceImageUrl && promptInput !== prompt, // true only if we successfully attached an image part
         };
 
       } catch (error) {
