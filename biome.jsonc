@@ -26,6 +26,7 @@
   "linter": {
     "rules": {
       "suspicious": {
+        "noUnnecessaryConditions": "off",
         "noExplicitAny": "off",
         "noUnknownAtRules": "off",
         "noConsole": "off",
@@ -37,7 +38,6 @@
         "useConsistentTypeDefinitions": "off"
       },
       "nursery": {
-        "noUnnecessaryConditions": "off",
         "useSortedClasses": "off"
       },
       "complexity": {
