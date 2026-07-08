@@ -2,9 +2,7 @@ import { buildUserBot } from "@/lib/bot";
 import { after } from "next/server";
 import { NextRequest, NextResponse } from "next/server";
 
-type RouteParams = { params: Promise<{ platform: string; userId: string }> };
-
-async function handleWebhook(req: NextRequest, params: RouteParams["params"]) {
+async function handleWebhook(req: NextRequest, params: Promise<{ platform: string; userId: string }>) {
   const { platform, userId } = await params;
 
   const bot = await buildUserBot(userId, platform);
@@ -35,7 +33,7 @@ async function handleWebhook(req: NextRequest, params: RouteParams["params"]) {
 
 // GET — needed for WhatsApp & some other platforms that send a verification
 // challenge via GET before delivering any events.
-export async function GET(req: NextRequest, { params }: RouteParams) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ platform: string; userId: string }> }) {
   try {
     return await handleWebhook(req, params);
   } catch (error: any) {
@@ -51,7 +49,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function POST(req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ platform: string; userId: string }> }) {
   try {
     return await handleWebhook(req, params);
   } catch (error: any) {

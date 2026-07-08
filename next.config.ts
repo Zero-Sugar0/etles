@@ -1,9 +1,27 @@
 import { withBotId } from "botid/next/config";
+import path from "path";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
-  turbopack: {},
+  turbopack: {
+    resolveAlias: {
+      "zlib-sync": "./lib/shims/zlib-sync.js",
+    },
+  },
+  webpack(config) {
+    if (!config.resolve) {
+      config.resolve = { alias: {} };
+    }
+
+    if (!config.resolve.alias) {
+      config.resolve.alias = {};
+    }
+
+    config.resolve.alias["zlib-sync"] = path.resolve(__dirname, "lib/shims/zlib-sync.js");
+
+    return config;
+  },
   experimental: {
     serverActions: {
       allowedOrigins: [
