@@ -17,6 +17,7 @@ export default function LandingPage() {
             alt="Etles Background" 
             fill 
             priority
+            sizes="100vw"
             className="object-cover opacity-60 mix-blend-screen"
           />
         </div>
@@ -83,22 +84,23 @@ export default function LandingPage() {
            </div>
            
            <div className="flex flex-wrap items-center justify-center gap-8 md:gap-20 opacity-40 hover:opacity-70 transition-opacity duration-700 mix-blend-screen px-4">
-              {[
-                { name: 'Stripe', path: '/logos/stripe.svg' },
-                { name: 'Vercel', path: '/logos/vercel.svg' },
-                { name: 'Linear', path: '/logos/linear.svg' },
-                { name: 'Notion', path: '/logos/notion.svg' },
-                { name: 'Figma', path: '/logos/figma.svg' }
-              ].map((logo) => (
-               <div key={logo.name} className="h-6 md:h-8 w-24 md:w-32 relative">
-                  <Image 
-                    src={logo.path} 
-                    alt={logo.name} 
-                    fill 
-                    className="object-contain brightness-0 invert" 
-                  />
-                </div>
-              ))}
+               {[
+                 { name: 'Stripe', path: '/logos/stripe.svg' },
+                 { name: 'Vercel', path: '/logos/vercel.svg' },
+                 { name: 'Linear', path: '/logos/linear.svg' },
+                 { name: 'Notion', path: '/logos/notion.svg' },
+                 { name: 'Figma', path: '/logos/figma.svg' }
+               ].map((logo) => (
+                <div key={logo.name} className="h-6 md:h-8 w-24 md:w-32 relative">
+                   <Image 
+                     src={logo.path} 
+                     alt={logo.name} 
+                     fill 
+                     sizes="(max-width: 768px) 96px, 128px"
+                     className="object-contain brightness-0 invert" 
+                   />
+                 </div>
+               ))}
            </div>
         </div>
       </section>
@@ -159,6 +161,7 @@ export default function LandingPage() {
                   src="/etles_dashboard_mockup_1774154912837.png" 
                   alt="Etles Dashboard Mockup" 
                   fill 
+                  sizes="100vw"
                   className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
                 />
               </div>
@@ -184,6 +187,7 @@ export default function LandingPage() {
                   src="/etles_triggers_ui_1774154944442.png" 
                   alt="Etles Triggers UI Mockup" 
                   fill 
+                  sizes="100vw"
                   className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
                 />
               </div>

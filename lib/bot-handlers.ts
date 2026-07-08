@@ -1,10 +1,10 @@
 import { Chat, toAiMessages } from "chat";
 import type { SlackAdapter } from "@chat-adapter/slack";
-import { streamText } from "ai";
+import { streamText, stepCountIs } from "ai";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { saveChat, saveMessages } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
-import { getWeather } from "@/lib/ai/tools/get-weather";
+import { buildPlatformAgentTools, BOT_SYSTEM_PROMPT } from "@/lib/bot-ai";
 
 // Platforms where thread.post(stream) is unsupported — must await text and post markdown.
 // Source: Chat SDK feature matrix — GitHub ❌, Linear ❌, WhatsApp ❌, Resend (email) ❌
@@ -53,10 +53,14 @@ async function handleFirstMessage(
     platformThreadId: thread.id,
   });
 
+  const tools = await buildPlatformAgentTools({ userId: ownerUserId, chatId });
+
   const response = await streamText({
     model: getLanguageModel("google/gemini-2.5-flash"),
+    system: BOT_SYSTEM_PROMPT,
     prompt: message?.text || "",
-    tools: { getWeather },
+    tools,
+    stopWhen: stepCountIs(8),
     onFinish: async ({ text, toolCalls }) => {
       const timestamp = new Date();
       await saveMessages({
@@ -153,11 +157,14 @@ export function attachHandlers(bot: Chat, platform: string, ownerUserId: string)
       messages.push(msg);
     }
     const history = await toAiMessages(messages);
+    const tools = await buildPlatformAgentTools({ userId: ownerUserId, chatId });
 
     const response = await streamText({
       model: getLanguageModel("google/gemini-2.5-flash"),
+      system: BOT_SYSTEM_PROMPT,
       messages: history,
-      tools: { getWeather },
+      tools,
+      stopWhen: stepCountIs(8),
       onFinish: async ({ text, toolCalls }) => {
         const timestamp = new Date();
         await saveMessages({

@@ -57,6 +57,7 @@ export default function FeaturesPage() {
             src="/etles_hero_bg.png" 
             alt="Features Background" 
             fill 
+            sizes="100vw"
             className="object-cover opacity-40 mix-blend-screen"
           />
         </div>
@@ -118,6 +119,7 @@ export default function FeaturesPage() {
                     src="/dashboard_mockup.png" 
                     alt="Workflows" 
                     fill 
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" 
                   />
                 </div>
@@ -148,6 +150,7 @@ export default function FeaturesPage() {
                     src="/memory_visual.png" 
                     alt="Memory Visual" 
                     fill 
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" 
                   />
                 </div>
@@ -178,6 +181,7 @@ export default function FeaturesPage() {
                      src="/generative_ui.png" 
                      alt="Generative UI Mockup" 
                      fill 
+                     sizes="(max-width: 1024px) 100vw, 50vw"
                      className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-1000" 
                    />
                 </div>

@@ -55,10 +55,27 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 2. Register QStash crons (idempotent — uses deduplicationId)
+    // 2. Register QStash crons + persist schedule IDs (idempotent scheduleId)
     await registerUserCrons(userId);
 
-    // 3. Trigger immediate heartbeat so the user sees "Active" status right away
+    // 3. Full activation (morning briefing + sandbox keepalive schedules)
+    const baseUrl =
+      process.env.BASE_URL ||
+      process.env.RENDER_EXTERNAL_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    await fetch(`${baseUrl}/api/agent/heartbeat/activate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-agent-secret": process.env.AGENT_DELEGATE_SECRET ?? "dev-internal",
+        "x-user-id": userId,
+      },
+      body: JSON.stringify({ morningHour: 7 }),
+    }).catch((err) => {
+      console.error("[Onboarding Complete] Heartbeat activate failed:", err);
+    });
+
+    // 4. Trigger immediate heartbeat so the user sees "Active" status right away
     await triggerHeartbeatWorkflow({ userId });
 
     return NextResponse.json({

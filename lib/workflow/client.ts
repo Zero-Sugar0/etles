@@ -324,32 +324,65 @@ export async function registerUserCrons(userId: string): Promise<void> {
   if (!token || !appBaseUrl) return;
 
   const heartbeatUrl = `${appBaseUrl}/api/agent/heartbeat`;
+  const heartbeatSecret = process.env.AGENT_DELEGATE_SECRET ?? "dev-internal";
   const qstash = new QStashClient({
     token,
     baseUrl: process.env.QSTASH_URL,
   });
 
-  // Hourly heartbeat: every hour at minute 0
-  await qstash.schedules.create({
-    destination: heartbeatUrl,
-    cron: "0 * * * *",
-    body: JSON.stringify({ userId, type: "heartbeat" }),
-    headers: {
-      "Content-Type": "application/json",
-    },
-    scheduleId: `hb-${userId}`,
-  });
+  const results: Record<string, string> = {};
 
-  // Weekly synthesis: every Monday at 8am UTC
-  await qstash.schedules.create({
-    destination: heartbeatUrl,
-    cron: "0 8 * * 1",
-    body: JSON.stringify({ userId, type: "weekly_synthesis" }),
-    headers: {
-      "Content-Type": "application/json",
-    },
-    scheduleId: `syn-${userId}`,
-  });
+  try {
+    const heartbeat = await qstash.schedules.create({
+      destination: heartbeatUrl,
+      cron: "0 * * * *",
+      body: JSON.stringify({ userId, type: "heartbeat" }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-heartbeat-secret": heartbeatSecret,
+      },
+      scheduleId: `hb-${userId}`,
+    });
+    results.heartbeatScheduleId = heartbeat.scheduleId;
+  } catch (err) {
+    console.error("[registerUserCrons] heartbeat schedule failed:", err);
+  }
+
+  try {
+    const synthesis = await qstash.schedules.create({
+      destination: heartbeatUrl,
+      cron: "0 8 * * 1",
+      body: JSON.stringify({ userId, type: "weekly_synthesis" }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-heartbeat-secret": heartbeatSecret,
+      },
+      scheduleId: `syn-${userId}`,
+    });
+    results.synthesisScheduleId = synthesis.scheduleId;
+  } catch (err) {
+    console.error("[registerUserCrons] synthesis schedule failed:", err);
+  }
+
+  // Persist schedule IDs so getAgentSystemStatus shows ACTIVE
+  if (
+    results.heartbeatScheduleId &&
+    process.env.UPSTASH_REDIS_REST_URL &&
+    process.env.UPSTASH_REDIS_REST_TOKEN
+  ) {
+    const { Redis } = await import("@upstash/redis");
+    const redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+    const existing =
+      (await redis.get<Record<string, string>>(`agent:heartbeat:schedules:${userId}`)) ?? {};
+    await redis.set(
+      `agent:heartbeat:schedules:${userId}`,
+      JSON.stringify({ ...existing, ...results }),
+      { ex: 60 * 60 * 24 * 365 },
+    );
+  }
 }
 
 export async function pauseUserCrons(userId: string): Promise<void> {

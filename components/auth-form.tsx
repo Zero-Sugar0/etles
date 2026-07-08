@@ -12,6 +12,7 @@ export function AuthForm({
   children,
   defaultEmail = "",
   showLegal = false,
+  showNameFields = false,
 }: {
   action: NonNullable<
     string | ((formData: FormData) => void | Promise<void>) | undefined
@@ -19,11 +20,45 @@ export function AuthForm({
   children: React.ReactNode;
   defaultEmail?: string;
   showLegal?: boolean;
+  showNameFields?: boolean;
 }) {
   const [showPassword, setShowPassword] = useState(false);
 
   return (
     <Form action={action} className="flex flex-col gap-4 w-full">
+      {showNameFields && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-2">
+            <Label className="text-muted-foreground" htmlFor="firstName">
+              First Name
+            </Label>
+            <Input
+              autoComplete="given-name"
+              className="bg-muted/50 border-border h-10 text-foreground"
+              id="firstName"
+              name="firstName"
+              placeholder="Jane"
+              required
+              type="text"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label className="text-muted-foreground" htmlFor="lastName">
+              Last Name
+            </Label>
+            <Input
+              autoComplete="family-name"
+              className="bg-muted/50 border-border h-10 text-foreground"
+              id="lastName"
+              name="lastName"
+              placeholder="Doe"
+              required
+              type="text"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         <Label
           className="text-muted-foreground"

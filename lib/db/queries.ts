@@ -57,6 +57,13 @@ import { generateHashedPassword } from "./utils";
 const client = postgres(process.env.POSTGRES_URL!);
 const db = drizzle(client);
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUUID(id: string | null | undefined): boolean {
+  if (!id) return false;
+  return UUID_REGEX.test(id);
+}
+
 /** True when Postgres reports the AgentTask relation is missing (migrations not applied). */
 function isPostgresUndefinedAgentTaskError(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -105,11 +112,21 @@ export async function getUser(email: string): Promise<User[]> {
   }
 }
 
-export async function createUser(email: string, password: string) {
+export async function createUser(
+  email: string,
+  password: string,
+  firstName?: string,
+  lastName?: string,
+) {
   const hashedPassword = generateHashedPassword(password);
 
   try {
-    return await db.insert(user).values({ email, password: hashedPassword });
+    return await db.insert(user).values({
+      email,
+      password: hashedPassword,
+      firstName: firstName?.trim() || null,
+      lastName: lastName?.trim() || null,
+    });
   } catch (_error) {
     throw new ChatbotError("bad_request:database", "Failed to create user");
   }
@@ -179,6 +196,9 @@ export async function saveChat({
 }
 
 export async function deleteChatById({ id }: { id: string }) {
+  if (!isValidUUID(id)) {
+    return null;
+  }
   try {
     return await db.transaction(async (tx) => {
       await tx.delete(vote).where(eq(vote.chatId, id));
@@ -249,6 +269,15 @@ export async function getChatsByUserId({
   startingAfter: string | null;
   endingBefore: string | null;
 }) {
+  if (!isValidUUID(id)) {
+    return { chats: [], hasMore: false };
+  }
+  if (startingAfter && !isValidUUID(startingAfter)) {
+    return { chats: [], hasMore: false };
+  }
+  if (endingBefore && !isValidUUID(endingBefore)) {
+    return { chats: [], hasMore: false };
+  }
   try {
     const extendedLimit = limit + 1;
 
@@ -315,6 +344,9 @@ export async function getChatsByUserId({
 }
 
 export async function getChatById({ id }: { id: string }) {
+  if (!isValidUUID(id)) {
+    return null;
+  }
   try {
     const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id));
     if (!selectedChat) {
@@ -322,7 +354,8 @@ export async function getChatById({ id }: { id: string }) {
     }
 
     return selectedChat;
-  } catch (_error) {
+  } catch (error) {
+    console.error("[getChatById] Database error details:", error);
     throw new ChatbotError("bad_request:database", "Failed to get chat by id");
   }
 }
@@ -369,6 +402,9 @@ export async function updateMessage({
 }
 
 export async function getMessagesByChatId({ id }: { id: string }) {
+  if (!isValidUUID(id)) {
+    return [];
+  }
   try {
     return await db
       .select()
@@ -391,6 +427,9 @@ export async function getRecentMessagesForChat({
   chatId: string;
   limit: number;
 }) {
+  if (!isValidUUID(chatId)) {
+    return [];
+  }
   try {
     return await db
       .select()
@@ -632,6 +671,9 @@ export async function updateChatVisibilityById({
   chatId: string;
   visibility: "private" | "public";
 }) {
+  if (!isValidUUID(chatId)) {
+    return null;
+  }
   try {
     return await db.update(chat).set({ visibility }).where(eq(chat.id, chatId));
   } catch (_error) {
@@ -649,6 +691,9 @@ export async function updateChatTitleById({
   chatId: string;
   title: string;
 }) {
+  if (!isValidUUID(chatId)) {
+    return;
+  }
   try {
     return await db.update(chat).set({ title }).where(eq(chat.id, chatId));
   } catch (error) {

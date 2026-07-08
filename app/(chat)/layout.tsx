@@ -30,14 +30,19 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
 
   let dbUser = undefined;
   if (session?.user?.id) {
-    const users = await getUserById(session.user.id);
-    if (users && users.length > 0) {
-      dbUser = {
-        ...session.user,
-        firstName: users[0].firstName,
-        lastName: users[0].lastName,
-        email: users[0].email,
-      };
+    try {
+      const users = await getUserById(session.user.id);
+      if (users.length > 0) {
+        dbUser = {
+          ...session.user,
+          firstName: users[0].firstName,
+          lastName: users[0].lastName,
+          email: users[0].email,
+        };
+      }
+    } catch {
+      // DB unavailable or schema not migrated — fall back to session user
+      dbUser = session.user;
     }
   }
 

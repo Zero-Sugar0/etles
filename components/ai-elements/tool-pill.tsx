@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, isValidElement } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ExternalLink, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -18,36 +18,15 @@ import {
   ConfirmationTitle,
 } from "./confirmation";
 import { ToolInput, ToolOutput } from "../elements/tool";
+import {
+  findToolkit,
+  formatActionDescriptor,
+  preloadToolkitLogos,
+  resolveToolkitSlug,
+  type ToolkitInfo,
+} from "@/lib/toolkit-logos";
 
-// Global cache for toolkits to avoid repeated API requests across messages
-let globalToolkitsPromise: Promise<any[]> | null = null;
-let globalToolkitsCache: any[] | null = null;
-
-function getToolkits(): Promise<any[]> {
-  if (globalToolkitsCache) {
-    return Promise.resolve(globalToolkitsCache);
-  }
-  if (globalToolkitsPromise) {
-    return globalToolkitsPromise;
-  }
-  globalToolkitsPromise = fetch("/api/connections")
-    .then((res) => {
-      if (!res.ok) {
-        console.warn("Failed to fetch toolkits: API responded with status", res.status);
-        return { toolkits: [] };
-      }
-      return res.json();
-    })
-    .then((data) => {
-      globalToolkitsCache = data.toolkits || [];
-      return globalToolkitsCache!;
-    })
-    .catch((err) => {
-      console.error("Error fetching toolkits for pill logos:", err);
-      return [];
-    });
-  return globalToolkitsPromise;
-}
+export { preloadToolkitLogos } from "@/lib/toolkit-logos";
 
 // Parse tool type to extract slug, friendly app name, and action name
 export function parseToolNameDetails(type: string): {
@@ -250,6 +229,17 @@ export function parseToolNameDetails(type: string): {
     return { appSlug: "wikipedia", appLabel: "wiki", actionName: "ingest" };
   }
 
+  // 16. Agent Skills (.agents/skills)
+  if (lowerRaw === "readagentskill") {
+    return { appSlug: "mcp", appLabel: "agent skills", actionName: "read" };
+  }
+  if (lowerRaw === "readdepartmentmemory") {
+    return { appSlug: "database", appLabel: "department", actionName: "recall" };
+  }
+  if (lowerRaw === "writedepartmentmemory") {
+    return { appSlug: "database", appLabel: "department", actionName: "share" };
+  }
+
   // 17. Twilio & WhatsApp
   if (lowerRaw.startsWith("twiliowhatsapp")) {
     const action = raw.slice(14);
@@ -366,33 +356,39 @@ export function parseToolNameDetails(type: string): {
     return { appSlug: "composio", appLabel: "composio", actionName: "check_connection" };
   }
 
-  // Extract by underscores (Composio integrations or custom tools)
+  // Extract by underscores (Composio integrations: GMAIL_SEND_EMAIL, GOOGLE_CALENDAR_LIST_EVENTS)
   const underscoreIndex = raw.indexOf("_");
   if (underscoreIndex !== -1) {
-    const prefix = raw.slice(0, underscoreIndex);
-    const action = raw.slice(underscoreIndex + 1);
-    
-    let finalSlug = prefix.toLowerCase();
-    let finalLabel = prefix.toLowerCase();
-    
-    if (finalSlug === "composio" && action) {
-      // Find the second underscore or get the first word after composio__
-      const normalizedAction = action.replace(/^_+/, "");
-      const nextUnderscore = normalizedAction.indexOf("_");
-      if (nextUnderscore !== -1) {
-        const actualApp = normalizedAction.slice(0, nextUnderscore);
-        finalSlug = actualApp.toLowerCase();
-        finalLabel = actualApp.toLowerCase();
-      } else {
-        finalSlug = normalizedAction.toLowerCase();
-        finalLabel = normalizedAction.toLowerCase();
+    const parts = raw.split("_");
+    let appParts: string[] = [];
+    let actionParts: string[] = [];
+
+    if (parts[0]?.toLowerCase() === "composio" && parts.length > 2) {
+      appParts = [parts[1] ?? ""];
+      actionParts = parts.slice(2);
+    } else {
+      // Greedy match: try longest prefix that resolves to a known toolkit slug
+      for (let i = 1; i < parts.length; i++) {
+        const candidate = parts.slice(0, i).join("_").toLowerCase();
+        const resolved = resolveToolkitSlug(candidate);
+        if (resolved.length >= 2) {
+          appParts = parts.slice(0, i);
+          actionParts = parts.slice(i);
+        }
+      }
+      if (appParts.length === 0) {
+        appParts = [parts[0] ?? ""];
+        actionParts = parts.slice(1);
       }
     }
 
+    const appSlug = resolveToolkitSlug(appParts.join("_"));
+    const actionName = actionParts.join("_").toLowerCase() || "execute";
+
     return {
-      appSlug: finalSlug,
-      appLabel: finalLabel,
-      actionName: action.toLowerCase(),
+      appSlug,
+      appLabel: appSlug,
+      actionName,
     };
   }
 
@@ -516,21 +512,14 @@ export function ToolPill({
 
   useEffect(() => {
     let active = true;
-    getToolkits().then((toolkits) => {
+    preloadToolkitLogos().then((toolkits: ToolkitInfo[]) => {
       if (!active) return;
-      // Search for matches in the fetched toolkits
-      const match = toolkits.find(
-        (t) =>
-          t.slug.toLowerCase() === appSlug.toLowerCase() ||
-          t.name.toLowerCase() === appSlug.toLowerCase()
-      );
-      if (match) {
-        if (match.logo) {
-          setLogoUrl(match.logo);
-        }
-        if (match.name) {
-          setAppLabel(match.name.toLowerCase());
-        }
+      const match = findToolkit(toolkits, appSlug);
+      if (match?.logo) {
+        setLogoUrl(match.logo);
+      }
+      if (match?.name) {
+        setAppLabel(match.name);
       }
     });
     return () => {
@@ -538,11 +527,12 @@ export function ToolPill({
     };
   }, [appSlug]);
 
-  const displayAppLabel = resolvedAppLabel || appLabel.toLowerCase();
+  const displayAppLabel = resolvedAppLabel || appLabel;
+  const friendlyAction = formatActionDescriptor(actionName);
   const summaryText = getToolPreviewText(type, input, output, state);
 
-  // Logo lookup: Use fetched URL, local public SVG, or API fallback
-  const finalLogoSrc = logoUrl || `/logos/${appSlug}.svg`;
+  const resolvedSlug = resolveToolkitSlug(appSlug);
+  const finalLogoSrc = logoUrl || `/logos/${resolvedSlug}.svg`;
 
   return (
     <div
@@ -572,8 +562,8 @@ export function ToolPill({
         {displayAppLabel}
       </span>
       <span className="text-zinc-400/60 dark:text-zinc-600/60 font-medium">·</span>
-      <span className="font-mono text-[11px] text-zinc-600 dark:text-zinc-400 font-semibold lowercase">
-        {actionName}
+      <span className="text-[11px] text-zinc-600 dark:text-zinc-400 font-medium lowercase">
+        {friendlyAction}
       </span>
       <span className="text-zinc-400/60 dark:text-zinc-600/60 font-medium">·</span>
       <span className="text-zinc-500 dark:text-zinc-400 truncate max-w-[200px] md:max-w-[300px]">

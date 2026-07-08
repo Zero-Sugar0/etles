@@ -36,6 +36,13 @@
 | `wikiQuery` (read) | Load a specific framework page before acting |
 | `wikiIngest` | Save a winning insight or method after success |
 
+### Agent Skills (Built-in)
+| Tool | When |
+|---|---|
+| `readAgentSkill` (index) | At the start of any task — list all available built-in skills (composio, chat-sdk, etles-agent, etc.) |
+| `readAgentSkill` (read) | Load a specific skill's SKILL.md to understand HOW to build, integrate, or work on what's being asked |
+| `readAgentSkill` (read_rule) | Load a specific rule file within a skill for detailed guidance |
+
 ### Goals
 | Tool | When |
 |---|---|

@@ -49,7 +49,7 @@ import {
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Pencil } from "lucide-react";
 import { Video } from "./ai-elements/video";
-import { ExpandableToolPill } from "./ai-elements/message";
+import { ExpandableToolPill } from "./ai-elements/tool-pill";
 import { Shimmer } from "./ai-elements/shimmer";
 
 const PurePreviewMessage = ({

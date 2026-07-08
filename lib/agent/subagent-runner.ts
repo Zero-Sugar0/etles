@@ -79,6 +79,12 @@ import {
   tavilyMap,
 } from "@/lib/ai/tools/tavily-search";
 import { wikiQuery, wikiIngest } from "@/lib/ai/tools/wiki";
+import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
+import {
+  readDepartmentMemory,
+  writeDepartmentMemory,
+} from "@/lib/ai/tools/department-memory";
+import { getAgentDepartment, getDepartmentLabel } from "@/lib/agent/departments";
 import * as daytonaTools from "@/lib/ai/tools/daytona";
 import * as browserUseTools from "@/lib/ai/tools/browser-use";
 import * as daytonaBrowserTools from "@/lib/ai/tools/daytona-browser";
@@ -217,6 +223,9 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     tavilyMap,
     wikiQuery: wikiQuery({ userId }),
     wikiIngest: wikiIngest({ userId }),
+    readAgentSkill: readAgentSkill(),
+    readDepartmentMemory: readDepartmentMemory({ userId, agentSlug: agentType }),
+    writeDepartmentMemory: writeDepartmentMemory({ userId, agentSlug: agentType }),
 
     // Sandbox tools for specialist agents
     ...(agentType === "sandbox_specialist" || agentType === "browser_operator"
@@ -310,9 +319,19 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     } catch {}
   }
 
+  const department = getAgentDepartment(agentType);
+  const departmentLabel = getDepartmentLabel(department);
+
   const systemPrompt = `${definition.systemPrompt}${memoryContext}
 
 Today's date is ${new Date().toLocaleDateString()}.
+
+## Department Collaboration (${departmentLabel})
+
+You belong to the **${departmentLabel}** department. Agents in your department share memory via \`readDepartmentMemory\` and \`writeDepartmentMemory\`.
+- At the start of project work, call readDepartmentMemory to load prior context.
+- When you make decisions, resolve blockers, or learn stakeholder facts, call writeDepartmentMemory so collaborating agents (e.g. project_manager + chief_of_staff) stay aligned.
+- Use readAgentSkill to load built-in guides from .agents/skills (composio, chat-sdk, etles-agent).
 
 ## A2A Collaboration — Multi-Agent Orchestration
 

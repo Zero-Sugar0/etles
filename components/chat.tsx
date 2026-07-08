@@ -32,6 +32,7 @@ import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
+import { preloadToolkitLogos } from "@/lib/toolkit-logos";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
@@ -68,6 +69,11 @@ export function Chat({
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [router]);
+
+  // Preload Composio toolkit logos for live tool pills on first paint
+  useEffect(() => {
+    void preloadToolkitLogos();
+  }, []);
 
   // Refresh on tab focus to pick up new messages (scheduled results, sub-agent results, Composio events)
   useEffect(() => {

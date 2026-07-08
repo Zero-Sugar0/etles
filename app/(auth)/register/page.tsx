@@ -66,7 +66,7 @@ export default function Page() {
           </p>
         </div>
 
-        <AuthForm action={handleSubmit} defaultEmail={email} showLegal={true}>
+        <AuthForm action={handleSubmit} defaultEmail={email} showLegal={true} showNameFields={true}>
           <SubmitButton isSuccessful={isSuccessful}>Create Account</SubmitButton>
           
           <div className="mt-4 text-center text-sm">

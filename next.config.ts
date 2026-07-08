@@ -3,7 +3,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
-  serverExternalPackages: ["zlib-sync"],
   turbopack: {},
   experimental: {
     serverActions: {
@@ -16,7 +15,7 @@ const nextConfig: NextConfig = {
     },
   },
   outputFileTracingIncludes: {
-    "/api/**": ["./.wiki/**/*.md"],
+    "/api/**": ["./.wiki/**/*.md", "./.agents/skills/**/*.md"],
   },
   images: {
     remotePatterns: [

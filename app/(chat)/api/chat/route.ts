@@ -32,6 +32,7 @@ import { renderChart } from "@/lib/ai/tools/render-chart";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { wikiQuery, wikiIngest } from "@/lib/ai/tools/wiki";
+import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
 import {
   saveMemory,
   recallMemory,
@@ -494,6 +495,7 @@ export async function POST(request: Request) {
                 "tavilyMap",
                 "wikiQuery",
                 "wikiIngest",
+                "readAgentSkill",
                 // Twilio tools
                 "twilioMakeCall",
                 "twilioGetCall",
@@ -595,6 +597,7 @@ export async function POST(request: Request) {
             renderChart,
             wikiQuery: wikiQuery({ userId: session.user.id! }),
             wikiIngest: wikiIngest({ userId: session.user.id! }),
+            readAgentSkill: readAgentSkill(),
             createDocument: createDocument({
               session,
               dataStream,

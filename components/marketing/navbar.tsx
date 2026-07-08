@@ -25,7 +25,7 @@ export function Navbar({ user }: { user?: any }) {
         <div className="flex items-center gap-2 shrink-0">
           <Link href="/" className="flex items-center gap-2 md:gap-3 active:scale-95 transition-transform" aria-label="Etles Home">
             <div className="h-6 w-6 md:h-9 md:w-9 rounded-lg md:rounded-xl overflow-hidden border border-white/10 shadow-2xl relative">
-              <Image src="/logo.png" alt="Etles" fill priority className="object-cover" />
+              <Image src="/logo.png" alt="Etles" fill priority sizes="48px" className="object-cover" />
             </div>
             <span className="font-heading italic text-lg md:text-2xl tracking-tighter text-white">Etles</span>
           </Link>

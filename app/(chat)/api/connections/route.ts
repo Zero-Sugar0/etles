@@ -1,4 +1,4 @@
-//app/(chat)/api/connextions/route.ts
+// app/(chat)/api/connections/route.ts
 import { Composio } from "@composio/core";
 import { auth } from "../../../(auth)/auth";
 import { guestRegex } from "@/lib/constants";
