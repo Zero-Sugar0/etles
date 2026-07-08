@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { getAgentDepartment } from "@/lib/agent/departments";
 import {
   getAllAgentSlugs,
   getSubAgentBySlug,
@@ -40,7 +41,8 @@ async function invokeDelegateHttp(
 export const listSubAgents = () =>
   tool({
     description:
-      "List all available sub-agents that Etles can delegate tasks to. " +
+      "List all available sub-agents that Etles can delegate tasks to, grouped by department. " +
+      "Agents within the same department share memory via readDepartmentMemory/writeDepartmentMemory. " +
       "Use this when the user asks what agents exist or what can be delegated.",
     inputSchema: z.object({}),
     execute: () => {
@@ -48,9 +50,22 @@ export const listSubAgents = () =>
         slug: a.slug,
         name: a.name,
         description: a.description,
+        department: getAgentDepartment(a.slug),
       }));
+
+      // Group by department
+      const byDepartment: Record<string, typeof agents> = {};
+      for (const agent of agents) {
+        const dept = agent.department;
+        if (!byDepartment[dept]) {
+          byDepartment[dept] = [];
+        }
+        byDepartment[dept].push(agent);
+      }
+
       return {
         agents,
+        byDepartment,
         message: `Available agents: ${agents.map((a) => a.name).join(", ")}. Use delegateToSubAgent to spawn one.`,
       };
     },
@@ -86,7 +101,9 @@ export const delegateToSubAgent = ({
       attachments: z
         .array(z.string().url())
         .optional()
-        .describe("Array of any file or image URLs the user provided that are necessary for the sub-agent to process"),
+        .describe(
+          "Array of any file or image URLs the user provided that are necessary for the sub-agent to process"
+        ),
     }),
     execute: async ({ agentType, task, attachments }) => {
       const definition = getSubAgentBySlug(agentType);
@@ -97,9 +114,10 @@ export const delegateToSubAgent = ({
         };
       }
 
-      const finalTask = attachments && attachments.length > 0 
-        ? `${task}\n###ATTACHMENTS###\n${JSON.stringify(attachments)}` 
-        : task;
+      const finalTask =
+        attachments && attachments.length > 0
+          ? `${task}\n###ATTACHMENTS###\n${JSON.stringify(attachments)}`
+          : task;
 
       const taskId = generateUUID();
       await createAgentTask({
@@ -113,7 +131,7 @@ export const delegateToSubAgent = ({
       const delegationPayload = {
         agentType: definition.name,
         slug: agentType,
-        task: task,
+        task,
         taskId,
         status: "running",
         timestamp: new Date().toISOString(),

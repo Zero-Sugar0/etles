@@ -2,7 +2,6 @@ import { Chat, ConsoleLogger } from "chat";
 import { createSlackAdapter } from "@chat-adapter/slack";
 import { createTeamsAdapter } from "@chat-adapter/teams";
 import { createGoogleChatAdapter } from "@chat-adapter/gchat";
-import { createDiscordAdapter } from "@chat-adapter/discord";
 import { createTelegramAdapter } from "@chat-adapter/telegram";
 import { createGitHubAdapter } from "@chat-adapter/github";
 import { createLinearAdapter } from "@chat-adapter/linear";
@@ -69,13 +68,15 @@ export async function buildUserBot(userId: string, platform: string) {
       });
       break;
 
-    case "discord":
+    case "discord": {
+      const { createDiscordAdapter } = await import("@chat-adapter/discord");
       adapter = createDiscordAdapter({
         botToken: integration.botToken,
         applicationId: extraConfig.applicationId,
         publicKey: integration.signingSecret || undefined,
       });
       break;
+    }
 
     case "telegram":
       adapter = createTelegramAdapter({

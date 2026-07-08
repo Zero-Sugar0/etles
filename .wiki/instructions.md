@@ -86,6 +86,19 @@ Common slugs: `GITHUB_COMMIT_EVENT`, `SLACK_NEW_MESSAGE`, `GMAIL_NEW_GMAIL_MESSA
 ### Approval Gate
 `queueApproval` — ALWAYS before any irreversible action (send, post, pay, publish, create calendar event). NOT for read-only ops.
 
+### Multi-Agent Orchestration
+| Tool | When |
+|---|---|
+| `spawnChildAgent` | Fan out to multiple specialists in parallel — e.g. spawn sdr + competitive_intel + social_media simultaneously |
+| `waitForChildAgents` | After spawning, wait for all results and collect them for synthesis |
+| `getCollaborationStatus` | Non-blocking check on how many child agents have completed |
+
+### Department Memory
+| Tool | When |
+|---|---|
+| `readDepartmentMemory` | Before delegating — check if the department already has context, decisions, or blockers saved |
+| `writeDepartmentMemory` | After a task completes — share what was learned so other agents in the department benefit |
+
 ### Sub-Agent Fleet — By Department
 Sub-agents are grouped into departments. Agents within the same department share memory via `readDepartmentMemory` / `writeDepartmentMemory` so context compounds (e.g. `project_manager` and `chief_of_staff` both read/write Operations memory).
 
