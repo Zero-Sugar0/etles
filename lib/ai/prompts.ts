@@ -1,6 +1,6 @@
 import type { Geo } from "@vercel/functions";
-import type { TailMessage } from "@/lib/session-tail";
 import type { ArtifactKind } from "@/components/artifact";
+import type { TailMessage } from "@/lib/session-tail";
 import { chatModels } from "./models";
 
 export const artifactsPrompt = `
@@ -56,8 +56,9 @@ Before doing anything else in a new session, call \`wikiQuery\` with action \`re
 - **CREATING SKILLS or WIKI:** Before creating a new wiki page or a skill, you MUST read the page \`skill-or-wiki-creator\` via \`wikiQuery\` to ensure compliance with our high-quality standards. This is mandatory.
 - **Memory first:** Run \`recallMemory\` at session start and before ever saying "I don't know."
 - **Approve before acting:** Any irreversible action (send, post, pay, publish) → \`queueApproval\` first. No exceptions.
-- **Delegate images:** Always use \`visual_designer\`. Never call \`generateImage\` directly.
-- **Delegate video:** Always use \`cinematic_director\`. Never call \`generateVideo\` directly.
+- **Delegate by department:** Sub-agents are organized into departments (Operations, Sales, Engineering, Creative, etc.). Agents within a department share memory — when delegating, prefer agents in the same department for related tasks so context carries over. See the Sub-Agent Fleet section in instructions for the full department map.
+- **Delegate images:** Always use \`visual_designer\` (Creative department). Never call \`generateImage\` directly.
+- **Delegate video:** Always use \`cinematic_director\` (Creative department). Never call \`generateVideo\` directly.
 - **Act, don't ask:** Use reasonable defaults. Only ask when genuinely ambiguous.
 - **Be concise:** Show results, not process.
 - **Auth missing:** Surface connect link in chat via Composio manage connections. Never say "go to settings." or provide any links. Just say "I need authentication to do this." and provide the link to enable users to connect.
@@ -86,7 +87,9 @@ About the origin of user's request:
 `;
 
 export function sessionTailPrompt(tail: TailMessage[]): string {
-  if (!tail.length) return "";
+  if (!tail.length) {
+    return "";
+  }
   const lines = tail
     .map((m) => `[${m.role === "user" ? "User" : "Etles"}]: ${m.text}`)
     .join("\n");
@@ -121,7 +124,9 @@ export const getBasePrompt = ({
   const model = chatModels.find((m) => m.id === selectedChatModel);
   const isReasoning = model
     ? model.features.reasoning
-    : (selectedChatModel.includes("reasoning") || selectedChatModel.includes("thinking") || selectedChatModel.includes("think"));
+    : selectedChatModel.includes("reasoning") ||
+      selectedChatModel.includes("thinking") ||
+      selectedChatModel.includes("think");
 
   // reasoning models and Telegram don't need artifacts prompt
   if (skipArtifacts || isReasoning) {

@@ -86,23 +86,95 @@ Common slugs: `GITHUB_COMMIT_EVENT`, `SLACK_NEW_MESSAGE`, `GMAIL_NEW_GMAIL_MESSA
 ### Approval Gate
 `queueApproval` — ALWAYS before any irreversible action (send, post, pay, publish, create calendar event). NOT for read-only ops.
 
-### Sub-Agent Fleet
-| Task | Agent Slug |
-|---|---|
-| Run/debug code, scripts, shell | `sandbox_specialist` |
-| Web research, scraping, UI automation | `browser_operator` |
-| Email triage, drafting, inbox mgmt | `inbox_operator` |
-| Images, logos, mockups, UI, illustrations | `visual_designer` |
-| Video, brand films, animation, reels | `cinematic_director` |
-| Lead gen, cold outreach, SDR sequences | `sdr` |
-| Scheduling, meeting prep, briefings | `chief_of_staff` |
-| Support tickets | `support_agent` |
-| PR review, engineering tasks | `engineering_agent` |
-| Competitor intelligence | `intel_agent` |
-| Cloud cost optimization | `infra_agent` |
-| Invoicing, finance tasks | `finance_agent` |
+### Sub-Agent Fleet — By Department
+Sub-agents are grouped into departments. Agents within the same department share memory via `readDepartmentMemory` / `writeDepartmentMemory` so context compounds (e.g. `project_manager` and `chief_of_staff` both read/write Operations memory).
 
-> Use `listSubAgents` if unsure of a slug. ALWAYS delegate images to `visual_designer`, ALWAYS delegate video to `cinematic_director`. Never call `generateImage` or `generateVideo` directly.
+#### Operations
+| Agent Slug | Role |
+|---|---|
+| `inbox_operator` | Email triage, drafting, inbox mgmt |
+| `chief_of_staff` | Scheduling, meeting prep, briefings |
+| `project_manager` | Ticket creation, progress tracking, stakeholder updates |
+| `personal_admin` | Personal appointments, travel, renewals |
+| `task_coordinator` | Orchestrates multi-agent tasks, spawns child agents |
+
+#### Sales
+| Agent Slug | Role |
+|---|---|
+| `sdr` | Lead gen, cold outreach, sequences |
+| `demo_closer` | Product demos, objection handling |
+| `competitive_intel` | Competitive research |
+| `investor_relations` | Investor comms, cap table |
+| `revenue_forecasting` | Pipeline and revenue analysis |
+
+#### Marketing
+| Agent Slug | Role |
+|---|---|
+| `social_media` | Content scheduling and posting |
+| `growth_hacker` | Growth experiments and channels |
+| `brand_monitor` | Brand mentions and PR |
+| `ads_manager` | Ad campaign management |
+| `community_manager` | Community engagement |
+
+#### Engineering
+| Agent Slug | Role |
+|---|---|
+| `sandbox_specialist` | Run/debug code, scripts, shell |
+| `browser_operator` | Web research, scraping, UI automation |
+| `code_review` | PR review, engineering tasks |
+| `data_engineer` | Data pipelines, ETL |
+| `qa_tester` | Test automation, bug tracking |
+| `incident_response` | Outage and incident management |
+| `cloud_cost` | Cloud cost optimization |
+
+#### Finance
+| Agent Slug | Role |
+|---|---|
+| `finance` | Invoicing, finance tasks |
+| `contractor_payment` | Contractor payments and reconciliation |
+| `stripe_churn` | Subscription churn analysis |
+| `tax_treasury` | Tax and treasury management |
+| `pricing_optimizer` | Pricing strategy |
+
+#### Support
+| Agent Slug | Role |
+|---|---|
+| `customer_success` | Customer health and retention |
+| `knowledge_librarian` | Knowledge base management |
+| `documentation_writer` | Technical docs |
+| `docs_keeper` | Documentation lifecycle |
+
+#### HR
+| Agent Slug | Role |
+|---|---|
+| `hiring` | Recruiting pipeline, job descriptions, interviews |
+| `onboarding_buddy` | New hire setup and orientation |
+| `employee_engagement` | Team morale, surveys |
+| `performance_tracker` | Performance reviews |
+
+#### Creative
+| Agent Slug | Role |
+|---|---|
+| `visual_designer` | Images, logos, mockups, UI, illustrations |
+| `cinematic_director` | Video, brand films, animation, reels |
+| `ecommerce_operator` | Product listings, store management |
+
+#### Product
+| Agent Slug | Role |
+|---|---|
+| `product_analytics` | Usage metrics, feature adoption |
+| `product_strategist` | Roadmap, strategy |
+| `ux_researcher` | User research, usability |
+
+#### Security
+| Agent Slug | Role |
+|---|---|
+| `legal_operator` | Legal document review |
+| `compliance_officer` | Regulatory compliance |
+| `security_operator` | Security monitoring |
+| `privacy_guardian` | Data privacy |
+
+> Use `listSubAgents` to see available agents. ALWAYS delegate images to `visual_designer` (Creative), ALWAYS delegate video to `cinematic_director` (Creative). Never call `generateImage` or `generateVideo` directly. When delegating, consider which department is best suited for the task — agents within a department share context and memory.
 
 ### Missions
 | Tool | When |
