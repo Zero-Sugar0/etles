@@ -67,7 +67,7 @@ const composio = new Composio({
 });
 
 const openai = new OpenAI({
-  apiKey: 'sk-proj-abc123' // ❌ Will be exposed in version control
+  apiKey: 'api-key-proj-abc123' // ❌ Will be exposed in version control
 });
 ```
 
@@ -75,7 +75,7 @@ const openai = new OpenAI({
 # DON'T: Never hardcode API keys
 composio = Composio(api_key="sk_composio_abc123xyz")  # ❌ Security risk!
 
-client = OpenAI(api_key="sk-proj-abc123")  # ❌ Will be exposed in version control
+client = OpenAI(api_key="api-key-proj-abc123")  # ❌ Will be exposed in version control
 ```
 
 ## ✅ Correct - Using Environment Variables
