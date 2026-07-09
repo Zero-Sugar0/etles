@@ -125,7 +125,7 @@ export async function deleteCredentials(): Promise<void> {
 
 export async function validateCredentials(email?: string, password?: string, apiKey?: string): Promise<{ success: boolean; error?: string; data?: CredentialData }> {
   if (apiKey) {
-    if (!apiKey.startsWith('sk-') && apiKey.length < 20) {
+    if (!apiKey.startsWith('api-key-') && apiKey.length < 20) {
       return { success: false, error: 'Invalid API key format. Must be at least 20 chars.' };
     }
     // Success simulation

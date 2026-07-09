@@ -27,8 +27,8 @@ async function runTests() {
     const validateRes = await validateCredentials('test@etles.ai', 'password123');
     assert(validateRes.success && !!validateRes.data, 'Email/Password validation succeeds with premium simulation data');
 
-    const apiKeyRes = await validateCredentials(undefined, undefined, 'sk-testapikeyvalue123456');
-    assert(apiKeyRes.success && !!apiKeyRes.data, 'API key validation succeeds for sk- formatted keys');
+    const apiKeyRes = await validateCredentials(undefined, undefined, 'api-key-testapikeyvalue123456');
+    assert(apiKeyRes.success && !!apiKeyRes.data, 'API key validation succeeds for api-key- formatted keys');
 
     const invalidApiKey = await validateCredentials(undefined, undefined, 'invalid');
     assert(!invalidApiKey.success, 'Invalid API keys are rejected format-wise');
