@@ -161,8 +161,8 @@ export async function validateCredentials(email?: string, password?: string, api
       success: true,
       data: {
         email,
-        token: 'ey-mock-token-jwt-string',
-        refreshToken: 'ey-mock-refresh-token',
+        token: 'mock-jwt-token-string',
+        refreshToken: 'mock-jwt-refresh-token',
         expiresAt: Date.now() + 1000 * 60 * 60, // 1 hour
         user: {
           name,
@@ -183,7 +183,7 @@ export async function silentTokenRefresh(currentCreds: CredentialData): Promise<
     // Perform silent refresh simulation
     const refreshedCreds: CredentialData = {
       ...currentCreds,
-      token: 'ey-mock-refreshed-token-jwt-string',
+      token: 'mock-jwt-refreshed-token-string',
       expiresAt: Date.now() + 1000 * 60 * 60, // Extend for 1 hour
     };
     await saveCredentials(refreshedCreds);
