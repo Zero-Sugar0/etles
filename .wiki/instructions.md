@@ -99,6 +99,8 @@ Common slugs: `GITHUB_COMMIT_EVENT`, `SLACK_NEW_MESSAGE`, `GMAIL_NEW_GMAIL_MESSA
 | `readDepartmentMemory` | Before delegating — check if the department already has context, decisions, or blockers saved |
 | `writeDepartmentMemory` | After a task completes — share what was learned so other agents in the department benefit |
 
+> Department awareness is managed in `lib/agent/departments.ts` and enforced through runtime routing in `lib/agent/subagent-runner.ts` and `lib/ai/tools/subagents.ts`. The `app/(chat)/subagents/page.tsx` UI is for selection and optional visibility only, not the core department logic.
+
 ### Sub-Agent Fleet — By Department
 Sub-agents are grouped into departments. Agents within the same department share memory via `readDepartmentMemory` / `writeDepartmentMemory` so context compounds (e.g. `project_manager` and `chief_of_staff` both read/write Operations memory).
 

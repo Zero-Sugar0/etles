@@ -1,6 +1,7 @@
 import { auth } from "@/app/(auth)/auth";
 import { redirect } from "next/navigation";
 import { SUBAGENT_DEFINITIONS } from "@/lib/agent/subagent-definitions";
+import { getAgentDepartment, getDepartmentLeadSlug } from "@/lib/agent/departments";
 import { SubAgentHub } from "@/components/subagent-hub";
 import { guestRegex } from "@/lib/constants";
 
@@ -30,6 +31,8 @@ export default async function SubagentsPage() {
     description: agent.description,
     systemPrompt: agent.systemPrompt,
     toolkits: typeof agent.toolkits === 'function' ? [] : agent.toolkits,
+    department: getAgentDepartment(agent.slug),
+    departmentLeadSlug: getDepartmentLeadSlug(getAgentDepartment(agent.slug)),
   }));
 
   return (

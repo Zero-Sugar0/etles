@@ -22,6 +22,7 @@ export function SubAgentHub({ agents }: SubAgentHubProps) {
   const filteredAgents = agents.filter((agent) =>
     agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     agent.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (agent.department?.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (agent.toolkits && agent.toolkits.some(tool => tool.toLowerCase().includes(searchQuery.toLowerCase())))
   );
 
@@ -87,6 +88,16 @@ export function SubAgentHub({ agents }: SubAgentHubProps) {
                 </p>
                 
                 <div className="flex flex-wrap gap-1 relative z-10">
+                  {agent.department && (
+                    <Badge variant="secondary" className="text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-0 h-4 sm:h-4.5 bg-primary/10 text-primary rounded-md capitalize">
+                      {agent.department.replace(/_/g, ' ')}
+                    </Badge>
+                  )}
+                  {agent.departmentLeadSlug && (
+                    <Badge variant="secondary" className="text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-0 h-4 sm:h-4.5 bg-secondary/10 text-secondary rounded-md lowercase">
+                      lead: {agent.departmentLeadSlug.replace(/_/g, ' ')}
+                    </Badge>
+                  )}
                   {agent.toolkits.slice(0, 3).map((tool) => (
                     <Badge 
                       key={tool} 

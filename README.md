@@ -20,7 +20,11 @@
 
 - **Autonomous Sub-Agents Framework**
   - Includes 26+ specialized agents out of the box (e.g., SDR, Chief of Staff, Project Manager, Incident Responder, Cloud Cost Optimizer).
+  - Agents are organized into 12 departments, each with a dedicated department lead that owns coordination, escalation, and shared reporting.
   - Sub-agents operate intelligently out-of-band to perform complex, multi-step actions and proactive delegations.
+- **Department Reporting & Shared Memory**
+  - Each subagent reads and writes shared department memory so specialist work stays aligned.
+  - When a task needs higher-level review, the agent generates a concise report for its department lead.
 - **Deep Triggers & Automations (via Composio)**
   - Seamlessly connect to over 100+ platforms (Jira, Slack, Salesforce, Stripe, GitHub).
   - Configure active background triggers in real-time, enabling reactive agent workflows.

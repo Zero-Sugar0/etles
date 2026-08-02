@@ -3,7 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { CheckIcon, MicIcon } from "lucide-react";
+import { Brain, CheckIcon, Eye, MicIcon, Wrench } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -896,19 +896,23 @@ function PureModelSelectorCompact({
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <div className="flex items-center gap-1.5">
                           <ModelSelectorName>{model.name}</ModelSelectorName>
-                          {model.features.reasoning && (
-                            <ModelSelectorBadge tone="accent">
-                              Reasoning
-                            </ModelSelectorBadge>
-                          )}
-                          {model.features.vision && (
-                            <ModelSelectorBadge>Vision</ModelSelectorBadge>
-                          )}
-                          {model.features.tools && (
-                            <ModelSelectorBadge tone="muted">
-                              Tools
-                            </ModelSelectorBadge>
-                          )}
+                          <span className="inline-flex shrink-0 items-center gap-1 text-muted-foreground/70">
+                            {model.features.reasoning && (
+                              <span aria-label="Reasoning" title="Reasoning">
+                                <Brain className="size-3.5" />
+                              </span>
+                            )}
+                            {model.features.vision && (
+                              <span aria-label="Vision" title="Vision">
+                                <Eye className="size-3.5" />
+                              </span>
+                            )}
+                            {model.features.tools && (
+                              <span aria-label="Tools" title="Tools">
+                                <Wrench className="size-3.5" />
+                              </span>
+                            )}
+                          </span>
                           {model.reasoningEffort && (
                             <ModelSelectorBadge tone="muted">
                               {model.reasoningEffort}

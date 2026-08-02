@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { getAgentDepartment } from "@/lib/agent/departments";
+import { getAgentDepartment, getDepartmentLeadSlug } from "@/lib/agent/departments";
 import {
   getAllAgentSlugs,
   getSubAgentBySlug,
@@ -46,12 +46,16 @@ export const listSubAgents = () =>
       "Use this when the user asks what agents exist or what can be delegated.",
     inputSchema: z.object({}),
     execute: () => {
-      const agents = SUBAGENT_DEFINITIONS.map((a) => ({
-        slug: a.slug,
-        name: a.name,
-        description: a.description,
-        department: getAgentDepartment(a.slug),
-      }));
+      const agents = SUBAGENT_DEFINITIONS.map((a) => {
+        const department = getAgentDepartment(a.slug);
+        return {
+          slug: a.slug,
+          name: a.name,
+          description: a.description,
+          department,
+          departmentLeadSlug: getDepartmentLeadSlug(department),
+        };
+      });
 
       // Group by department
       const byDepartment: Record<string, typeof agents> = {};
@@ -66,7 +70,7 @@ export const listSubAgents = () =>
       return {
         agents,
         byDepartment,
-        message: `Available agents: ${agents.map((a) => a.name).join(", ")}. Use delegateToSubAgent to spawn one.`,
+        message: `Available agents: ${agents.map((a) => a.name).join(", ")}. Each department has a lead agent; use delegateToSubAgent for specialists and escalate to the lead for review when needed.`,
       };
     },
   });

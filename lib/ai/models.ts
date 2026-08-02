@@ -5,10 +5,10 @@ export const DEFAULT_CHAT_MODEL = "moonshotai/kimi-k2.5";
 
 export const titleModel = {
   description: "Fast model for title generation",
-  gatewayOrder: ["fireworks", "bedrock"],
-  id: "moonshotai/kimi-k2.5",
-  name: "Kimi K2.5",
-  provider: "moonshotai",
+  gatewayOrder: ["google", "fireworks"],
+  id: "google/gemma-4-26b-a4b-it",
+  name: "Gemma 4 26B",
+  provider: "google",
 };
 
 export type ModelCapabilities = {

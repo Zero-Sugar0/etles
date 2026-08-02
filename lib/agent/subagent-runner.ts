@@ -84,7 +84,7 @@ import {
   readDepartmentMemory,
   writeDepartmentMemory,
 } from "@/lib/ai/tools/department-memory";
-import { getAgentDepartment, getDepartmentLabel } from "@/lib/agent/departments";
+import { getAgentDepartment, getDepartmentLabel, getDepartmentLeadSlug } from "@/lib/agent/departments";
 import * as daytonaTools from "@/lib/ai/tools/daytona";
 import * as browserUseTools from "@/lib/ai/tools/browser-use";
 import * as daytonaBrowserTools from "@/lib/ai/tools/daytona-browser";
@@ -341,6 +341,9 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
 
   const department = getAgentDepartment(agentType);
   const departmentLabel = getDepartmentLabel(department);
+  const departmentLeadSlug = getDepartmentLeadSlug(department);
+  const departmentLead = departmentLeadSlug ? getSubAgentBySlug(departmentLeadSlug) : undefined;
+  const departmentLeadName = departmentLead?.name ?? "your department lead";
 
   const systemPrompt = `${definition.systemPrompt}${memoryContext}
 
@@ -348,10 +351,17 @@ Today's date is ${new Date().toLocaleDateString()}.
 
 ## Department Collaboration (${departmentLabel})
 
-You belong to the **${departmentLabel}** department. Agents in your department share memory via \`readDepartmentMemory\` and \`writeDepartmentMemory\`.
+You belong to the **${departmentLabel}** department. Agents in your department share memory via `readDepartmentMemory` and `writeDepartmentMemory`.
 - At the start of project work, call readDepartmentMemory to load prior context.
 - When you make decisions, resolve blockers, or learn stakeholder facts, call writeDepartmentMemory so collaborating agents (e.g. project_manager + chief_of_staff) stay aligned.
 - Use readAgentSkill to load built-in guides from .agents/skills (composio, chat-sdk, etles-agent).
+
+## Department Lead & Reporting
+
+Your department lead is **${departmentLeadName}**${departmentLeadSlug ? ` (${departmentLeadSlug})` : ""}.
+- If the task requires higher-level alignment, risk review, policy escalation, or long-term strategy, summarize the issue clearly for your department lead.
+- If you are uncertain about a decision, unresolved tradeoff, or recommendation, create a short escalation note for ${departmentLeadName}.
+- When the task is complete, include a concise report section with decisions made, assumptions, open issues, and whether ${departmentLeadName} should review before final handoff.
 
 ## A2A Collaboration — Multi-Agent Orchestration
 

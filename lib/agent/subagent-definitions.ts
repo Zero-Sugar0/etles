@@ -13,7 +13,8 @@ import { registryAgents as supportServicesAgents } from "./registry/support-serv
 import { registryAgents as hrPeopleAgents } from "./registry/hr-people";
 import { registryAgents as productStrategyAgents } from "./registry/product-strategy";
 import { registryAgents as securityComplianceAgents } from "./registry/security-compliance";
-
+import type { AgentDepartment } from "./departments";
+import { registryAgents as departmentLeads } from "./registry/department-leads";
 
 export type AgentSlug =
   | "inbox_operator"
@@ -81,7 +82,19 @@ export type AgentSlug =
   | "deal_desk"
   | "people_analytics"
   | "ai_governance"
-  | "vendor_risk";
+  | "vendor_risk"
+  | "security_lead"
+  | "finance_lead"
+  | "marketing_lead"
+  | "sales_lead"
+  | "customer_service_lead"
+  | "engineering_lead"
+  | "operations_lead"
+  | "legal_compliance_lead"
+  | "hr_people_lead"
+  | "growth_analytics_lead"
+  | "content_creative_lead"
+  | "research_strategy_lead";
 
 export interface SubAgentDefinition {
   slug: AgentSlug;
@@ -89,6 +102,8 @@ export interface SubAgentDefinition {
   description: string;
   systemPrompt: string;
   toolkits: string[];
+  department?: AgentDepartment;
+  departmentLeadSlug?: string;
 }
 
 const UNIVERSAL_COMPOSIO_TOOLKITS = [
@@ -179,6 +194,18 @@ const AGENT_TOOLKIT_EXPANSIONS: Partial<Record<AgentSlug, string[]>> = {
   people_analytics: ["slack", "microsoftteams", "googlesheets", "notion", "bamboohr", "lattice", "zoom", "loom"],
   ai_governance: ["github", "gitlab", "sentry", "datadog", "slack", "notion", "langfuse", "weightsandbiases"],
   vendor_risk: ["notion", "slack", "googlesheets", "jira", "linear", "github", "docusign", "ramp", "brex"],
+  security_lead: ["1password", "bitwarden", "snyk", "cloudflare", "aws", "gcp", "azure"],
+  finance_lead: ["stripe", "quickbooks", "xero", "googlesheets", "plaid", "brex", "ramp"],
+  marketing_lead: ["mailchimp", "googleads", "facebookads", "linkedinads", "semrush", "ahrefs", "buffer"],
+  sales_lead: ["hubspot", "salesforce", "pipedrive", "calendly", "zoominfo"],
+  customer_service_lead: ["zendesk", "intercom", "freshdesk", "helpscout", "slack"],
+  engineering_lead: ["github", "gitlab", "jira", "linear", "vercel", "sentry"],
+  operations_lead: ["notion", "googlecalendar", "monday", "trello", "zapier", "jira"],
+  legal_compliance_lead: ["docusign", "hellosign", "clio", "googleforms", "docsend"],
+  hr_people_lead: ["greenhouse", "lever", "bamboohr", "lattice"],
+  growth_analytics_lead: ["amplitude", "mixpanel", "posthog", "googleanalytics", "segment", "heap"],
+  content_creative_lead: ["figma", "canva", "notion", "youtube", "googleanalytics"],
+  research_strategy_lead: ["crunchbase", "semrush", "similarweb", "googleanalytics", "notion"],
 };
 
 function uniqueToolkits(toolkits: string[]): string[] {
@@ -206,6 +233,7 @@ const BASE_SUBAGENT_DEFINITIONS: SubAgentDefinition[] = [
   ...(hrPeopleAgents as any),
   ...(productStrategyAgents as any),
   ...(securityComplianceAgents as any),
+  ...(departmentLeads as any),
 ];
 
 export const SUBAGENT_DEFINITIONS: SubAgentDefinition[] =
