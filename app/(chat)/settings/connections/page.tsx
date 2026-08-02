@@ -211,55 +211,6 @@ export default function ConnectionsPage() {
                   whileHover={{ y: -5 }}
                 >
                   <Card className="group relative overflow-hidden border-border/40 bg-card/40 backdrop-blur-md transition-all hover:border-primary/30 hover:shadow-[0_0_30px_-10px_rgba(var(--primary),0.2)] aspect-square flex flex-col items-center justify-center p-3 sm:p-4 border rounded-2xl">
-                    {/* Status/Action Badge in Top Right */}
-                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
-                      {t.isConnected ? (
-                        <div className="group/status relative">
-                          <Badge
-                            className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 px-1.5 py-0.5 rounded-[6px] gap-1 font-medium text-[8px] sm:text-[9px] uppercase tracking-wider backdrop-blur-sm"
-                            variant="secondary"
-                          >
-                            <CheckCircle2 className="size-2.5" />
-                            Connected
-                          </Badge>
-                          <Button
-                            className="absolute inset-0 opacity-0 group-hover/status:opacity-100 transition-opacity bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-[8px] size-full scale-110"
-                            disabled={isActionLoading === t.slug}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDisconnect(t.slug, t.connectedAccountId!);
-                            }}
-                            size="icon"
-                            variant="ghost"
-                          >
-                            {isActionLoading === t.slug ? (
-                              <div className="animate-spin">
-                                <LoaderIcon className="size-3" />
-                              </div>
-                            ) : (
-                              <Trash2 className="size-3 sm:size-3.5" />
-                            )}
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          className="h-6 text-[8px] sm:text-[9px] uppercase font-semibold tracking-wider px-2 bg-foreground/5 hover:bg-foreground/10 border-none rounded-[6px]"
-                          disabled={isActionLoading === t.slug}
-                          onClick={() => handleConnect(t.slug)}
-                          size="sm"
-                          variant="secondary"
-                        >
-                          {isActionLoading === t.slug ? (
-                            <div className="animate-spin">
-                              <LoaderIcon className="size-3" />
-                            </div>
-                          ) : (
-                            "Connect"
-                          )}
-                        </Button>
-                      )}
-                    </div>
-
                     {/* Centered Logo */}
                     <div className="relative size-12 sm:size-16 mb-2 sm:mb-3 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
                       {/* Background glow effect on focus-hover */}
@@ -284,6 +235,87 @@ export default function ConnectionsPage() {
                         {t.name}
                       </h3>
                     </div>
+
+                    {/* Multi-account status */}
+                    {t.isConnected && (
+                      <div className="relative z-20 flex flex-col items-center gap-1.5">
+                        {t.connectedAccounts &&
+                        t.connectedAccounts.length > 0 ? (
+                          <div className="flex flex-wrap items-center justify-center gap-1 max-w-[90%]">
+                            {t.connectedAccounts.map((acc) => (
+                              <span
+                                className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400"
+                                key={acc.id}
+                                title={acc.id}
+                              >
+                                <CheckCircle2 className="size-2.5" />
+                                {acc.alias || "Account"}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <Badge
+                            className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 px-2 py-0.5 rounded-[6px] gap-1 font-medium text-[9px] uppercase tracking-wider"
+                            variant="secondary"
+                          >
+                            <CheckCircle2 className="size-2.5" />
+                            Connected
+                          </Badge>
+                        )}
+                        <div className="flex items-center gap-1">
+                          <Button
+                            className="h-5 px-1.5 text-[8px] uppercase font-semibold tracking-wider bg-foreground/5 hover:bg-foreground/10 border-none rounded-[5px]"
+                            disabled={isActionLoading === t.slug}
+                            onClick={() => handleConnect(t.slug)}
+                            size="sm"
+                            variant="secondary"
+                          >
+                            {isActionLoading === t.slug ? (
+                              <div className="animate-spin">
+                                <LoaderIcon className="size-2.5" />
+                              </div>
+                            ) : (
+                              "+ Account"
+                            )}
+                          </Button>
+                          <Button
+                            className="h-5 px-1.5 text-[8px] uppercase font-semibold tracking-wider bg-destructive/10 text-destructive hover:bg-destructive/20 border-none rounded-[5px]"
+                            disabled={isActionLoading === t.slug}
+                            onClick={() =>
+                              handleDisconnect(t.slug, t.connectedAccountId!)
+                            }
+                            size="sm"
+                            variant="secondary"
+                          >
+                            <Trash2 className="size-2.5" />
+                            {t.connectedAccounts &&
+                            t.connectedAccounts.length > 1
+                              ? "First"
+                              : "Remove"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {!t.isConnected && (
+                      <div className="relative z-20 flex items-center gap-1 mt-2">
+                        <Button
+                          className="h-6 text-[8px] sm:text-[9px] uppercase font-semibold tracking-wider px-2.5 bg-foreground/5 hover:bg-foreground/10 border-none rounded-[6px]"
+                          disabled={isActionLoading === t.slug}
+                          onClick={() => handleConnect(t.slug)}
+                          size="sm"
+                          variant="secondary"
+                        >
+                          {isActionLoading === t.slug ? (
+                            <div className="animate-spin">
+                              <LoaderIcon className="size-3" />
+                            </div>
+                          ) : (
+                            "Connect"
+                          )}
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Gradient bottom border effect */}
                     <div className="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
