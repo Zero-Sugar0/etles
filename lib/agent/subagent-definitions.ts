@@ -67,7 +67,21 @@ export type AgentSlug =
   | "privacy_guardian"
   | "ai_model_operator"
   | "tax_treasury"
-  | "documentation_writer";
+  | "documentation_writer"
+  | "revops_control_tower"
+  | "international_ops"
+  | "strategy_ops"
+  | "pricing_packaging"
+  | "launch_readiness"
+  | "knowledge_architect"
+  | "partner_ecosystem"
+  | "content_ops"
+  | "executive_comms"
+  | "customer_voice_intelligence"
+  | "deal_desk"
+  | "people_analytics"
+  | "ai_governance"
+  | "vendor_risk";
 
 export interface SubAgentDefinition {
   slug: AgentSlug;
@@ -151,6 +165,20 @@ const AGENT_TOOLKIT_EXPANSIONS: Partial<Record<AgentSlug, string[]>> = {
   ai_model_operator: ["datadog", "grafana", "sentry", "googlesheets", "slack", "notion"],
   tax_treasury: ["quickbooks", "xero", "netsuite", "stripe", "deel", "ramp", "brex", "googlesheets"],
   documentation_writer: ["intercom", "zendesk", "helpscout", "notion", "confluence", "slack", "gmail"],
+  revops_control_tower: ["hubspot", "salesforce", "stripe", "segment", "posthog", "amplitude", "mixpanel", "gong", "clearbit", "zoominfo"],
+  international_ops: ["hubspot", "salesforce", "stripe", "zendesk", "intercom", "docusign", "googletranslate"],
+  strategy_ops: ["notion", "confluence", "jira", "linear", "googledocs", "googlesheets", "hubspot", "salesforce", "docsend"],
+  pricing_packaging: ["stripe", "chargebee", "recurly", "hubspot", "salesforce", "amplitude", "mixpanel", "posthog"],
+  launch_readiness: ["jira", "linear", "asana", "clickup", "notion", "figma", "airtable"],
+  knowledge_architect: ["notion", "confluence", "googledrive", "dropbox", "box", "github", "jira", "linear", "loom"],
+  partner_ecosystem: ["hubspot", "salesforce", "partnerstack", "zoom", "docusign", "airtable"],
+  content_ops: ["notion", "figma", "canva", "youtube", "vimeo", "buffer", "hootsuite", "airtable"],
+  executive_comms: ["gmail", "outlook", "notion", "googledocs", "googlesheets", "docsend", "hubspot", "salesforce", "stripe"],
+  customer_voice_intelligence: ["intercom", "zendesk", "helpscout", "posthog", "amplitude", "mixpanel", "hubspot", "salesforce"],
+  deal_desk: ["salesforce", "hubspot", "stripe", "docusign", "pandadoc", "notion", "googlesheets"],
+  people_analytics: ["slack", "microsoftteams", "googlesheets", "notion", "bamboohr", "lattice", "zoom", "loom"],
+  ai_governance: ["github", "gitlab", "sentry", "datadog", "slack", "notion", "langfuse", "weightsandbiases"],
+  vendor_risk: ["notion", "slack", "googlesheets", "jira", "linear", "github", "docusign", "ramp", "brex"],
 };
 
 function uniqueToolkits(toolkits: string[]): string[] {

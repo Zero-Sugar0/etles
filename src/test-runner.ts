@@ -52,7 +52,7 @@ async function runTests() {
     console.log('\n\x1b[1m[2/6] Configuration Persistence Tests\x1b[0m');
     resetConfig();
     let config = getConfig();
-    assert(config.defaultAgent === 'chief_of_staff', 'Config reset restores Chief of Staff default agent');
+    assert(config.defaultAgent === 'main_agent', 'Config reset restores Main Agent default agent');
 
     setConfigKey('defaultAgent', 'sdr');
     config = getConfig();
@@ -100,7 +100,7 @@ async function runTests() {
     assert(load2.success, 'Successfully loaded Data Pipeline skill');
 
     const load3 = loadSkill('crm_sync'); // 1 slot -> exceeds 4 max!
-    assert(!load3.success && load3.error?.includes('slots'), 'Loading skill is rejected when slot capacity is exceeded');
+    assert(!load3.success && !!load3.error?.includes('slots'), 'Loading skill is rejected when slot capacity is exceeded');
 
     unloadSkill('github_copilot');
     assert(!getLoadedSkills().includes('github_copilot'), 'Successfully unloaded GitHub Copilot skill');

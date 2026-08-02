@@ -161,7 +161,7 @@ export default function LandingPage() {
                   src="/etles_dashboard_mockup_1774154912837.png" 
                   alt="Etles Dashboard Mockup" 
                   fill 
-                  sizes="100vw"
+                  sizes="(max-width: 1023px) 100vw, 50vw"
                   className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
                 />
               </div>
@@ -187,7 +187,7 @@ export default function LandingPage() {
                   src="/etles_triggers_ui_1774154944442.png" 
                   alt="Etles Triggers UI Mockup" 
                   fill 
-                  sizes="100vw"
+                  sizes="(max-width: 1023px) 100vw, 50vw"
                   className="object-cover opacity-80 group-hover:scale-105 transition-transform duration-700"
                 />
               </div>

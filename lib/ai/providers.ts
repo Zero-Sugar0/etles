@@ -7,6 +7,7 @@ import {
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
+import { titleModel } from "./models";
 
 const THINKING_SUFFIX_REGEX = /-thinking$/;
 
@@ -72,7 +73,7 @@ export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");
   }
-  return gateway.languageModel("google/gemini-2.5-flash-lite");
+  return gateway.languageModel(titleModel.id);
 }
 
 /**

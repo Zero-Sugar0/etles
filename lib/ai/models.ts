@@ -1,6 +1,21 @@
 // Curated list of top models from Vercel AI Gateway
 //lib/ai/models.ts
-export const DEFAULT_CHAT_MODEL = "google/gemini-3-flash-preview";
+
+export const DEFAULT_CHAT_MODEL = "moonshotai/kimi-k2.5";
+
+export const titleModel = {
+  description: "Fast model for title generation",
+  gatewayOrder: ["fireworks", "bedrock"],
+  id: "moonshotai/kimi-k2.5",
+  name: "Kimi K2.5",
+  provider: "moonshotai",
+};
+
+export type ModelCapabilities = {
+  tools: boolean;
+  vision: boolean;
+  reasoning: boolean;
+};
 
 export type ChatModel = {
   id: string;
@@ -12,6 +27,8 @@ export type ChatModel = {
     vision: boolean;
     tools: boolean;
   };
+  gatewayOrder?: string[];
+  reasoningEffort?: "none" | "minimal" | "low" | "medium" | "high";
 };
 
 export const chatModels: ChatModel[] = [
@@ -22,6 +39,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Fast and affordable, great for everyday tasks",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["anthropic", "bedrock"],
   },
   {
     id: "anthropic/claude-sonnet-4.5",
@@ -29,6 +47,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Flagship balanced model with superb thinking and vision capabilities",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["anthropic", "bedrock"],
   },
   {
     id: "anthropic/claude-sonnet-4.8",
@@ -36,6 +55,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Advanced next-generation flagship model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["anthropic", "bedrock"],
   },
   {
     id: "anthropic/claude-opus-4.8",
@@ -43,6 +63,7 @@ export const chatModels: ChatModel[] = [
     provider: "anthropic",
     description: "Next-gen pinnacle reasoning model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["anthropic", "bedrock"],
   },
   // OpenAI
   {
@@ -51,6 +72,7 @@ export const chatModels: ChatModel[] = [
     provider: "openai",
     description: "High-performance multimodal model",
     features: { reasoning: false, vision: true, tools: true },
+    gatewayOrder: ["openai", "azure"],
   },
   {
     id: "openai/gpt-4o-mini",
@@ -58,6 +80,7 @@ export const chatModels: ChatModel[] = [
     provider: "openai",
     description: "Affordable and fast multimodal model",
     features: { reasoning: false, vision: true, tools: true },
+    gatewayOrder: ["openai", "azure"],
   },
   {
     id: "openai/gpt-4.1",
@@ -65,6 +88,7 @@ export const chatModels: ChatModel[] = [
     provider: "openai",
     description: "Advanced GPT-4.1 flagship model",
     features: { reasoning: false, vision: true, tools: true },
+    gatewayOrder: ["openai", "azure"],
   },
   {
     id: "openai/gpt-4.1-mini",
@@ -72,6 +96,7 @@ export const chatModels: ChatModel[] = [
     provider: "openai",
     description: "Fast and cost-effective for simple tasks",
     features: { reasoning: false, vision: true, tools: true },
+    gatewayOrder: ["openai", "azure"],
   },
   {
     id: "openai/gpt-4.1-nano",
@@ -79,6 +104,7 @@ export const chatModels: ChatModel[] = [
     provider: "openai",
     description: "Ultra-fast compact model",
     features: { reasoning: false, vision: true, tools: true },
+    gatewayOrder: ["openai", "azure"],
   },
   {
     id: "openai/gpt-5-mini",
@@ -86,6 +112,7 @@ export const chatModels: ChatModel[] = [
     provider: "openai",
     description: "Most capable OpenAI model",
     features: { reasoning: false, vision: true, tools: true },
+    gatewayOrder: ["openai", "azure"],
   },
   {
     id: "openai/gpt-5-nano",
@@ -93,6 +120,7 @@ export const chatModels: ChatModel[] = [
     provider: "openai",
     description: "Ultra-compact high speed model",
     features: { reasoning: false, vision: true, tools: true },
+    gatewayOrder: ["openai", "azure"],
   },
   {
     id: "openai/gpt-oss-120b",
@@ -100,6 +128,8 @@ export const chatModels: ChatModel[] = [
     provider: "openai",
     description: "Open source large scale model",
     features: { reasoning: false, vision: true, tools: true },
+    gatewayOrder: ["fireworks", "bedrock"],
+    reasoningEffort: "low",
   },
   // Google (Starts from 3 upwards)
   {
@@ -108,6 +138,7 @@ export const chatModels: ChatModel[] = [
     provider: "google",
     description: "Advanced Gemini 3 architecture speed king",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["google", "google-vertex"],
   },
   {
     id: "google/gemini-3-flash-preview",
@@ -115,6 +146,7 @@ export const chatModels: ChatModel[] = [
     provider: "google",
     description: "Ultra fast and affordable preview model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["google", "google-vertex"],
   },
   {
     id: "google/gemini-3-pro-preview",
@@ -122,6 +154,7 @@ export const chatModels: ChatModel[] = [
     provider: "google",
     description: "Powerful next-gen reasoning intelligence",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["google", "google-vertex"],
   },
   {
     id: "google/gemini-3.1-flash-lite",
@@ -129,6 +162,7 @@ export const chatModels: ChatModel[] = [
     provider: "google",
     description: "Highly lightweight Gemini 3.1 model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["google", "google-vertex"],
   },
   {
     id: "google/gemini-3.1-flash-lite-preview",
@@ -136,6 +170,7 @@ export const chatModels: ChatModel[] = [
     provider: "google",
     description: "Latest lightweight preview model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["google", "google-vertex"],
   },
   {
     id: "google/gemini-3.5-flash",
@@ -143,6 +178,7 @@ export const chatModels: ChatModel[] = [
     provider: "google",
     description: "Ultimate speed, efficiency and capabilities in 3.5 generation",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["google", "google-vertex"],
   },
   {
     id: "google/gemma-4-26b-a4b-it",
@@ -150,6 +186,7 @@ export const chatModels: ChatModel[] = [
     provider: "google",
     description: "Gemma 4 open weights model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["google", "fireworks"],
   },
   // DeepSeek (Non-reasoning starts from 3.1+)
   {
@@ -158,6 +195,7 @@ export const chatModels: ChatModel[] = [
     provider: "deepseek",
     description: "Upgraded DeepSeek V3 efficiency",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["deepseek", "bedrock"],
   },
   {
     id: "deepseek/deepseek-v4-flash",
@@ -165,6 +203,7 @@ export const chatModels: ChatModel[] = [
     provider: "deepseek",
     description: "Extremely fast next-gen reasoning model",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["deepseek", "bedrock"],
   },
   {
     id: "deepseek/deepseek-v4-pro",
@@ -172,6 +211,7 @@ export const chatModels: ChatModel[] = [
     provider: "deepseek",
     description: "High-intelligence flagship DeepSeek V4",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["deepseek", "bedrock"],
   },
   // Perplexity
   {
@@ -180,6 +220,7 @@ export const chatModels: ChatModel[] = [
     provider: "perplexity",
     description: "Search-augmented model",
     features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["perplexity"],
   },
   // NVIDIA
   {
@@ -188,6 +229,7 @@ export const chatModels: ChatModel[] = [
     provider: "nvidia",
     description: "Compact efficient model",
     features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["nvidia"],
   },
   // MoonshotAI (Kimi)
   {
@@ -196,6 +238,7 @@ export const chatModels: ChatModel[] = [
     provider: "moonshotai",
     description: "Next generation Kimi model",
     features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["fireworks", "bedrock"],
   },
   {
     id: "moonshotai/kimi-k2.6",
@@ -203,6 +246,7 @@ export const chatModels: ChatModel[] = [
     provider: "moonshotai",
     description: "Latest Kimi model",
     features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["fireworks", "bedrock"],
   },
   {
     id: "moonshotai/kimi-k2.7-code",
@@ -210,6 +254,7 @@ export const chatModels: ChatModel[] = [
     provider: "moonshotai",
     description: "Advanced coding flagship from Moonshot",
     features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["fireworks", "bedrock"],
   },
   {
     id: "moonshotai/kimi-k2.7-code-highspeed",
@@ -217,6 +262,7 @@ export const chatModels: ChatModel[] = [
     provider: "moonshotai",
     description: "Fast-execution programming model",
     features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["fireworks", "bedrock"],
   },
   // Minimax (Starts from 2.5+)
   {
@@ -225,6 +271,7 @@ export const chatModels: ChatModel[] = [
     provider: "minimax",
     description: "Standard M2.5 performance",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["minimax"],
   },
   {
     id: "minimax/minimax-m2.5-highspeed",
@@ -232,6 +279,7 @@ export const chatModels: ChatModel[] = [
     provider: "minimax",
     description: "Optimized for extreme speed",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["minimax"],
   },
   {
     id: "minimax/minimax-m2.7",
@@ -239,6 +287,7 @@ export const chatModels: ChatModel[] = [
     provider: "minimax",
     description: "Advanced multi-modal capabilities",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["minimax"],
   },
   {
     id: "minimax/minimax-m3",
@@ -246,6 +295,7 @@ export const chatModels: ChatModel[] = [
     provider: "minimax",
     description: "Multi-modal reasoning flagship",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["minimax"],
   },
   // ZAI / GLM (Starts from 5.x)
   {
@@ -254,6 +304,7 @@ export const chatModels: ChatModel[] = [
     provider: "zai",
     description: "High performance GLM model",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["zai"],
   },
   {
     id: "zai/glm-5-turbo",
@@ -261,6 +312,7 @@ export const chatModels: ChatModel[] = [
     provider: "zai",
     description: "Agent-optimized GLM-5 Turbo model",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["zai"],
   },
   {
     id: "zai/glm-5.1",
@@ -268,6 +320,7 @@ export const chatModels: ChatModel[] = [
     provider: "zai",
     description: "Enhanced GLM-5 model",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["zai"],
   },
   {
     id: "zai/glm-5.2",
@@ -275,6 +328,7 @@ export const chatModels: ChatModel[] = [
     provider: "zai",
     description: "Ultra long-context flagship GLM-5.2",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["zai"],
   },
   {
     id: "zai/glm-5v-turbo",
@@ -282,6 +336,7 @@ export const chatModels: ChatModel[] = [
     provider: "zai",
     description: "Multimodal Agentic GLM",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["zai"],
   },
   // xAI (Grok 3 and Grok Build)
   {
@@ -290,6 +345,7 @@ export const chatModels: ChatModel[] = [
     provider: "xai",
     description: "Grok software development optimized model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["xai"],
   },
   {
     id: "xai/grok-3",
@@ -297,6 +353,7 @@ export const chatModels: ChatModel[] = [
     provider: "xai",
     description: "Pinnacle flagship Grok multimodal model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["xai"],
   },
   // Inception
   {
@@ -305,6 +362,7 @@ export const chatModels: ChatModel[] = [
     provider: "inception",
     description: "Advanced reasoning and capabilities",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["inception"],
   },
   // Alibaba (Qwen Latest Only)
   {
@@ -313,6 +371,7 @@ export const chatModels: ChatModel[] = [
     provider: "alibaba",
     description: "Flagship preview of Qwen 3.6 family",
     features: { reasoning: false, vision: true, tools: true },
+    gatewayOrder: ["alibaba"],
   },
   {
     id: "alibaba/qwen3-coder-plus",
@@ -320,6 +379,7 @@ export const chatModels: ChatModel[] = [
     provider: "alibaba",
     description: "Advanced coding flagship of Qwen 3 series",
     features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["alibaba"],
   },
   // Reasoning models (extended thinking) - classified as provider: reasoning for UI grouping
   {
@@ -328,6 +388,7 @@ export const chatModels: ChatModel[] = [
     provider: "reasoning",
     description: "Google reasoning preview",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["google", "google-vertex"],
   },
   {
     id: "deepseek/deepseek-r1",
@@ -335,6 +396,7 @@ export const chatModels: ChatModel[] = [
     provider: "reasoning",
     description: "Flagship open-source reasoning model",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["deepseek", "bedrock"],
   },
   {
     id: "anthropic/claude-sonnet-4.5-thinking",
@@ -342,6 +404,7 @@ export const chatModels: ChatModel[] = [
     provider: "reasoning",
     description: "Extended thinking flagship model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["anthropic", "bedrock"],
   },
   {
     id: "anthropic/claude-sonnet-4.8-thinking",
@@ -349,6 +412,7 @@ export const chatModels: ChatModel[] = [
     provider: "reasoning",
     description: "Supreme extended thinking model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["anthropic", "bedrock"],
   },
   {
     id: "moonshotai/kimi-k2-thinking",
@@ -356,6 +420,7 @@ export const chatModels: ChatModel[] = [
     provider: "reasoning",
     description: "Moonshot reasoning model",
     features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["fireworks", "bedrock"],
   },
   {
     id: "xai/grok-3-thinking",
@@ -363,6 +428,7 @@ export const chatModels: ChatModel[] = [
     provider: "reasoning",
     description: "Grok 3 extended reasoning capabilities",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["xai"],
   },
   {
     id: "alibaba/qwen3-max-thinking",
@@ -370,6 +436,7 @@ export const chatModels: ChatModel[] = [
     provider: "reasoning",
     description: "Advanced reasoning Qwen model",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["alibaba"],
   },
 ];
 
@@ -386,3 +453,160 @@ export const modelsByProvider = chatModels.reduce(
   },
   {} as Record<string, ChatModel[]>
 );
+
+export const isDemo = process.env.IS_DEMO === "1";
+
+export async function getCapabilities(): Promise<
+  Record<string, ModelCapabilities>
+> {
+  const results = await Promise.all(
+    chatModels.map(async (model) => {
+      try {
+        const res = await fetch(
+          `https://ai-gateway.vercel.sh/v1/models/${model.id}/endpoints`,
+          { next: { revalidate: 86_400 } }
+        );
+        if (!res.ok) {
+          return [model.id, { reasoning: false, tools: false, vision: false }];
+        }
+
+        const json = await res.json();
+        const endpoints = json.data?.endpoints ?? [];
+        const params = new Set(
+          endpoints.flatMap(
+            (e: { supported_parameters?: string[] }) =>
+              e.supported_parameters ?? []
+          )
+        );
+        const inputModalities = new Set(
+          json.data?.architecture?.input_modalities ?? []
+        );
+
+        return [
+          model.id,
+          {
+            reasoning: params.has("reasoning"),
+            tools: params.has("tools"),
+            vision: inputModalities.has("image"),
+          },
+        ];
+      } catch {
+        return [model.id, { reasoning: false, tools: false, vision: false }];
+      }
+    })
+  );
+
+  return Object.fromEntries(results);
+}
+
+type GatewayModel = {
+  id: string;
+  name: string;
+  type?: string;
+  tags?: string[];
+};
+
+export type GatewayModelWithCapabilities = ChatModel & {
+  capabilities: ModelCapabilities;
+};
+
+export async function getAllGatewayModels(): Promise<
+  GatewayModelWithCapabilities[]
+> {
+  try {
+    const res = await fetch("https://ai-gateway.vercel.sh/v1/models", {
+      next: { revalidate: 86_400 },
+    });
+    if (!res.ok) {
+      return [];
+    }
+
+    const json = await res.json();
+    return (json.data ?? [])
+      .filter((m: GatewayModel) => m.type === "language")
+      .map((m: GatewayModel) => ({
+        capabilities: {
+          reasoning: m.tags?.includes("reasoning") ?? false,
+          tools: m.tags?.includes("tool-use") ?? false,
+          vision: m.tags?.includes("vision") ?? false,
+        },
+        description: "",
+        features: {
+          reasoning: m.tags?.includes("reasoning") ?? false,
+          tools: m.tags?.includes("tool-use") ?? false,
+          vision: m.tags?.includes("vision") ?? false,
+        },
+        id: m.id,
+        name: m.name,
+        provider: m.id.split("/")[0],
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export function getActiveModels(): ChatModel[] {
+  return chatModels;
+}
+
+export type ModelAvailability = "healthy" | "impacted" | "unknown";
+
+type GatewayEndpoint = {
+  provider_name?: string;
+  status?: number;
+  uptime_last_15m?: number;
+  uptime_last_1h?: number;
+  latency_last_1h?: {
+    p50?: number;
+    p95?: number;
+  };
+};
+
+const PROVIDER_IMPACTED_UPTIME_THRESHOLD = 99;
+const PROVIDER_IMPACTED_P50_MS = 10_000;
+const PROVIDER_IMPACTED_P95_MS = 30_000;
+
+function isEndpointImpacted(endpoint: GatewayEndpoint) {
+  return (
+    (endpoint.status !== undefined && endpoint.status !== 0) ||
+    (endpoint.uptime_last_15m !== undefined &&
+      endpoint.uptime_last_15m < PROVIDER_IMPACTED_UPTIME_THRESHOLD) ||
+    (endpoint.uptime_last_1h !== undefined &&
+      endpoint.uptime_last_1h < PROVIDER_IMPACTED_UPTIME_THRESHOLD) ||
+    (endpoint.latency_last_1h?.p50 !== undefined &&
+      endpoint.latency_last_1h.p50 > PROVIDER_IMPACTED_P50_MS) ||
+    (endpoint.latency_last_1h?.p95 !== undefined &&
+      endpoint.latency_last_1h.p95 > PROVIDER_IMPACTED_P95_MS)
+  );
+}
+
+export async function getModelAvailability(
+  modelId: string
+): Promise<ModelAvailability> {
+  const model = chatModels.find((item) => item.id === modelId);
+
+  if (!model) {
+    return "unknown";
+  }
+
+  try {
+    const res = await fetch(
+      `https://ai-gateway.vercel.sh/v1/models/${model.id}/endpoints`,
+      { next: { revalidate: 60 } }
+    );
+    if (!res.ok) {
+      return "unknown";
+    }
+
+    const json = await res.json();
+    const endpoints = (json.data?.endpoints ?? []) as GatewayEndpoint[];
+
+    if (endpoints.length === 0) {
+      return "unknown";
+    }
+
+    return endpoints.some(isEndpointImpacted) ? "impacted" : "healthy";
+  } catch {
+    return "unknown";
+  }
+}

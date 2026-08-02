@@ -14,7 +14,7 @@ export interface AppConfig {
 }
 
 const DEFAULT_CONFIG: AppConfig = {
-  defaultAgent: 'chief_of_staff',
+  defaultAgent: 'main_agent',
   defaultModel: 'gemini-3.5-pro',
   debug: false,
   stream: true,

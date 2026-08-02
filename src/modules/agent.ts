@@ -1,9 +1,80 @@
 import { SUBAGENT_DEFINITIONS } from './agent-definitions';
-import { setMemory, loadMemory } from './memory';
+import { setMemory, loadMemory, type MemoryEntry } from './memory';
+import { getConfig } from './config';
 
-export interface StreamEvent {
-  type: 'token' | 'tool_start' | 'tool_stdout' | 'tool_end' | 'subagent_start' | 'subagent_end' | 'memory_update' | 'done';
-  data?: unknown;
+interface BaseStreamEvent<T extends string, D> {
+  type: T;
+  data: D;
+}
+
+export type StreamEvent =
+  | BaseStreamEvent<'token', string>
+  | BaseStreamEvent<'tool_start', { name: string; icon: string; input: Record<string, unknown> }>
+  | BaseStreamEvent<'tool_stdout', string>
+  | BaseStreamEvent<'tool_end', { name: string; status: 'running' | 'completed' | 'failed'; output?: string }>
+  | BaseStreamEvent<'subagent_start', { id: string; name: string; role: string; status: 'running' | 'completed' | 'failed'; depth: number }>
+  | BaseStreamEvent<'subagent_end', { id: string; name: string; status: 'running' | 'completed' | 'failed'; output?: string }>
+  | BaseStreamEvent<'memory_update', { oldMemory: Record<string, MemoryEntry>; newMemory: Record<string, MemoryEntry> }>
+  | BaseStreamEvent<'done', null>;
+
+function getToolIcon(name: string): string {
+  const commonIcons: Record<string, string> = {
+    // Local CLI tools
+    memory_set: '💾',
+    shell_execute: '🐚',
+    file_edit: '📝',
+    browser_search: '🌐',
+    send_whatsapp: '💬',
+
+    // Real server tools
+    getWeather: '🌤️',
+    generateImage: '🖼️',
+    generateVideo: '🎥',
+    renderChart: '📊',
+    createDocument: '📄',
+    updateDocument: '🔄',
+    editDocument: '✍️',
+    saveMemory: '💾',
+    recallMemory: '🧠',
+    searchPastConversations: '🔍',
+    updateMemory: '✏️',
+    deleteMemory: '🗑️',
+    setReminder: '⏰',
+    setCronJob: '🗓️',
+    listSchedules: '📅',
+    deleteSchedule: '❌',
+    setupTrigger: '⚡',
+    listActiveTriggers: '🔌',
+    removeTrigger: '📴',
+    spawnChildAgent: '🤖',
+    waitForChildAgents: '⏳',
+    delegateToSubAgent: '👥',
+    launchMission: '🚀',
+    getMissionStatus: '📈',
+    queueApproval: '🔑',
+    activateHeartbeat: '💓',
+    getAgentSystemStatus: 'ℹ️',
+    executeCommand: '🐚',
+    runCode: '💻',
+    listFiles: '📁',
+    readFile: '📖',
+    writeFile: '💾',
+    createDirectory: '📁',
+    searchFiles: '🔍',
+    replaceInFiles: '✏️',
+    gitClone: '📥',
+    gitStatus: '📊',
+    gitCommit: '💾',
+    gitPush: '📤',
+    gitPull: '📥',
+    browserSetup: '🌐',
+    browserNavigate: '🧭',
+    browserInteract: '🖱️',
+    browserExtract: '📋',
+    browserScreenshot: '📸',
+  };
+
+  return commonIcons[name] || '🔧';
 }
 
 export function* runAgentSimulation(
@@ -13,20 +84,16 @@ export function* runAgentSimulation(
 ): Generator<StreamEvent, void, unknown> {
   const agent = SUBAGENT_DEFINITIONS.find(a => a.slug === activeAgentSlug) || SUBAGENT_DEFINITIONS[0];
 
-  // Token: intro
-  yield { type: 'token', data: `[Agent ${agent.name}] Processing your request: "${prompt}"...\n\n` };
+  yield { type: 'token', data: `[Simulation Fallback] Processing request: "${prompt}"...\n\n` };
 
-  // Decide what to do based on input
   const lowercasePrompt = prompt.toLowerCase();
 
   if (lowercasePrompt.includes('test') || lowercasePrompt.includes('shell')) {
-    // Simulate shell tool execution
     yield {
       type: 'tool_start',
       data: { name: 'shell_execute', icon: '🐚', input: { command: 'pnpm test', timeout: 5000 } }
     };
 
-    // Stream stdout
     const outputs = [
       ' > etles@3.1.8 test\n',
       ' > set PLAYWRIGHT=True && pnpm exec playwright test\n\n',
@@ -43,12 +110,9 @@ export function* runAgentSimulation(
 
     yield {
       type: 'tool_end',
-      data: { name: 'shell_execute', status: 'completed', output: '3 tests passed successfully in 3.6s.' }
+      data: { name: 'shell_execute', status: 'completed', output: '3 tests passed successfully.' }
     };
-
-    yield { type: 'token', data: '\nAll shell tests have completed successfully! Let me summarize findings.' };
   } else if (lowercasePrompt.includes('edit') || lowercasePrompt.includes('file') || lowercasePrompt.includes('code')) {
-    // Simulate file editing tool with unified diff
     yield {
       type: 'tool_start',
       data: {
@@ -69,67 +133,11 @@ export function* runAgentSimulation(
 
     yield {
       type: 'token',
-      data: '\nI have successfully edited the config file to change the service port from 3000 to 8080. Here is the visual diff:\n\n' +
-            '\x1b[31m- const PORT = 3000;\x1b[0m\n' +
-            '\x1b[32m+ const PORT = 8080;\x1b[0m\n'
-    };
-  } else if (lowercasePrompt.includes('sub') || lowercasePrompt.includes('delegate') || lowercasePrompt.includes('spawn')) {
-    // Simulate sub-agent recursion
-    yield {
-      type: 'token',
-      data: 'Delegating code analysis to specialized sub-agents.\n'
-    };
-
-    // Subagent 1: qa_tester
-    yield {
-      type: 'subagent_start',
-      data: { id: 'sa-1', name: 'QA Tester', role: 'Perform unit-test validations', status: 'running', depth: 1 }
-    };
-
-    yield { type: 'token', data: ' - Spawning sub-agent [QA Tester] to inspect environment...\n' };
-
-    // Subagent 2: code_review inside qa_tester
-    yield {
-      type: 'subagent_start',
-      data: { id: 'sa-2', name: 'Code Reviewer', role: 'Security & style audits', status: 'running', depth: 2 }
-    };
-    yield { type: 'token', data: '   - Spawning sub-agent [Code Reviewer] inside QA Tester...\n' };
-
-    yield {
-      type: 'subagent_end',
-      data: { id: 'sa-2', name: 'Code Reviewer', status: 'completed', output: 'Codebase meets enterprise standard.' }
-    };
-    yield { type: 'token', data: '   - [Code Reviewer] completed.\n' };
-
-    yield {
-      type: 'subagent_end',
-      data: { id: 'sa-1', name: 'QA Tester', status: 'completed', output: 'All unit test templates look healthy.' }
-    };
-    yield { type: 'token', data: ' - [QA Tester] completed.\n' };
-
-    yield { type: 'token', data: '\nBoth sub-agents finished successfully. The code is secure and tested!' };
-  } else if (lowercasePrompt.includes('remember') || lowercasePrompt.includes('save') || lowercasePrompt.includes('memory')) {
-    // Simulate memory write
-    const oldMemory = { ...loadMemory() };
-    const key = 'user_preferred_timezone';
-    const val = 'EST';
-    setMemory(key, val, 'string');
-    const newMemory = { ...loadMemory() };
-
-    yield {
-      type: 'memory_update',
-      data: { oldMemory, newMemory }
-    };
-
-    yield {
-      type: 'token',
-      data: `\nI have successfully saved your preferred timezone to long-term memory:\n- **${key}**: ${val}\n`
+      data: '\nI have successfully edited the config file to change the service port from 3000 to 8080.\n'
     };
   } else {
-    // Standard conversational reply
     const responses = [
-      'I am Etles autonomous controller, active and ready.\n\n',
-      'Based on my current configuration, I have access to the following resources:\n',
+      'I am Etles autonomous controller simulation, active and offline.\n\n',
       `- **Active Agent:** ${agent.name} (${agent.slug})\n`,
       `- **System Context:** "${agent.description}"\n`,
       loadedSkills.length > 0
@@ -143,5 +151,118 @@ export function* runAgentSimulation(
     }
   }
 
-  yield { type: 'done' };
+  yield { type: 'done', data: null };
+}
+
+/**
+ * Connects to the real Next.js chat streaming route /api/chat.
+ * Decodes the Vercel AI SDK Data Stream protocol in real time.
+ */
+export async function* runRealAgentStream(
+  prompt: string,
+  chatId: string,
+  activeAgentSlug: string,
+  activeModel: string,
+  authToken: string
+): AsyncGenerator<StreamEvent, void, unknown> {
+  const messageId = crypto.randomUUID ? crypto.randomUUID() : 'msg_' + Math.random().toString(36).slice(2, 10);
+
+  const payloadBody = {
+    id: chatId,
+    message: {
+      id: messageId,
+      role: 'user',
+      parts: [{ type: 'text', text: prompt }]
+    },
+    selectedChatModel: activeModel,
+    selectedVisibilityType: 'private'
+  };
+
+  const config = getConfig();
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || (config && (config as any).appUrl) || 'http://localhost:3000')
+    .replace(/\/$/, '');
+  const apiUrl = `${baseUrl}/api/chat`;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${authToken}`
+    },
+    body: JSON.stringify(payloadBody)
+  });
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => 'Unknown error');
+    throw new Error(`HTTP Error ${response.status} when POSTing to ${apiUrl}: ${errText}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('Response body has no readable reader stream.');
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.trim()) continue;
+
+        const colonIdx = line.indexOf(':');
+        if (colonIdx === -1) continue;
+
+        const code = line.substring(0, colonIdx);
+        const payloadRaw = line.substring(colonIdx + 1);
+
+        try {
+          const payload = JSON.parse(payloadRaw);
+
+          if (code === '0') {
+            // Text delta
+            yield { type: 'token', data: payload };
+          } else if (code === 'b') {
+            // Reasoning delta (thinking block)
+            yield { type: 'token', data: `\x1b[33m${payload}\x1b[0m` };
+          } else if (code === '2') {
+            // Tool start event
+            for (const tc of payload) {
+              yield {
+                type: 'tool_start',
+                data: {
+                  name: tc.toolName,
+                  icon: getToolIcon(tc.toolName),
+                  input: tc.args
+                }
+              };
+            }
+          } else if (code === '3') {
+            // Tool end event
+            yield {
+              type: 'tool_end',
+              data: {
+                name: payload.toolName,
+                status: payload.isError ? 'failed' : 'completed',
+                output: typeof payload.result === 'object' ? JSON.stringify(payload.result) : String(payload.result)
+              }
+            };
+          }
+        } catch (err) {
+          // Line parsing failure, ignore
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  yield { type: 'done', data: null };
 }

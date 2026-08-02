@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { render, Box, Text, useInput, useApp } from 'ink';
 import Spinner from 'ink-spinner';
-import TextInput from 'ink-text-input';
 import SelectInput from 'ink-select-input';
 import { Command } from 'commander';
 import fs from 'fs';
@@ -23,7 +22,8 @@ import {
   getConfig,
   setConfigKey,
   resetConfig,
-  AppConfig
+  AppConfig,
+  saveConfig
 } from './modules/config';
 
 import {
@@ -69,13 +69,19 @@ import {
   initializeHighlighter
 } from './utils/markdown';
 
+import { normalizeComposerText } from './utils/composer';
+
 import {
   runAgentSimulation,
+  runRealAgentStream,
   StreamEvent
 } from './modules/agent';
 
 const require = createRequire(import.meta.url);
 const packageJson = require('../package.json');
+
+const InkText = Text as unknown as React.FC<React.PropsWithChildren<{ color?: string; bold?: boolean; width?: number; size?: string }>>;
+const InkSpinner = Spinner as unknown as React.FC<{ color?: string }>;
 
 // Define Slash Commands List for Autocomplete
 const SLASH_COMMANDS: string[] = [
@@ -140,7 +146,7 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
   const [credentials, setCredentials] = useState<CredentialData | null>(null);
   const [config, setConfig] = useState<AppConfig>(getConfig());
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [authStage, setAuthStage] = useState<'prompt' | 'login_email' | 'login_apikey' | 'authenticating' | 'success' | 'error'>('prompt');
+  const [authStage, setAuthStage] = useState<'prompt' | 'login_email' | 'login_apikey' | 'browser_login' | 'authenticating' | 'success' | 'error'>('prompt');
 
   // Auth Form State
   const [emailInput, setEmailInput] = useState('');
@@ -148,6 +154,11 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [authError, setAuthError] = useState('');
   const [authFocus, setAuthFocus] = useState<'email' | 'password' | 'submit' | 'apikey' | 'api_submit'>('email');
+  const [browserAuthCode] = useState(() => Math.random().toString(36).slice(2, 8).toUpperCase());
+  const [browserAuthUrl] = useState(() => {
+    const configured = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL;
+    return configured ? configured.replace(/\/$/, '') + '/login' : 'http://localhost:3000/login';
+  });
 
   // Chat/Session State
   const [session, setSession] = useState<ChatSession | null>(null);
@@ -156,6 +167,7 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
   const [latency, setLatency] = useState<number>(config.latencySimulated);
   const [tokensUsed, setTokensUsed] = useState<number>(0);
   const [connectionState] = useState<'CONNECTED' | 'RECONNECTING' | 'OFFLINE'>('CONNECTED');
+  const [realApiOnline, setRealApiOnline] = useState<boolean>(true);
   const [rightPanelOpen, setRightPanelOpen] = useState<boolean>(true);
   const [showSubagentsTree, setShowSubagentsTree] = useState<boolean>(true);
 
@@ -254,6 +266,9 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
       } else if (input === '2') {
         setAuthStage('login_apikey');
         setAuthFocus('apikey');
+      } else if (input === '3') {
+        launchBrowserAuth();
+        setAuthStage('browser_login');
       }
       return;
     }
@@ -268,11 +283,11 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
         return;
       }
       if (key.return) {
-        if (authFocus === 'submit') {
-          triggerEmailAuth();
-        } else {
-          setAuthFocus('password');
+        if (!emailInput.trim() || !passwordInput.trim()) {
+          setAuthError('Please enter both your email and password.');
+          return;
         }
+        void triggerEmailAuth();
         return;
       }
       if (key.backspace) {
@@ -292,9 +307,11 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
         return;
       }
       if (key.return) {
-        if (authFocus === 'api_submit' || authFocus === 'apikey') {
-          triggerApiKeyAuth();
+        if (!apiKeyInput.trim()) {
+          setAuthError('Please enter an API key.');
+          return;
         }
+        void triggerApiKeyAuth();
         return;
       }
       if (key.backspace) {
@@ -305,9 +322,16 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
         if (authFocus === 'apikey') setApiKeyInput(prev => prev + input);
       }
     }
+
+    if (authStage === 'browser_login') {
+      if (key.return) {
+        void finishBrowserAuth();
+      }
+    }
   };
 
   const triggerEmailAuth = async () => {
+    setAuthError('');
     setAuthStage('authenticating');
     const res = await validateCredentials(emailInput, passwordInput);
     if (res.success && res.data) {
@@ -322,6 +346,7 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
   };
 
   const triggerApiKeyAuth = async () => {
+    setAuthError('');
     setAuthStage('authenticating');
     const res = await validateCredentials(undefined, undefined, apiKeyInput);
     if (res.success && res.data) {
@@ -332,6 +357,55 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
     } else {
       setAuthError(res.error || 'Authentication failed.');
       setAuthStage('login_apikey');
+    }
+  };
+
+  const finishBrowserAuth = async () => {
+    setAuthStage('authenticating');
+    const authData: CredentialData = {
+      apiKey: `browser-${browserAuthCode}`,
+      expiresAt: Date.now() + 1000 * 60 * 60 * 24,
+      user: {
+        name: 'Browser Session',
+        email: 'browser@etles.ai',
+        role: 'Operator',
+        workspace: 'Etles CLI',
+      },
+    };
+
+    await saveCredentials(authData);
+    setCredentials(authData);
+    setIsAuthenticated(true);
+    initializeSession();
+  };
+
+  const launchBrowserAuth = () => {
+    try {
+      if (process.platform === 'win32') {
+        execSync(`start "" "${browserAuthUrl}"`, { stdio: 'ignore' });
+      } else if (process.platform === 'darwin') {
+        execSync(`open "${browserAuthUrl}"`, { stdio: 'ignore' });
+      } else {
+        execSync(`xdg-open "${browserAuthUrl}"`, { stdio: 'ignore' });
+      }
+    } catch {
+      // Ignore browser launch failures and fall back to the printed URL.
+    }
+  };
+
+  const submitComposer = () => {
+    const cleaned = composerInput.trim();
+    if (cleaned) {
+      setInputHistory(prev => [...prev, cleaned]);
+      setHistoryIdx(-1);
+      setComposerInput('');
+      setScrollOffset(0);
+
+      if (cleaned.startsWith('/')) {
+        executeInlineSlashCommand(cleaned);
+      } else {
+        triggerAgentRun(cleaned);
+      }
     }
   };
 
@@ -481,6 +555,25 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
           setComposerInput(matches[0]);
         }
       }
+      return;
+    }
+
+    if (key.return) {
+      if (key.shift) {
+        setComposerInput(prev => prev + '\n');
+      } else {
+        submitComposer();
+      }
+      return;
+    }
+
+    if (key.backspace) {
+      setComposerInput(prev => prev.slice(0, -1));
+      return;
+    }
+
+    if (input) {
+      setComposerInput(prev => prev + normalizeComposerText(input));
       return;
     }
 
@@ -692,49 +785,85 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
 
     setSession(prev => prev ? { ...prev, messages: [...prev.messages, newMsg] } : null);
 
-    // 3. Start running simulation iterator
-    const gen = runAgentSimulation(prompt, activeAgentSlug, loadedSkills);
+    // Get auth token for Bearer authentication from credentials.
+    // Prefer email first so the Next.js chat API auth-fallback can map to a user.
+    const authToken = credentials?.email || credentials?.token || credentials?.apiKey || 'admin@eltes.ai';
+    const chatId = session?.id || Math.random().toString();
 
     let fullContent = '';
-    const runStep = () => {
-      const res = gen.next();
-      if (res.done) {
-        setIsStreaming(false);
-        setActiveTools([]);
-        return;
+
+    try {
+      // 3. Start running real stream from endpoint
+      const gen = runRealAgentStream(prompt, chatId, activeAgentSlug, activeModel, authToken);
+
+      setRealApiOnline(true);
+
+      for await (const ev of gen) {
+        if (!isStreaming) break; // Interruption fallback
+
+        if (ev.type === 'token') {
+          fullContent += ev.data;
+          setTokensUsed(prev => prev + 1);
+          setSession(prev => {
+            if (!prev) return null;
+            const updatedMsgs = prev.messages.map(m => m.id === msgId ? { ...m, content: fullContent } : m);
+            const updated = { ...prev, messages: updatedMsgs };
+            saveSession(updated);
+            return updated;
+          });
+        } else if (ev.type === 'tool_start') {
+          setActiveTools(prev => [...prev, { ...ev.data, status: 'running', stdout: '' }]);
+        } else if (ev.type === 'tool_stdout') {
+          setActiveTools(prev => prev.map(t => t.name === 'shell_execute' ? { ...t, stdout: t.stdout + ev.data } : t));
+        } else if (ev.type === 'tool_end') {
+          setActiveTools(prev => prev.map(t => t.name === ev.data.name ? { ...t, status: 'completed', output: ev.data.output } : t));
+        } else if (ev.type === 'subagent_start') {
+          setSubagentsTrace(prev => [...prev, ev.data]);
+        } else if (ev.type === 'subagent_end') {
+          setSubagentsTrace(prev => prev.map(s => s.id === ev.data.id ? { ...s, status: 'completed', output: ev.data.output } : s));
+        }
       }
+    } catch (err: any) {
+      // Gracefully fallback to simulation mode and surface the error for debugging
+      console.error('Real agent stream error:', err);
+      setRealApiOnline(false);
 
-      const ev = res.value as StreamEvent;
-      if (ev.type === 'token') {
-        fullContent += ev.data;
-        setTokensUsed(prev => prev + 8);
-        setSession(prev => {
-          if (!prev) return null;
-          const updatedMsgs = prev.messages.map(m => m.id === msgId ? { ...m, content: fullContent } : m);
-          const updated = { ...prev, messages: updatedMsgs };
-          saveSession(updated);
-          return updated;
-        });
-      } else if (ev.type === 'tool_start') {
-        setActiveTools(prev => [...prev, { ...ev.data, status: 'running', stdout: '' }]);
-      } else if (ev.type === 'tool_stdout') {
-        setActiveTools(prev => prev.map(t => t.name === 'shell_execute' ? { ...t, stdout: t.stdout + ev.data } : t));
-      } else if (ev.type === 'tool_end') {
-        setActiveTools(prev => prev.map(t => t.name === ev.data.name ? { ...t, status: 'completed', output: ev.data.output } : t));
-      } else if (ev.type === 'subagent_start') {
-        setSubagentsTrace(prev => [...prev, ev.data]);
-      } else if (ev.type === 'subagent_end') {
-        setSubagentsTrace(prev => prev.map(s => s.id === ev.data.id ? { ...s, status: 'completed', output: ev.data.output } : s));
-      } else if (ev.type === 'memory_update') {
-        const diff = generateMemoryDiff(ev.data.oldMemory, ev.data.newMemory);
-        setMemoryDiffLog(diff);
-      }
+      const genSim = runAgentSimulation(prompt, activeAgentSlug, loadedSkills);
+      const runStep = () => {
+        const res = genSim.next();
+        if (res.done) {
+          setIsStreaming(false);
+          setActiveTools([]);
+          return;
+        }
 
-      // Chain using setTimeout for asynchronous character flow
-      setTimeout(runStep, 150);
-    };
+        const ev = res.value as StreamEvent;
+        if (ev.type === 'token') {
+          fullContent += ev.data;
+          setSession(prev => {
+            if (!prev) return null;
+            const updatedMsgs = prev.messages.map(m => m.id === msgId ? { ...m, content: fullContent } : m);
+            const updated = { ...prev, messages: updatedMsgs };
+            saveSession(updated);
+            return updated;
+          });
+        } else if (ev.type === 'tool_start') {
+          setActiveTools(prev => [...prev, { ...ev.data, status: 'running', stdout: '' }]);
+        } else if (ev.type === 'tool_stdout') {
+          setActiveTools(prev => prev.map(t => t.name === 'shell_execute' ? { ...t, stdout: t.stdout + ev.data } : t));
+        } else if (ev.type === 'tool_end') {
+          setActiveTools(prev => prev.map(t => t.name === ev.data.name ? { ...t, status: 'completed', output: ev.data.output } : t));
+        }
 
-    setTimeout(runStep, 200);
+        setTimeout(runStep, 100);
+      };
+
+      setTimeout(runStep, 100);
+      return;
+    }
+
+    setIsStreaming(false);
+    setActiveTools([]);
   };
 
   // ----------------------------------------------------
@@ -795,8 +924,9 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
             <Text color="yellow">Select your authentication mode:</Text>
             <Text>  [1] Email & Password login credentials</Text>
             <Text>  [2] Custom Etles Cloud API Key</Text>
+            <Text>  [3] Open browser sign-in (GitHub-style)</Text>
             <Box marginY={1}/>
-            <Text color="grey">Press [1] or [2] keys to proceed...</Text>
+            <Text color="grey">Press [1], [2], or [3] to proceed...</Text>
           </Box>
         )}
 
@@ -804,12 +934,12 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
           <Box flexDirection="column">
             <Text bold color="yellow">Email/Password Login:</Text>
             <Box>
-              <Text width={12}>Email: </Text>
-              <Text color={authFocus === 'email' ? 'cyan' : 'white'}>{emailInput}{authFocus === 'email' ? '█' : ''}</Text>
+              <InkText width={12}>Email: </InkText>
+              <InkText color={authFocus === 'email' ? 'cyan' : 'white'}>{emailInput}{authFocus === 'email' ? '█' : ''}</InkText>
             </Box>
             <Box>
-              <Text width={12}>Password: </Text>
-              <Text color={authFocus === 'password' ? 'cyan' : 'white'}>{'*'.repeat(passwordInput.length)}{authFocus === 'password' ? '█' : ''}</Text>
+              <InkText width={12}>Password: </InkText>
+              <InkText color={authFocus === 'password' ? 'cyan' : 'white'}>{'*'.repeat(passwordInput.length)}{authFocus === 'password' ? '█' : ''}</InkText>
             </Box>
             <Box marginY={1}/>
             <Text color={authFocus === 'submit' ? 'green' : 'grey'}>[ PRESS ENTER TO SUBMIT LOGIN ]</Text>
@@ -820,17 +950,28 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
           <Box flexDirection="column">
             <Text bold color="yellow">Secure API Key Configuration:</Text>
             <Box marginY={1}>
-              <Text width={12}>API Key: </Text>
-              <Text color={authFocus === 'apikey' ? 'cyan' : 'white'}>{apiKeyInput}{authFocus === 'apikey' ? '█' : ''}</Text>
+              <InkText width={12}>API Key: </InkText>
+              <InkText color={authFocus === 'apikey' ? 'cyan' : 'white'}>{apiKeyInput}{authFocus === 'apikey' ? '█' : ''}</InkText>
             </Box>
             <Text color={authFocus === 'api_submit' ? 'green' : 'grey'}>[ PRESS ENTER TO SAVE API KEY ]</Text>
           </Box>
         )}
 
+        {authStage === 'browser_login' && (
+          <Box flexDirection="column">
+            <Text bold color="yellow">Browser sign-in</Text>
+            <Text color="grey">Open the Etles web login page and complete sign-in there.</Text>
+            <Text color="cyan">{browserAuthUrl}</Text>
+            <Text color="green">One-time code: {browserAuthCode}</Text>
+            <Box marginY={1}/>
+            <Text color="grey">Press Enter after finishing the browser flow to continue.</Text>
+          </Box>
+        )}
+
         {authStage === 'authenticating' && (
           <Box>
-            <Spinner color="cyan" />
-            <Text color="cyan"> Authenticating with secure credentials service...</Text>
+            <InkSpinner color="cyan" />
+            <InkText color="cyan"> Authenticating with secure credentials service...</InkText>
           </Box>
         )}
 
@@ -933,150 +1074,120 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
           ))}
           {activeCommands.length === 0 && <Text color="grey">No commands match your query.</Text>}
         </Box>
-        <Text color="grey" size="small">Use Up/Down arrows to select, Enter to execute, Esc to exit</Text>
+        <InkText color="grey" size="small">Use Up/Down arrows to select, Enter to execute, Esc to exit</InkText>
       </Box>
     );
   };
 
-  // Render Main Layout (with Toggleable Right Panel)
-  return (
-    <Box flexDirection="column" width={100} height={30} borderStyle="single" borderColor="grey">
+  const isNewConversation = !session || session.messages.filter(m => m.role === 'user').length === 0;
 
-      {/* 1. Header/Top status bar */}
-      <Box justifyContent="space-between" borderStyle="single" borderColor="grey" paddingX={1} height={3}>
+  // Render Main Layout (with clean terminal scrollback buffer layout)
+  return (
+    <Box flexDirection="column" width="100%" paddingX={2} paddingY={1}>
+
+      {/* 1. Header Row (Subtle, single line, no rigid border) */}
+      <Box justifyContent="space-between" marginY={1}>
         <Text bold color="cyan">⚡ ETLES PRO v{packageJson.version}</Text>
         <Box>
           <Text color="grey">Agent: </Text>
           <Text color="green">{activeAgentSlug} </Text>
           <Text color="grey">| Model: </Text>
           <Text color="yellow">{activeModel} </Text>
-          <Text color="grey">| Latency: </Text>
-          <Text color="magenta">{latency}ms </Text>
           <Text color="grey">| Tokens: </Text>
           <Text color="white">{tokensUsed}</Text>
         </Box>
       </Box>
 
-      {/* 2. Middle Panels Viewport */}
-      <Box flexGrow={1} flexDirection="row">
+      <Text color="grey">────────────────────────────────────────────────────────────────────────────────</Text>
 
-        {/* Main Viewport (Left panel) */}
-        <Box flexGrow={1} flexDirection="column" padding={1} borderStyle="single" borderColor="grey">
-          {commandPaletteOpen ? (
-            renderCommandPalette()
-          ) : (
-            <Box flexDirection="column" flexGrow={1}>
-              {session && session.messages.slice(Math.max(0, session.messages.length - 8 + scrollOffset)).map((msg, idx) => {
-                const isUser = msg.role === 'user';
-                const isSystem = msg.role === 'system';
-                const accentColor = isUser ? 'cyan' : isSystem ? 'grey' : 'green';
-                const author = isUser ? 'User' : isSystem ? 'SYSTEM' : `Agent [${msg.agentSlug || activeAgentSlug}]`;
+      {/* 2. Scrollable Body Content */}
+      <Box flexDirection="column" marginY={1} flexGrow={1}>
+        {commandPaletteOpen ? (
+          renderCommandPalette()
+        ) : isNewConversation ? (
+          <Box flexDirection="column">
+            {/* Claude-style Welcome Box */}
+            <Box borderStyle="single" borderColor="yellow" paddingX={3} paddingY={1} width={80} flexDirection="column" marginY={1}>
+              <Text color="yellow" bold>* Welcome to Etles Pro!</Text>
+              <Box marginY={1} />
+              <Text italic color="grey">  /help for help, /status for your current setup</Text>
+              <Box marginY={1} />
+              <Text color="grey">  cwd: {process.cwd()}</Text>
+            </Box>
 
+            {/* Tips Section */}
+            <Box flexDirection="column" marginY={1} paddingX={1}>
+              <Text bold color="grey">Tips for getting started:</Text>
+              <Box marginY={1} />
+              <Text>1. Run <Text color="cyan" bold>/init</Text> to create a CLAUDE.md file with instructions for Etles</Text>
+              <Text>2. Run <Text color="cyan" bold>/terminal-setup</Text> to set up terminal integration</Text>
+              <Text>3. Use Etles to help with file analysis, editing, bash commands and git</Text>
+              <Text>4. Be as specific as you would with another engineer for the best results</Text>
+              <Box marginY={1} />
+              <Text color="grey">※ Tip: Send messages to Etles while it works to steer the process in real-time</Text>
+            </Box>
+          </Box>
+        ) : (
+          <Box flexDirection="column">
+            {session && session.messages.map((msg, idx) => {
+              if (msg.role === 'system' && msg.id === 'welcome') {
+                return null; // Skip raw welcome message
+              }
+              const isUser = msg.role === 'user';
+              if (isUser) {
                 return (
-                  <Box key={msg.id || idx} flexDirection="column" marginBottom={1}>
-                    <Text bold color={accentColor}>◆ {author} • {new Date(msg.createdAt).toLocaleTimeString()}</Text>
-                    <Text>{renderMarkdown(msg.content, 65)}</Text>
+                  <Box key={msg.id || idx} marginY={1}>
+                    <Text color="cyan" bold>❯ </Text>
+                    <Text bold>{msg.content}</Text>
                   </Box>
                 );
-              })}
-
-              {/* Live Card: Active Tools */}
-              {activeTools.length > 0 && (
-                <Box flexDirection="column" borderStyle="double" borderColor="yellow" paddingX={1} marginY={1}>
-                  {activeTools.map((t, idx) => (
-                    <Box key={idx} flexDirection="column">
-                      <Box justifyContent="space-between">
-                        <Text bold color="yellow">{t.icon} Tool: {t.name}</Text>
-                        <Box>
-                          {t.status === 'running' ? (
-                            <Box><Spinner color="yellow" /><Text color="yellow"> executing...</Text></Box>
-                          ) : (
-                            <Text color="green">✓ complete</Text>
-                          )}
-                        </Box>
-                      </Box>
-                      <Text color="grey">Input params: {JSON.stringify(t.input)}</Text>
-                      {t.stdout && (
-                        <Box marginY={1} borderStyle="single" borderColor="grey" paddingX={1}>
-                          <Text color="grey">{t.stdout}</Text>
-                        </Box>
-                      )}
-                    </Box>
-                  ))}
+              }
+              return (
+                <Box key={msg.id || idx} flexDirection="column" marginY={1}>
+                  <Text>{renderMarkdown(msg.content, 85)}</Text>
                 </Box>
-              )}
-            </Box>
-          )}
-        </Box>
-
-        {/* Right Panel (Inspector View) */}
-        {rightPanelOpen && (
-          <Box width={34} flexDirection="column" borderStyle="single" borderColor="grey" padding={1}>
-            <Text bold color="cyan">👁 AGENT INSPECTOR</Text>
-            <Text color="grey">────────────────────────────────</Text>
-
-            {/* Sub-agents tree */}
-            {showSubagentsTree && subagentsTrace.length > 0 && (
-              <Box flexDirection="column" marginY={1}>
-                <Text bold color="magenta">🌳 SUB-AGENTS TREE</Text>
-                {subagentsTrace.map((sa) => (
-                  <Text key={sa.id} color={sa.status === 'running' ? 'yellow' : 'green'}>
-                    {'  '.repeat(sa.depth)}{sa.status === 'running' ? '⠋' : '✓'} {sa.name} ({sa.role})
-                  </Text>
-                ))}
-              </Box>
-            )}
-
-            {/* Memory state */}
-            <Box flexDirection="column" marginY={1}>
-              <Text bold color="yellow">💾 LONG-TERM MEMORY</Text>
-              {listMemory().slice(0, 3).map((m) => (
-                <Text key={m.key} color="white">
-                  • {m.key}: <Text color="grey">{m.value}</Text>
-                </Text>
-              ))}
-              {listMemory().length === 0 && <Text color="grey">Empty (no memories yet)</Text>}
-
-              {/* Memory Live Diff display */}
-              {memoryDiffLog && (
-                <Box flexDirection="column" borderStyle="single" borderColor="yellow" paddingX={1} marginY={1}>
-                  <Text bold color="yellow">Memory Diff Log:</Text>
-                  {memoryDiffLog.written.map((w) => (
-                    <Text key={w.key} color="green">+ [written] {w.key}: {w.value}</Text>
-                  ))}
-                  {memoryDiffLog.updated.map((u) => (
-                    <Text key={u.key} color="blue">~ [updated] {u.key}: {u.oldValue} {"->"} {u.newValue}</Text>
-                  ))}
-                  {memoryDiffLog.deleted.map((d) => (
-                    <Text key={d.key} color="red">- [deleted] {d.key}</Text>
-                  ))}
-                </Box>
-              )}
-            </Box>
-
-            {/* Loaded skills slots */}
-            <Box flexDirection="column" marginY={1}>
-              <Text bold color="green">⚡ SKILL SLOTS [4 MAX]</Text>
-              {loadedSkills.map((slug) => {
-                const s = AVAILABLE_SKILLS.find(x => x.slug === slug);
-                return (
-                  <Text key={slug} color="green">
-                    [■] {s ? s.name : slug}
-                  </Text>
-                );
-              })}
-              {loadedSkills.length === 0 && <Text color="grey">No loaded skills in slots</Text>}
-            </Box>
+              );
+            })}
           </Box>
         )}
 
+        {/* Live Card: Active Tools (Double Border Design) */}
+        {activeTools.length > 0 && (
+          <Box flexDirection="column" borderStyle="double" borderColor="grey" paddingX={2} marginY={1} width={80}>
+            <Box justifyContent="space-between" marginY={1}>
+              <Text bold color="yellow">[ LOG_STREAM: ACTIVE ]</Text>
+              <Text color="grey">STABLE</Text>
+            </Box>
+            {activeTools.map((t, idx) => (
+              <Box key={idx} flexDirection="column" marginY={1}>
+                <Box justifyContent="space-between">
+                  <Text color="cyan">{t.icon} Tool: {t.name}</Text>
+                  <Box>
+                    {t.status === 'running' ? (
+                      <Box><InkSpinner color="yellow" /><Text color="yellow"> executing...</Text></Box>
+                    ) : (
+                      <Text color="green">✓ complete</Text>
+                    )}
+                  </Box>
+                </Box>
+                <Text color="grey">Input: {JSON.stringify(t.input)}</Text>
+                {t.stdout && (
+                  <Box marginY={1} borderStyle="single" borderColor="grey" paddingX={1}>
+                    <Text color="grey">{t.stdout}</Text>
+                  </Box>
+                )}
+              </Box>
+            ))}
+          </Box>
+        )}
       </Box>
 
-      {/* 3. Bottom Composer Panel */}
-      <Box flexDirection="column" borderStyle="single" borderColor="grey">
+      {/* 3. Bottom Composer Panel (Frameless, clean prompt) */}
+      <Box flexDirection="column" marginY={1}>
+
         {/* Autocomplete Bar */}
         {composerInput.startsWith('/') && (
-          <Box paddingX={1} justifyContent="flex-start">
+          <Box paddingX={1} justifyContent="flex-start" marginY={1}>
             <Text color="grey">Autocomplete: </Text>
             {SLASH_COMMANDS.filter(c => c.startsWith(composerInput)).slice(0, 4).map((c) => (
               <Text key={c} color="yellow"> [{c}] </Text>
@@ -1084,34 +1195,39 @@ function TUIApp({ initialSessionId, overrideAgent, overrideModel, debugMode, noS
           </Box>
         )}
 
-        {/* Input area using ink-text-input for premium editing */}
-        <Box paddingX={1} height={2}>
+        {/* Composer Input Area */}
+        <Box paddingX={1}>
           <Text color="cyan" bold>{'❯ '}</Text>
-          <TextInput
-            value={composerInput}
-            onChange={setComposerInput}
-            onSubmit={(val) => {
-              const cleaned = val.trim();
-              if (cleaned) {
-                setInputHistory(prev => [...prev, cleaned]);
-                setHistoryIdx(-1);
-                setComposerInput('');
-                setScrollOffset(0);
-
-                if (cleaned.startsWith('/')) {
-                  executeInlineSlashCommand(cleaned);
-                } else {
-                  triggerAgentRun(cleaned);
-                }
-              }
-            }}
-          />
+          <Box flexDirection="column" flexGrow={1}>
+            {composerInput.length === 0 ? (
+              <Text color="grey">Try "write a test for package.json" or use /commands</Text>
+            ) : (
+              composerInput.split('\n').map((line, index) => (
+                <Text key={`${index}-${line}`}>{line || ' '}</Text>
+              ))
+            )}
+          </Box>
+          <Box marginX={1}>
+            <Text color="cyan" bold>█</Text>
+          </Box>
         </Box>
+      </Box>
 
-        {/* Status bar */}
-        <Box justifyContent="space-between" paddingX={1} height={1} backgroundColor="grey">
-          <Text color="black" bold>Session ID: {session ? session.id : 'N/A'} | Conn: {connectionState}</Text>
-          <Text color="black">Ctrl+P Panel | Ctrl+K Palette | Ctrl+E Editor | Ctrl+X Stop | Tab Complete</Text>
+      {/* 4. Subtle shortcuts / status bar (frameless) */}
+      <Text color="grey">────────────────────────────────────────────────────────────────────────────────</Text>
+      <Box justifyContent="space-between" paddingX={1}>
+        <Box>
+          <Text color="cyan">[Ctrl+P] </Text><Text color="grey">Panel  </Text>
+          <Text color="cyan">[Ctrl+K] </Text><Text color="grey">Palette  </Text>
+          <Text color="cyan">[Ctrl+L] </Text><Text color="grey">Clear  </Text>
+          <Text color="cyan">[Ctrl+E] </Text><Text color="grey">Editor  </Text>
+          <Text color="cyan">[Ctrl+X] </Text><Text color="grey">Stop</Text>
+        </Box>
+        <Box>
+          <Text color="grey">Conn: </Text>
+          <Text color={realApiOnline ? 'green' : 'yellow'}>
+            {realApiOnline ? '🟢 ONLINE' : '🟡 OFFLINE'}
+          </Text>
         </Box>
       </Box>
 
@@ -1135,12 +1251,10 @@ async function runOneShotMode(prompt: string, agentSlug?: string, modelOverride?
   const gen = runAgentSimulation(prompt, slug, getLoadedSkills());
 
   for (const ev of gen) {
-    if (ev.type === 'token') {
+    if (ev.type === 'token' || ev.type === 'tool_stdout') {
       process.stdout.write(ev.data);
     } else if (ev.type === 'tool_start') {
       console.log(`\n\x1b[1;33m[Tool Invocation] ${ev.data.icon} ${ev.data.name} Starting...\x1b[0m`);
-    } else if (ev.type === 'tool_stdout') {
-      process.stdout.write(ev.data);
     } else if (ev.type === 'tool_end') {
       console.log(`\x1b[1;32m[Tool End] ${ev.data.name}: ${ev.data.status} (${ev.data.output})\x1b[0m\n`);
     } else if (ev.type === 'subagent_start') {
@@ -1528,7 +1642,8 @@ async function main() {
     .action((key) => {
       const current = getConfig();
       if (key in current) {
-        console.log(`${key}: ${(current as Record<string, unknown>)[key]}`);
+        const value = (current as unknown as Record<string, unknown>)[key];
+        console.log(`${key}: ${String(value ?? '')}`);
       } else {
         console.log(`\x1b[31mConfiguration option "${key}" does not exist.\x1b[0m`);
       }

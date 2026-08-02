@@ -48,13 +48,14 @@ export function highlightCode(code: string, lang: string): string {
         ? (normalizedLang === 'js' ? 'javascript' : normalizedLang === 'ts' ? 'typescript' : normalizedLang === 'py' ? 'python' : normalizedLang === 'sh' ? 'bash' : normalizedLang)
         : 'typescript';
 
-      const tokens = highlighter.codeToTokens(code, {
-        lang: actualLang,
+      const tokenResult = highlighter.codeToTokens(code, {
+        lang: actualLang as any,
         theme: 'github-dark'
-      });
+      }) as any;
+      const tokenLines = Array.isArray(tokenResult) ? tokenResult : (tokenResult.tokens ?? []);
 
       let highlighted = '';
-      for (const line of tokens) {
+      for (const line of tokenLines) {
         for (const token of line) {
           const color = token.color ? hexToAnsi(token.color) : '\x1b[0m';
           highlighted += color + token.content + '\x1b[0m';

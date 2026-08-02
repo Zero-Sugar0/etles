@@ -230,3 +230,42 @@ export const ModelSelectorName = ({
 }: ModelSelectorNameProps) => (
   <span className={cn("flex-1 truncate text-left font-medium", className)} {...props} />
 );
+
+export type ModelSelectorDescriptionProps = ComponentProps<"span">;
+
+export const ModelSelectorDescription = ({
+  className,
+  ...props
+}: ModelSelectorDescriptionProps) => (
+  <span
+    className={cn(
+      "block truncate text-[10px] font-normal text-muted-foreground/70",
+      className
+    )}
+    {...props}
+  />
+);
+
+export type ModelSelectorBadgeProps = ComponentProps<"span"> & {
+  tone?: "default" | "accent" | "muted";
+};
+
+export const ModelSelectorBadge = ({
+  className,
+  tone = "default",
+  ...props
+}: ModelSelectorBadgeProps) => (
+  <span
+    className={cn(
+      "inline-flex shrink-0 items-center rounded border px-1 py-px text-[9px] font-semibold uppercase tracking-wide",
+      tone === "accent" &&
+        "border-primary/30 bg-primary/10 text-primary",
+      tone === "muted" &&
+        "border-border/60 bg-muted/40 text-muted-foreground/70",
+      tone === "default" &&
+        "border-border/60 bg-background/60 text-muted-foreground/80",
+      className
+    )}
+    {...props}
+  />
+);

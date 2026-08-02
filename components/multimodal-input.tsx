@@ -18,7 +18,9 @@ import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import {
   ModelSelector,
+  ModelSelectorBadge,
   ModelSelectorContent,
+  ModelSelectorDescription,
   ModelSelectorGroup,
   ModelSelectorInput,
   ModelSelectorItem,
@@ -891,9 +893,36 @@ function PureModelSelectorCompact({
                       value={model.id}
                     >
                       <ModelSelectorLogo provider={logoProvider} />
-                      <ModelSelectorName>{model.name}</ModelSelectorName>
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <div className="flex items-center gap-1.5">
+                          <ModelSelectorName>{model.name}</ModelSelectorName>
+                          {model.features.reasoning && (
+                            <ModelSelectorBadge tone="accent">
+                              Reasoning
+                            </ModelSelectorBadge>
+                          )}
+                          {model.features.vision && (
+                            <ModelSelectorBadge>Vision</ModelSelectorBadge>
+                          )}
+                          {model.features.tools && (
+                            <ModelSelectorBadge tone="muted">
+                              Tools
+                            </ModelSelectorBadge>
+                          )}
+                          {model.reasoningEffort && (
+                            <ModelSelectorBadge tone="muted">
+                              {model.reasoningEffort}
+                            </ModelSelectorBadge>
+                          )}
+                        </div>
+                        {model.description && (
+                          <ModelSelectorDescription>
+                            {model.description}
+                          </ModelSelectorDescription>
+                        )}
+                      </div>
                       {model.id === selectedModel.id && (
-                        <CheckIcon className="ml-auto size-4" />
+                        <CheckIcon className="ml-auto size-4 shrink-0" />
                       )}
                     </ModelSelectorItem>
                   );
