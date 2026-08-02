@@ -1,7 +1,7 @@
 // app/(chat)/api/connections/route.ts
 import { Composio } from "@composio/core";
-import { auth } from "../../../(auth)/auth";
 import { guestRegex } from "@/lib/constants";
+import { auth } from "../../../(auth)/auth";
 
 const composio = new Composio();
 
@@ -14,7 +14,10 @@ export async function GET() {
 
   const isGuest = guestRegex.test(session?.user?.email ?? "");
   if (isGuest) {
-    return Response.json({ error: "Unauthorized: Guest access not allowed" }, { status: 401 });
+    return Response.json(
+      { error: "Unauthorized: Guest access not allowed" },
+      { status: 401 }
+    );
   }
 
   try {
@@ -25,21 +28,36 @@ export async function GET() {
     }
 
     // Fetch user's connected accounts — no status filter to avoid SDK version issues
-    let connectedApps = new Map<string, string>();
+    // Multi-account: group connected accounts by toolkit, preserving alias + id
+    const connectedApps = new Map<
+      string,
+      Array<{ id: string; alias?: string }>
+    >();
     try {
       const userAccounts = await composio.connectedAccounts.list({
         userIds: [session.user.id],
       });
       const items = userAccounts?.items ?? [];
       // Only keep ACTIVE connections; use lowercase for case-insensitive matching
-      connectedApps = new Map(
-        items
-          .filter((acc: any) => !acc.status || acc.status === "ACTIVE")
-          .map((acc: any) => [
-            (acc.toolkit?.slug || acc.appName || acc.appId || "").toLowerCase(),
-            acc.id,
-          ])
-      );
+      for (const rawAcc of items) {
+        const acc = rawAcc as any;
+        if (acc.status && acc.status !== "ACTIVE") {
+          continue;
+        }
+        const slug = (
+          acc.toolkit?.slug ||
+          acc.appName ||
+          acc.appId ||
+          ""
+        ).toLowerCase();
+        if (!slug) {
+          continue;
+        }
+        const entry = { id: acc.id, alias: acc.alias || undefined };
+        const existing = connectedApps.get(slug) ?? [];
+        existing.push(entry);
+        connectedApps.set(slug, existing);
+      }
     } catch (accountError) {
       console.error("Failed to fetch connected accounts:", accountError);
       // Non-fatal: continue with empty connected map; toolkits still load
@@ -53,28 +71,34 @@ export async function GET() {
     };
 
     return Response.json({
-      toolkits: allApps
-        .map((t: any) => {
-          const slug = t.slug || t.key || "";
-          const requiresAuth = !t.noAuth && !t.no_auth;
-          return {
-            slug,
-            name: formatAppName(t.name || slug),
-            logo: t.meta?.logo || t.logo,
-            requiresAuth,
-            // No-auth tools are always available — treat as connected by default
-            isConnected: !requiresAuth || connectedApps.has(slug.toLowerCase()),
-            connectedAccountId: connectedApps.get(slug.toLowerCase()),
-          };
-        }),
+      toolkits: allApps.map((t: any) => {
+        const slug = t.slug || t.key || "";
+        const requiresAuth = !t.noAuth && !t.no_auth;
+        const accounts = connectedApps.get(slug.toLowerCase()) ?? [];
+        return {
+          slug,
+          name: formatAppName(t.name || slug),
+          logo: t.meta?.logo || t.logo,
+          requiresAuth,
+          // No-auth tools are always available — treat as connected by default
+          isConnected: !requiresAuth || accounts.length > 0,
+          // Backward-compatible: first (most recently connected) account id
+          connectedAccountId: accounts[0]?.id,
+          // Multi-account: all connected accounts for this toolkit
+          connectedAccounts: accounts,
+        };
+      }),
     });
   } catch (error: any) {
     console.error("Failed to fetch toolkits from Composio:", error);
-    return Response.json({ 
-      error: "Failed to load toolkits", 
-      details: error.message,
-      toolkits: [] 
-    }, { status: error.status === 401 ? 401 : 500 });
+    return Response.json(
+      {
+        error: "Failed to load toolkits",
+        details: error.message,
+        toolkits: [],
+      },
+      { status: error.status === 401 ? 401 : 500 }
+    );
   }
 }
 
@@ -87,10 +111,14 @@ export async function POST(req: Request) {
 
   const isGuest = guestRegex.test(session?.user?.email ?? "");
   if (isGuest) {
-    return Response.json({ error: "Unauthorized: Guest access not allowed" }, { status: 401 });
+    return Response.json(
+      { error: "Unauthorized: Guest access not allowed" },
+      { status: 401 }
+    );
   }
 
-  const { toolkit }: { toolkit: string } = await req.json();
+  const { toolkit, alias }: { toolkit: string; alias?: string } =
+    await req.json();
   try {
     const baseUrl =
       process.env.BASE_URL ||
@@ -103,14 +131,18 @@ export async function POST(req: Request) {
         : new URL(req.url).origin);
 
     const composioSession = await composio.create(session.user.id);
-    
+
     const connectionRequest = await composioSession.authorize(toolkit, {
+      ...(alias ? { alias } : {}),
       callbackUrl: `${baseUrl}/settings/connections`,
     });
 
     return Response.json({ redirectUrl: connectionRequest.redirectUrl });
   } catch (error: any) {
     console.error("Failed to initiate Composio authorization:", error);
-    return Response.json({ error: "Failed to initiate connection", details: error.message }, { status: 500 });
+    return Response.json(
+      { error: "Failed to initiate connection", details: error.message },
+      { status: 500 }
+    );
   }
 }

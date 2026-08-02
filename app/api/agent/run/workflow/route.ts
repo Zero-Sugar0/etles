@@ -215,7 +215,8 @@ export const { POST } = serve<AgentRunWorkflowPayload>(async (context) => {
       // Load Composio tools — optional, continue without if unavailable
       let composioTools: Record<string, unknown> = {};
       try {
-        const session = await composio.create(userId, { manageConnections: true });
+        const session = await composio.create(userId, { manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 } });
         composioTools = await session.tools();
       } catch (err) {
         console.error("[AgentRunWorkflow] Composio tools unavailable:", err);

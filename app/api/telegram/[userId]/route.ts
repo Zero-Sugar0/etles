@@ -343,7 +343,8 @@ async function routeMessage({
 
   let composioTools: Record<string, unknown> = {};
   try {
-    const session = await composio.create(ownerUserId, { manageConnections: true });
+    const session = await composio.create(ownerUserId, { manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 } });
     composioTools = await session.tools();
   } catch (e) {
     console.error("[Telegram] Failed to load Composio tools:", e);

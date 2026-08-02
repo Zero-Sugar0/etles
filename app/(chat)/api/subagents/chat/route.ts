@@ -249,6 +249,7 @@ async function runInlineSubagentChat(params: {
         const composio = new Composio({ provider: new VercelProvider() });
         const session = await composio.create(userId, {
           manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
         });
         composioTools = await session.tools();
       } catch {

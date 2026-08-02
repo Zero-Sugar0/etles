@@ -162,6 +162,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
     try {
       const session = await composio.create(ownerUserId, {
         manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
       });
       composioTools = await session.tools();
     } catch (e) {

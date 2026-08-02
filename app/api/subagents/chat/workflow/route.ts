@@ -195,6 +195,7 @@ export const { POST } = serve<SubagentChatWorkflowPayload>(async (context) => {
     try {
       const session = await composio.create(userId, {
         manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
       });
       composioTools = await session.tools();
     } catch {

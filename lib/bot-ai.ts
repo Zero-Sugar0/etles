@@ -27,7 +27,8 @@ export async function buildPlatformAgentTools({
 }) {
   let composioTools: Record<string, unknown> = {};
   try {
-    const session = await composio.create(userId, { manageConnections: true });
+    const session = await composio.create(userId, { manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 } });
     composioTools = await session.tools();
   } catch {
     /* Composio optional */

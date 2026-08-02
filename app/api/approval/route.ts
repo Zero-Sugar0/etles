@@ -69,7 +69,8 @@ export async function POST(request: Request) {
 
   if (action === "approve") {
     try {
-      const composioSession = await composio.create(session.user.id, { manageConnections: true });
+      const composioSession = await composio.create(session.user.id, { manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 } });
       const tools = await composioSession.tools();
       const tool = (tools as any)[approval.executionTool];
 

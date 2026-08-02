@@ -354,6 +354,7 @@ export async function POST(request: Request) {
       try {
         const composioSession = await composio.create(session.user.id, {
           manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
         });
         composioTools = await composioSession.tools();
       } catch (error) {

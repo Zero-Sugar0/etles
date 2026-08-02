@@ -30,26 +30,26 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector";
 import {
+  Queue,
+  QueueItem,
+  QueueItemAction,
+  QueueItemActions,
+  QueueItemAttachment,
+  QueueItemContent,
+  QueueItemFile,
+  QueueItemImage,
+  QueueItemIndicator,
+  QueueList,
+  QueueSection,
+  QueueSectionContent,
+  QueueSectionLabel,
+  QueueSectionTrigger,
+} from "@/components/ai-elements/queue";
+import {
   chatModels,
   DEFAULT_CHAT_MODEL,
   modelsByProvider,
 } from "@/lib/ai/models";
-import {
-  Queue,
-  QueueSection,
-  QueueSectionTrigger,
-  QueueSectionLabel,
-  QueueSectionContent,
-  QueueList,
-  QueueItem,
-  QueueItemIndicator,
-  QueueItemContent,
-  QueueItemActions,
-  QueueItemAction,
-  QueueItemAttachment,
-  QueueItemFile,
-  QueueItemImage,
-} from "@/components/ai-elements/queue";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn, generateUUID } from "@/lib/utils";
 import {
@@ -77,8 +77,11 @@ const blobToBase64 = (blob: Blob): Promise<string> => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64data = reader.result?.toString().split(",")[1];
-      if (base64data) resolve(base64data);
-      else reject(new Error("Failed to convert blob to base64"));
+      if (base64data) {
+        resolve(base64data);
+      } else {
+        reject(new Error("Failed to convert blob to base64"));
+      }
     };
     reader.onerror = reject;
     reader.readAsDataURL(blob);
@@ -119,12 +122,14 @@ function PureMultimodalInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
   const [isAgentMode, setIsAgentMode] = useState(false);
-  const [queuedMessages, setQueuedMessages] = useState<Array<{
-    id: string;
-    text: string;
-    attachments: Attachment[];
-    isAgentMode: boolean;
-  }>>([]);
+  const [queuedMessages, setQueuedMessages] = useState<
+    Array<{
+      id: string;
+      text: string;
+      attachments: Attachment[];
+      isAgentMode: boolean;
+    }>
+  >([]);
 
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -186,11 +191,15 @@ function PureMultimodalInput({
   const triggerAgent = useCallback(
     async (taskText: string) => {
       const trimmed = taskText.trim();
-      if (!trimmed) return;
+      if (!trimmed) {
+        return;
+      }
 
       const isSlashCommand = trimmed.toLowerCase().startsWith("/agent ");
       const task = isSlashCommand ? trimmed.slice(7).trim() : trimmed;
-      if (!task) return;
+      if (!task) {
+        return;
+      }
 
       const displayMessage = isSlashCommand ? trimmed : `/agent ${trimmed}`;
 
@@ -198,7 +207,9 @@ function PureMultimodalInput({
       setInput("");
       setLocalStorageInput("");
       resetHeight();
-      if (width && width > 768) textareaRef.current?.focus();
+      if (width && width > 768) {
+        textareaRef.current?.focus();
+      }
 
       // Optimistically add the user message to the local UI state.
       // The server will persist it via upsertMessages; the IDs match so
@@ -233,7 +244,9 @@ function PureMultimodalInput({
         });
 
         if (!res.ok) {
-          const err = await res.json().catch(() => ({ error: "Unknown error" }));
+          const err = await res
+            .json()
+            .catch(() => ({ error: "Unknown error" }));
           toast.error(
             `Agent run failed: ${
               (err as { error?: string }).error ?? res.statusText
@@ -247,7 +260,9 @@ function PureMultimodalInput({
         // messages every 4 seconds. No extra wiring needed here.
       } catch (err) {
         console.error("[AgentRun] Fetch failed:", err);
-        toast.error("Could not reach the agent service. Check your connection.");
+        toast.error(
+          "Could not reach the agent service. Check your connection."
+        );
         setMessages((prev) => prev.filter((m) => m.id !== userMessageId));
       }
     },
@@ -266,9 +281,13 @@ function PureMultimodalInput({
   const isProcessingQueueRef = useRef(false);
 
   useEffect(() => {
-    if (status === "ready" && queuedMessages.length > 0 && !isProcessingQueueRef.current) {
+    if (
+      status === "ready" &&
+      queuedMessages.length > 0 &&
+      !isProcessingQueueRef.current
+    ) {
       isProcessingQueueRef.current = true;
-      
+
       const nextMessage = queuedMessages[0];
       if (!nextMessage) {
         isProcessingQueueRef.current = false;
@@ -477,13 +496,13 @@ function PureMultimodalInput({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 16000,
+          sampleRate: 16_000,
           channelCount: 1,
         },
       });
       // Try to use a lower bitrate if supported to speed up upload
       const options = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? { mimeType: "audio/webm;codecs=opus", audioBitsPerSecond: 16000 }
+        ? { mimeType: "audio/webm;codecs=opus", audioBitsPerSecond: 16_000 }
         : undefined;
       const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
@@ -491,8 +510,12 @@ function PureMultimodalInput({
       isStoppingRef.current = false;
 
       mediaRecorder.ondataavailable = async (event) => {
-        if (event.data.size === 0) return;
-        if (isStoppingRef.current) return;
+        if (event.data.size === 0) {
+          return;
+        }
+        if (isStoppingRef.current) {
+          return;
+        }
 
         audioChunksRef.current.push(event.data);
 
@@ -579,33 +602,51 @@ function PureMultimodalInput({
               <QueueSectionTrigger className="hover:bg-muted/60">
                 <QueueSectionLabel
                   count={queuedMessages.length}
-                  label={queuedMessages.length === 1 ? "Message Queued" : "Messages Queued"}
                   icon={
                     <span className="size-4 text-primary animate-pulse flex items-center justify-center shrink-0">
                       <BotIcon />
                     </span>
+                  }
+                  label={
+                    queuedMessages.length === 1
+                      ? "Message Queued"
+                      : "Messages Queued"
                   }
                 />
               </QueueSectionTrigger>
               <QueueSectionContent>
                 <QueueList className="mt-1">
                   {queuedMessages.map((msg) => (
-                    <QueueItem key={msg.id} className="relative flex flex-row items-start justify-between py-1.5 border-b border-border/30 last:border-0">
+                    <QueueItem
+                      className="relative flex flex-row items-start justify-between py-1.5 border-b border-border/30 last:border-0"
+                      key={msg.id}
+                    >
                       <div className="flex items-start gap-2.5 grow min-w-0">
-                        <QueueItemIndicator completed={false} className="mt-1.5 shrink-0" />
+                        <QueueItemIndicator
+                          className="mt-1.5 shrink-0"
+                          completed={false}
+                        />
                         <div className="flex flex-col min-w-0 grow gap-0.5">
                           <QueueItemContent className="text-foreground/90 text-xs font-sans font-medium line-clamp-2">
                             {msg.isAgentMode ? (
-                              <span className="font-semibold text-primary mr-1 select-none">[Agent]</span>
+                              <span className="font-semibold text-primary mr-1 select-none">
+                                [Agent]
+                              </span>
                             ) : null}
                             {msg.text || "(empty message)"}
                           </QueueItemContent>
                           {msg.attachments.length > 0 && (
                             <QueueItemAttachment className="mt-1 flex flex-wrap gap-1.5">
                               {msg.attachments.map((att) => (
-                                <div key={att.url} className="flex items-center gap-1">
+                                <div
+                                  className="flex items-center gap-1"
+                                  key={att.url}
+                                >
                                   {att.contentType?.startsWith("image/") ? (
-                                    <QueueItemImage src={att.url} className="h-6 w-6 rounded object-cover border border-border/40 shadow-2xs" />
+                                    <QueueItemImage
+                                      className="h-6 w-6 rounded object-cover border border-border/40 shadow-2xs"
+                                      src={att.url}
+                                    />
                                   ) : (
                                     <QueueItemFile>{att.name}</QueueItemFile>
                                   )}
@@ -619,7 +660,9 @@ function PureMultimodalInput({
                         <QueueItemAction
                           className="text-[10px] h-6 px-2 font-medium rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive opacity-15 group-hover:opacity-100 transition-all"
                           onClick={() => {
-                            setQueuedMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                            setQueuedMessages((prev) =>
+                              prev.filter((m) => m.id !== msg.id)
+                            );
                           }}
                         >
                           Remove
@@ -643,22 +686,24 @@ function PureMultimodalInput({
             if (!input.trim() && attachments.length === 0) {
               return;
             }
-            if (status !== "ready") {
+            if (status === "ready") {
+              submitForm();
+            } else {
               setQueuedMessages((prev) => [
                 ...prev,
                 {
                   id: generateUUID(),
                   text: input,
-                  attachments: attachments,
-                  isAgentMode: isAgentMode || input.trim().toLowerCase().startsWith("/agent "),
+                  attachments,
+                  isAgentMode:
+                    isAgentMode ||
+                    input.trim().toLowerCase().startsWith("/agent "),
                 },
               ]);
               setInput("");
               setAttachments([]);
               resetHeight();
               toast.success("Message added to queue!");
-            } else {
-              submitForm();
             }
           }}
         >
@@ -756,7 +801,8 @@ function PureMultimodalInput({
                 <MicIcon size={16} />
               </Button>
 
-              {(status === "submitted" || status === "streaming") && !input.trim() ? (
+              {(status === "submitted" || status === "streaming") &&
+              !input.trim() ? (
                 <StopButton setMessages={setMessages} stop={stop} />
               ) : (
                 <PromptInputSubmit
@@ -811,11 +857,13 @@ function PureAttachmentsButton({
   const selectedModel = chatModels.find((m) => m.id === selectedModelId);
   const hasVision = selectedModel
     ? selectedModel.features.vision
-    : (!selectedModelId.includes("reasoning") && !selectedModelId.includes("think") && !selectedModelId.includes("thinking"));
+    : !selectedModelId.includes("reasoning") &&
+      !selectedModelId.includes("think") &&
+      !selectedModelId.includes("thinking");
 
   return (
-            <Button
-              className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
+    <Button
+      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
       data-testid="attachments-button"
       disabled={status !== "ready" || !hasVision}
       onClick={(event) => {
@@ -866,7 +914,10 @@ function PureModelSelectorCompact({
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
-        <Button className="h-8 w-auto max-w-[190px] gap-1.5 rounded-lg px-2.5 text-xs" variant="ghost">
+        <Button
+          className="h-8 w-auto max-w-[190px] gap-1.5 rounded-lg px-2.5 text-xs"
+          variant="ghost"
+        >
           {provider && <ModelSelectorLogo provider={provider} />}
           <ModelSelectorName>{selectedModel.name}</ModelSelectorName>
         </Button>
@@ -898,17 +949,17 @@ function PureModelSelectorCompact({
                           <ModelSelectorName>{model.name}</ModelSelectorName>
                           <span className="inline-flex shrink-0 items-center gap-1 text-muted-foreground/70">
                             {model.features.reasoning && (
-                              <span aria-label="Reasoning" title="Reasoning">
+                              <span title="Reasoning">
                                 <Brain className="size-3.5" />
                               </span>
                             )}
                             {model.features.vision && (
-                              <span aria-label="Vision" title="Vision">
+                              <span title="Vision">
                                 <Eye className="size-3.5" />
                               </span>
                             )}
                             {model.features.tools && (
-                              <span aria-label="Tools" title="Tools">
+                              <span title="Tools">
                                 <Wrench className="size-3.5" />
                               </span>
                             )}

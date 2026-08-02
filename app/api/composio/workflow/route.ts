@@ -39,7 +39,8 @@ export const { POST } = serve<ComposioWebhookWorkflowPayload>(async (context) =>
   const { aiText, steps: aiSteps } = await context.run("run-agent", async () => {
     let composioTools: Record<string, any> = {};
     try {
-      const session = await composio.create(userId, { manageConnections: true });
+      const session = await composio.create(userId, { manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 } });
       composioTools = await session.tools();
     } catch (e) {
       console.error("[ComposioWorkflow] Composio tools failed:", e);

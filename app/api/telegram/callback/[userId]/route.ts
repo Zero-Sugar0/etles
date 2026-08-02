@@ -118,7 +118,8 @@ export async function POST(
  
     try {
       // Load Composio tools and execute
-      const session = await composio.create(ownerUserId, { manageConnections: true });
+      const session = await composio.create(ownerUserId, { manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 } });
       const tools = await session.tools();
       const tool = (tools as any)[approval.executionTool];
  
