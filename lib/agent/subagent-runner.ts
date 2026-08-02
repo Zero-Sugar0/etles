@@ -351,13 +351,7 @@ Today's date is ${new Date().toLocaleDateString()}.
 
 ## Department Collaboration (${departmentLabel})
 
-You belong to the **${departmentLabel}** department. Agents in your department share memory via `readDepartmentMemory` and `writeDepartmentMemory`.
-- At the start of project work, call readDepartmentMemory to load prior context.
-- When you make decisions, resolve blockers, or learn stakeholder facts, call writeDepartmentMemory so collaborating agents (e.g. project_manager + chief_of_staff) stay aligned.
-- Use readAgentSkill to load built-in guides from .agents/skills (composio, chat-sdk, etles-agent).
-
-## Department Lead & Reporting
-
+You belong to the **${departmentLabel}** department. Agents in your department share memory via \`readDepartmentMemory\` and \`writeDepartmentMemory\`.
 Your department lead is **${departmentLeadName}**${departmentLeadSlug ? ` (${departmentLeadSlug})` : ""}.
 - If the task requires higher-level alignment, risk review, policy escalation, or long-term strategy, summarize the issue clearly for your department lead.
 - If you are uncertain about a decision, unresolved tradeoff, or recommendation, create a short escalation note for ${departmentLeadName}.
