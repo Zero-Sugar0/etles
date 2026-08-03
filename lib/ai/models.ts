@@ -45,7 +45,8 @@ export const chatModels: ChatModel[] = [
     id: "anthropic/claude-sonnet-4.5",
     name: "Claude Sonnet 4.5",
     provider: "anthropic",
-    description: "Flagship balanced model with superb thinking and vision capabilities",
+    description:
+      "Flagship balanced model with superb thinking and vision capabilities",
     features: { reasoning: true, vision: true, tools: true },
     gatewayOrder: ["anthropic", "bedrock"],
   },
@@ -176,7 +177,8 @@ export const chatModels: ChatModel[] = [
     id: "google/gemini-3.5-flash",
     name: "Gemini 3.5 Flash",
     provider: "google",
-    description: "Ultimate speed, efficiency and capabilities in 3.5 generation",
+    description:
+      "Ultimate speed, efficiency and capabilities in 3.5 generation",
     features: { reasoning: true, vision: true, tools: true },
     gatewayOrder: ["google", "google-vertex"],
   },
@@ -379,6 +381,14 @@ export const chatModels: ChatModel[] = [
     provider: "alibaba",
     description: "Advanced coding flagship of Qwen 3 series",
     features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["alibaba"],
+  },
+  {
+    id: "alibaba/qwen3.8-max",
+    name: "Qwen 3.8 Max",
+    provider: "alibaba",
+    description: "Latest flagship Max model of the Qwen 3.8 family",
+    features: { reasoning: true, vision: true, tools: true },
     gatewayOrder: ["alibaba"],
   },
   // Reasoning models (extended thinking) - classified as provider: reasoning for UI grouping
