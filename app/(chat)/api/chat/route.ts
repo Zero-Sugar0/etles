@@ -243,6 +243,12 @@ export async function POST(request: Request) {
       return new ChatbotError("bad_request:api").toResponse();
     }
 
+    // Auto-seed Business Model Canvas, KPI tree, and OKRs into Knowledge Graph
+    const { seedBusinessFramework } = await import("@/lib/agent/seed-business-framework");
+    seedBusinessFramework(session.user.id).catch((err) =>
+      console.error("[seedBusinessFramework] Background seed error:", err)
+    );
+
     const isGuest = guestRegex.test(session?.user?.email ?? "");
     await checkIpRateLimit(ipAddress(request), isGuest);
 

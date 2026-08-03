@@ -167,6 +167,7 @@ export async function* runRealAgentStream(
 ): AsyncGenerator<StreamEvent, void, unknown> {
   const messageId = crypto.randomUUID ? crypto.randomUUID() : 'msg_' + Math.random().toString(36).slice(2, 10);
 
+  // Payload routes either to main chat model or specialized sub-agent slug
   const payloadBody = {
     id: chatId,
     message: {
@@ -174,7 +175,7 @@ export async function* runRealAgentStream(
       role: 'user',
       parts: [{ type: 'text', text: prompt }]
     },
-    selectedChatModel: activeModel,
+    selectedChatModel: activeAgentSlug && activeAgentSlug !== 'main_agent' ? activeAgentSlug : activeModel,
     selectedVisibilityType: 'private'
   };
 
@@ -187,7 +188,8 @@ export async function* runRealAgentStream(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${authToken}`
+      'Authorization': `Bearer ${authToken}`,
+      'x-subagent-slug': activeAgentSlug
     },
     body: JSON.stringify(payloadBody)
   });
@@ -232,31 +234,37 @@ export async function* runRealAgentStream(
           } else if (code === 'b') {
             // Reasoning delta (thinking block)
             yield { type: 'token', data: `\x1b[33m${payload}\x1b[0m` };
-          } else if (code === '2') {
-            // Tool start event
-            for (const tc of payload) {
+          } else if (code === '9' || code === '2') {
+            // Tool call event
+            const toolCalls = Array.isArray(payload) ? payload : [payload];
+            for (const tc of toolCalls) {
+              const toolName = tc.toolName || tc.name || 'tool';
               yield {
                 type: 'tool_start',
                 data: {
-                  name: tc.toolName,
-                  icon: getToolIcon(tc.toolName),
-                  input: tc.args
+                  name: toolName,
+                  icon: getToolIcon(toolName),
+                  input: tc.args || tc.input || {}
                 }
               };
             }
-          } else if (code === '3') {
-            // Tool end event
+          } else if (code === 'a' || code === '3') {
+            // Tool result event
+            const toolName = payload.toolName || payload.name || 'tool';
             yield {
               type: 'tool_end',
               data: {
-                name: payload.toolName,
+                name: toolName,
                 status: payload.isError ? 'failed' : 'completed',
-                output: typeof payload.result === 'object' ? JSON.stringify(payload.result) : String(payload.result)
+                output: typeof payload.result === 'object' ? JSON.stringify(payload.result) : String(payload.result || '')
               }
             };
           }
         } catch (err) {
-          // Line parsing failure, ignore
+          // Plain text fallback if JSON parsing fails
+          if (code === '0') {
+            yield { type: 'token', data: payloadRaw };
+          }
         }
       }
     }
