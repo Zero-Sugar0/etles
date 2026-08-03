@@ -1,7 +1,7 @@
 ---
 name: etles-agent
 description: >
-  Core Etles Agent Infrastructure, Architecture, and Tools. Use this skill when modifying or extending Etles's core capabilities, editing sub-agents, handling webhooks (Telegram, GChat, Composio), dealing with long-term memory (Upstash Vector), autonomous missions, scheduling cron jobs/reminders (QStash), or adjusting the main chat router (`app/(chat)/api/chat/route.ts`). Triggers on "subagent", "memory", "schedule", "qstash", "upstash", "composio webhook", "telegram webhook", "gchat webhook", "heartbeat", "synthesis", "daytona", "sandbox", "approval", "mission", and "chat route".
+  Core Etles Agent Infrastructure, Architecture, and Tools. Use this skill when modifying or extending Etles's core capabilities, editing sub-agents or the executive command layer, handling webhooks (Telegram, GChat, Composio), dealing with long-term memory (Upstash Vector) or the knowledge graph, autonomous missions, scheduling cron jobs/reminders (QStash), business framework seeding, A2A agent collaboration, or adjusting the main chat router (`app/(chat)/api/chat/route.ts`). Triggers on "subagent", "executive", "department", "memory", "knowledge graph", "schedule", "qstash", "upstash", "composio webhook", "telegram webhook", "gchat webhook", "heartbeat", "synthesis", "daytona", "sandbox", "approval", "mission", "business framework", "A2A", and "chat route".
 ---
 
 # Etles Agent Infrastructure
@@ -39,23 +39,90 @@ Etles uses a sophisticated routing layer to balance cost, speed, and capability.
 - **AI Gateway**: Most traffic (including Title and Artifact models) routes through an AI Gateway for logging and load balancing.
 - **Direct Providers**: Critical background tasks (Subagents, Heartbeats) use `getGoogleModel` to bypass the gateway and talk directly to Google Gemini for maximum reliability.
 - **Model Selection & Tiering**:
-  - **Premium Models**: `openai/gpt-5-mini`, `anthropic/claude-3.7-sonnet-thinking`.
-  - **Lightweight Models**: `google/gemini-3.1-flash-lite-preview`, `openai/gpt-5-nano`.
-  - **Specialized Reasoning**: Models suffixed with `-thinking` automatically use `extractReasoningMiddleware` for extended internal monologue.
+  - **Default Chat Model**: `moonshotai/kimi-k2.5`.
+  - **Title Model**: `google/gemma-4-26b-a4b-it` (via `titleModel.id`).
+  - **Subagent Model**: Configurable via `SUBAGENT_MODEL` env var, defaults to `minimax/minimax-m3`.
+  - **Premium Models**: `anthropic/claude-sonnet-4.8`, `anthropic/claude-opus-4.8`, `openai/gpt-5-mini`.
+  - **Lightweight Models**: `google/gemini-3-flash`, `openai/gpt-4.1-nano`, `openai/gpt-5-nano`.
+  - **Reasoning Models**: Models with `provider: "reasoning"` (e.g., `deepseek/deepseek-r1`, `anthropic/claude-sonnet-4.8-thinking`, `xai/grok-3-thinking`).
+  - **Gateway Order**: Each model specifies `gatewayOrder` for provider failover (e.g., `["anthropic", "bedrock"]`).
+  - **Reasoning Effort**: Configurable per-model via `reasoningEffort` field (`none` | `minimal` | `low` | `medium` | `high`).
+  - **Dynamic Capabilities**: `getCapabilities()` fetches real-time model capabilities (tools, vision, reasoning) from the AI Gateway.
+  - **Model Availability**: `getModelAvailability()` checks endpoint health (uptime, latency) for proactive incident detection.
 - **Mocking**: Full support for `isTestEnvironment` using `models.mock` for local development.
 
-## 4. Autonomous Agents & Tasks
+## 4. Autonomous Agents, Executive Layer & Tasks
 
-### Subagents (`lib/agent/subagent-definitions.ts`, `lib/ai/tools/subagents.ts`)
-Specialized agents delegated to handle out-of-band tasks.
-- **Supported Slugs (21 total)**: 
-  `inbox_operator`, `sdr`, `chief_of_staff`, `project_manager`, `social_media`, `hiring`, `finance`, `competitive_intel`, `customer_success`, `personal_admin`, `incident_response`, `stripe_churn`, `code_review`, `cloud_cost`, `product_analytics`, `contractor_payment`, `legal_operator`, `brand_monitor`, `revenue_forecasting`, `docs_keeper`, `investor_relations`.
-- **Execution Flow**:
-  1. `delegateToSubAgent` creates a `createAgentTask` in the DB.
-  2. A message `###AGENT_DELEGATED###...` is saved to the chat to indicate status.
-  3. Prefers **Upstash Workflow** (`triggerAgentWorkflow`) for durable execution (survives restarts/timeouts).
-  4. Falls back to async HTTP delegation (`/api/agent/delegate`) or inline `runSubAgent`.
-- **Reporting**: Results are saved as `###AGENT_RESULT###` in chat and pushed to the UI via `notifySubAgentHandoffToMainAgent`.
+### Executive Command Layer (`lib/agent/registry/department-leads.ts`)
+A C-Suite tier above the departments, with aggressive autonomous execution directives ("act first, report later"):
+- **`executive_lead`** (CEO): Orchestrates all 15 departments, enforces strategic OKRs, resolves inter-departmental blocks, presents unified executive intelligence.
+- **`product_lead`** (CPO): Owns product roadmap, feature prioritization, PRD specification, UX research integration.
+- **`analytics_lead`** (CAO): Enterprise BI, SaaS telemetry, predictive revenue modeling.
+- **`supply_chain_lead`**: Logistics, 3PL fulfillment, inventory health.
+- **`partnerships_lead`**: Channel reseller agreements, co-marketing, tech alliances.
+- Each lead owns a KPI/P&L dashboard, runs internal standups with specialists, escalates only exceptions to the C-suite, and reports weekly scorecards to the COO.
+
+### Department Structure (`lib/agent/departments.ts`)
+**15 departments** with 85+ specialized agents:
+- **Executive & Operations** (`executive_ops`): 13 agents including chief_of_staff, inbox_operator, project_manager, task_coordinator, etc.
+- **Sales & Revenue** (`sales`): 9 agents including sdr, demo_closer, competitive_intel, deal_desk, revops_control_tower, etc.
+- **Marketing & Brand** (`marketing`): 9 agents including social_media, growth_hacker, ads_manager, pr_comms_specialist, seo_content_strategist, etc.
+- **Engineering & Infrastructure** (`engineering`): 10 agents including code_review, sandbox_specialist, devops_infra_architect, qa_tester, incident_response, cloud_cost, etc.
+- **Product & Design** (`product`): 4 agents including product_strategist, ux_researcher, pricing_packaging, product_lead.
+- **Finance & Accounting** (`finance`): 8 agents including finance, contractor_payment, stripe_churn, fpa_analyst, tax_treasury, etc.
+- **Customer Success & CX** (`customer_service`): 9 agents including customer_success, customer_retention_specialist, customer_voice_intelligence, etc.
+- **HR & Talent** (`hr_people`): 6 agents including hiring, compensation_benefits_specialist, employee_engagement, etc.
+- **Data & Analytics** (`growth_analytics`): 4 agents including product_analytics, people_analytics, analytics_lead.
+- **Research & Strategy** (`research_strategy`): strategy_ops, research_strategy_lead.
+- **Legal & Compliance** (`legal_compliance`): 6 agents including legal_operator, ai_governance_officer, vendor_risk, etc.
+- **Security & Trust** (`security`): security_operator, security_lead.
+- **Content & Studio** (`content_creative`): 5 agents including cinematic_director, visual_designer, content_ops, etc.
+- **Supply Chain & E-Commerce** (`supply_chain_ecommerce`): supply_chain_lead.
+- **Partnerships & Alliances** (`partnerships_alliances`): partnerships_lead.
+
+### Subagent Registry (`lib/agent/subagent-definitions.ts`, `lib/agent/registry/`)
+Modular registry files per domain:
+- `registry/core.ts` — Operations, Sales, Chief of Staff, SDR, etc.
+- `registry/department-leads.ts` — C-Suite executive leads.
+- `registry/finance-legal.ts` — Finance, Legal, FP&A, AI Governance.
+- `registry/marketing-growth.ts` — Marketing, PR, SEO, Growth.
+- `registry/dev-ops-qa.ts` — Engineering, DevOps, QA, Cloud Cost.
+- `registry/creative-design.ts` — Content, Visual, E-commerce.
+- `registry/support-services.ts` — Customer Success, Retention, Docs.
+- `registry/hr-people.ts` — Hiring, Onboarding, Compensation.
+- `registry/product-strategy.ts` — Product, UX, Strategy.
+- `registry/security-compliance.ts` — Security, Compliance, Privacy.
+
+### Business Framework Seed (`lib/agent/seed-business-framework.ts`)
+Auto-seeds the knowledge graph on first agent run per user (idempotent via `kg:{userId}:seeded:business-framework` marker):
+- **Business Model Canvas**: Value Proposition, Customer Segments, Revenue Streams, Cost Structure.
+- **KPI Tree**: ARR, CAC, LTV, NRR with causal relations (`feeds_into`, `drives_growth`, `monetizes`).
+- **OKR Template**: Quarterly objectives and key results framework.
+- **WBR Scorecard**: Weekly Business Review structure (Revenue vs Plan, Pipeline, Retention, Incidents, Cash Runway).
+- Invoked at the start of `runSubAgent()` via `await seedBusinessFramework(userId).catch(() => {})`.
+
+### A2A Collaboration (`lib/ai/tools/collaborate.ts`)
+Every agent can spawn and coordinate child agents:
+- **`spawnChildAgent`**: Spawn another agent with a self-contained task. Supports `coordinationId` for grouping and `waitForResult` for blocking.
+- **`waitForChildAgents`**: Wait for multiple spawned agents (same `coordinationId`) to complete. Max 8-minute timeout.
+- **`getCollaborationStatus`**: Non-blocking status check.
+- **Orchestration patterns**: Parallel fan-out, sequential chaining, conditional branching.
+- **Synthesis is mandatory**: Agents must synthesize child results into one coherent narrative, not concatenate.
+
+### Department Memory (`lib/ai/tools/department-memory.ts`)
+- `readDepartmentMemory` / `writeDepartmentMemory`: Per-department shared memory keyed by agent slug.
+- Agents in the same department share context so specialist work stays aligned.
+- The system prompt injects the department label, lead name, and escalation instructions into every agent run.
+
+### Execution Flow
+1. `runSubAgent` creates/updates an `AgentTask` in the DB.
+2. Seeds the business framework (idempotent).
+3. Loads Composio tools (with `multiAccount` support).
+4. Injects A2A collaboration tools, memory, knowledge graph, goals, planner, schedules, missions, scratchpad, department memory, cloud infra, database, legal, Twilio, and sandbox/browser tools.
+5. Recalls relevant long-term memory.
+6. Runs `generateText` with the full system prompt (agent definition + memory context + department collaboration + A2A orchestration guide).
+7. Results saved as `###AGENT_RESULT###` in chat and pushed via `notifySubAgentHandoffToMainAgent`.
+8. Parent agent notified via `notifyParentAgent` if spawned via A2A.
 
 ### Autonomous Missions (`lib/ai/tools/missions.ts`)
 Multi-week autonomous campaigns aimed at business goals (e.g., "get 50 beta users").
@@ -108,3 +175,30 @@ Mandatory safety gate for irreversible actions (Emails, Payments, Social Posts).
 - **Telegram**: Primary H2I (Human-to-Infrastructure) interface. Handles direct messages, inline keyboards, callback data (`edit:`, `approve:`, `reject:`), and proactive notifications.
 - **Chat SDK (`lib/bot-handlers.ts`)**: Multi-platform support for Slack, Teams, Discord, GChat, etc., using unified event handlers (`onNewMention`, `onNewMessage`, `onSubscribedMessage`).
 - **Webhook Registry**: Incoming updates are routed to platform-specific endpoints (e.g., `/api/webhooks/telegram/[userId]`) and must pass signature verification (e.g., `x-composio-signature`).
+
+## 9. Knowledge Graph & Business Intelligence
+
+### Knowledge Graph (`lib/ai/tools/knowledge-graph.ts`)
+Per-user structured business knowledge stored in Redis:
+- **Entities**: `{ id, name, entityType, summary, tags, aliases, facts }` — stored at `kg:{userId}:entity:{id}`.
+- **Relations**: `{ fromEntityId, toEntityId, relationType, weight, evidence }` — stored at `kg:{userId}:relation:{id}` with inbound/outbound indexes.
+- **Tools**: `upsertKnowledgeEntity`, `addKnowledgeRelation`, `getKnowledgeEntity`, `searchKnowledgeGraph`, `deleteKnowledgeEntity`, `deleteKnowledgeRelation`.
+- **Seeded** automatically by `seedBusinessFramework()` on first agent run.
+
+### Goals & OKRs (`lib/ai/tools/goals.ts`)
+- `addGoal`, `updateGoal`, `logGoalProgress`, `listGoals`, `deleteGoal`.
+- Goals are per-user and tracked with progress logs.
+
+### Planner (`lib/ai/tools/planner.ts`)
+- `createPlan`, `addPlanTask`, `updatePlanTask`, `listPlans`, `deletePlan`.
+- Multi-step plans with task tracking for complex agent workflows.
+
+### Scratchpad (`lib/ai/tools/scratchpad.ts`)
+- `readScratchpad`, `writeScratchpad`, `clearScratchpad`.
+- Per-chat/task working memory for intermediate agent state.
+
+## 10. Composio Multi-Account Support
+- All `composio.create()` calls include `multiAccount: { enable: true, maxAccountsPerToolkit: 5 }`.
+- Users can connect multiple accounts per toolkit (e.g., work + personal Gmail) with aliases.
+- The connections API (`/api/connections`) groups connected accounts per toolkit into a `connectedAccounts` array.
+- The connections UI displays all connected accounts as chips with their aliases and supports adding additional accounts.
