@@ -15,99 +15,113 @@
 
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
+import { Index } from "@upstash/vector";
 import { generateText, stepCountIs } from "ai";
+import { notifyParentAgent } from "@/lib/agent/agent-bus";
+import {
+  getAgentDepartment,
+  getDepartmentLabel,
+  getDepartmentLeadSlug,
+} from "@/lib/agent/departments";
+import { seedBusinessFramework } from "@/lib/agent/seed-business-framework";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
+import { notifySubAgentHandoffToMainAgent } from "@/lib/agent/subagent-handoff-notify";
 import { getGoogleModel, getLanguageModel } from "@/lib/ai/providers";
+import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
+import * as browserUseTools from "@/lib/ai/tools/browser-use";
+import {
+  getCollaborationStatus,
+  spawnChildAgent,
+  waitForChildAgents,
+} from "@/lib/ai/tools/collaborate";
+import * as daytonaTools from "@/lib/ai/tools/daytona";
+import * as daytonaBrowserTools from "@/lib/ai/tools/daytona-browser";
+import {
+  readDepartmentMemory,
+  writeDepartmentMemory,
+} from "@/lib/ai/tools/department-memory";
 import { generateImageTool } from "@/lib/ai/tools/generate-image";
 import { generateVideoTool } from "@/lib/ai/tools/generate-video";
 import { getWeather } from "@/lib/ai/tools/get-weather";
+import {
+  addGoal,
+  deleteGoal,
+  listGoals,
+  logGoalProgress,
+  updateGoal,
+} from "@/lib/ai/tools/goals";
+import {
+  addKnowledgeRelation,
+  deleteKnowledgeEntity,
+  deleteKnowledgeRelation,
+  getKnowledgeEntity,
+  searchKnowledgeGraph,
+  upsertKnowledgeEntity,
+} from "@/lib/ai/tools/knowledge-graph";
 import {
   deleteMemory,
   recallMemory,
   saveMemory,
   updateMemory,
 } from "@/lib/ai/tools/memory";
-import { notifySubAgentHandoffToMainAgent } from "@/lib/agent/subagent-handoff-notify";
+import { getMissionStatus, launchMission } from "@/lib/ai/tools/missions";
+import { getPersistentSandboxTools } from "@/lib/ai/tools/persistent-sandbox";
 import {
-  spawnChildAgent,
-  waitForChildAgents,
-  getCollaborationStatus,
-} from "@/lib/ai/tools/collaborate";
-import {
-  readScratchpad,
-  writeScratchpad,
-  clearScratchpad,
-} from "@/lib/ai/tools/scratchpad";
-import { notifyParentAgent } from "@/lib/agent/agent-bus";
-import type { DBMessage } from "@/lib/db/schema";
-import { saveMessages, updateAgentTask } from "@/lib/db/queries";
-import { generateUUID } from "@/lib/utils";
-import { Index } from "@upstash/vector";
-import { launchMission, getMissionStatus } from "@/lib/ai/tools/missions";
-import {
-  setReminder,
-  setCronJob,
-  listSchedules,
-  deleteSchedule,
-} from "@/lib/ai/tools/schedule";
-import {
-  upsertKnowledgeEntity,
-  addKnowledgeRelation,
-  getKnowledgeEntity,
-  searchKnowledgeGraph,
-  deleteKnowledgeEntity,
-  deleteKnowledgeRelation,
-} from "@/lib/ai/tools/knowledge-graph";
-import {
-  addGoal,
-  updateGoal,
-  logGoalProgress,
-  listGoals,
-  deleteGoal,
-} from "@/lib/ai/tools/goals";
-import {
-  createPlan,
   addPlanTask,
-  updatePlanTask,
-  listPlans,
+  createPlan,
   deletePlan,
+  listPlans,
+  updatePlanTask,
 } from "@/lib/ai/tools/planner";
 import {
-  tavilySearch,
-  tavilyExtract,
-  tavilyCrawl,
-  tavilyMap,
-} from "@/lib/ai/tools/tavily-search";
-import { wikiQuery, wikiIngest } from "@/lib/ai/tools/wiki";
-import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
+  deleteSchedule,
+  listSchedules,
+  setCronJob,
+  setReminder,
+} from "@/lib/ai/tools/schedule";
 import {
-  readDepartmentMemory,
-  writeDepartmentMemory,
-} from "@/lib/ai/tools/department-memory";
-import { getAgentDepartment, getDepartmentLabel, getDepartmentLeadSlug } from "@/lib/agent/departments";
-import * as daytonaTools from "@/lib/ai/tools/daytona";
-import * as browserUseTools from "@/lib/ai/tools/browser-use";
-import * as daytonaBrowserTools from "@/lib/ai/tools/daytona-browser";
-import { getPersistentSandboxTools } from "@/lib/ai/tools/persistent-sandbox";
+  clearScratchpad,
+  readScratchpad,
+  writeScratchpad,
+} from "@/lib/ai/tools/scratchpad";
+import {
+  tavilyCrawl,
+  tavilyExtract,
+  tavilyMap,
+  tavilySearch,
+} from "@/lib/ai/tools/tavily-search";
 import * as twilio from "@/lib/ai/tools/twilio";
 import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
+import { wikiIngest, wikiQuery } from "@/lib/ai/tools/wiki";
+import { saveMessages, updateAgentTask } from "@/lib/db/queries";
+import { generateUUID } from "@/lib/utils";
 
 const composio = new Composio({ provider: new VercelProvider() });
+
 import * as aws from "@/lib/ai/tools/aws";
-import * as gcp from "@/lib/ai/tools/gcp";
 import * as azure from "@/lib/ai/tools/azure";
 import * as db from "@/lib/ai/tools/databases";
+import * as gcp from "@/lib/ai/tools/gcp";
 import * as legal from "@/lib/ai/tools/legal";
 
-async function recallRelevantMemory(userId: string, query: string): Promise<string> {
+async function recallRelevantMemory(
+  userId: string,
+  query: string
+): Promise<string> {
   try {
     const index = new Index({
       url: process.env.UPSTASH_VECTOR_REST_URL!,
       token: process.env.UPSTASH_VECTOR_REST_TOKEN!,
     });
     const ns = index.namespace(`memory-${userId}`);
-    const results = await ns.query({ data: query, topK: 5, includeMetadata: true });
-    if (!results.length) return "";
+    const results = await ns.query({
+      data: query,
+      topK: 5,
+      includeMetadata: true,
+    });
+    if (!results.length) {
+      return "";
+    }
     const lines = results.map((r) => {
       const meta = r.metadata as any;
       return `• [${meta?.key ?? "memory"}]: ${meta?.content ?? ""}`;
@@ -119,17 +133,17 @@ async function recallRelevantMemory(userId: string, query: string): Promise<stri
 }
 
 export interface RunSubAgentParams {
-  taskId: string;
-  userId: string;
-  chatId?: string;
   agentType: string;
-  task: string;
+  chatId?: string;
   /**
    * If this agent was spawned by another agent (A2A), the parent's eventId.
    * On completion (success or failure), we notify this event so the parent
    * workflow can resume from context.waitForEvent().
    */
   parentEventId?: string;
+  task: string;
+  taskId: string;
+  userId: string;
 }
 
 export async function runSubAgent(params: RunSubAgentParams): Promise<{
@@ -142,10 +156,18 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
   const definition = getSubAgentBySlug(agentType);
   if (!definition) {
     const error = `Unknown agent type: ${agentType}`;
-    await updateAgentTask({ id: taskId, userId, status: "failed", result: { error } });
+    await updateAgentTask({
+      id: taskId,
+      userId,
+      status: "failed",
+      result: { error },
+    });
     if (parentEventId) {
       await notifyParentAgent(parentEventId, {
-        taskId, agentType, success: false, error,
+        taskId,
+        agentType,
+        success: false,
+        error,
         completedAt: new Date().toISOString(),
       }).catch(() => {});
     }
@@ -154,10 +176,16 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
 
   await updateAgentTask({ id: taskId, userId, status: "running" });
 
+  // Seed the shared business framework (BMC, KPI tree, OKR/WBR templates)
+  // once per user so executive agents have a common operating model.
+  await seedBusinessFramework(userId).catch(() => {});
+
   let composioTools: Record<string, unknown> = {};
   try {
-    const session = await composio.create(userId, { manageConnections: true,
-          multiAccount: { enable: true, maxAccountsPerToolkit: 5 } });
+    const session = await composio.create(userId, {
+      manageConnections: true,
+      multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
+    });
     composioTools = await session.tools();
   } catch {
     /* Composio optional */
@@ -169,7 +197,9 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     (process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : undefined) ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    (process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
 
   // ── A2A collaboration tools — available to ALL agents ────────────────────
   const collaborationTools = {
@@ -230,7 +260,10 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     wikiQuery: wikiQuery({ userId }),
     wikiIngest: wikiIngest({ userId }),
     readAgentSkill: readAgentSkill(),
-    readDepartmentMemory: readDepartmentMemory({ userId, agentSlug: agentType }),
+    readDepartmentMemory: readDepartmentMemory({
+      userId,
+      agentSlug: agentType,
+    }),
     // Infrastructure & Database Tools
     awsS3: aws.awsS3({ userId }),
     awsEC2: aws.awsEC2({ userId }),
@@ -246,7 +279,10 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     mongodbQuery: db.mongodbQuery({ userId }),
     analyzeContract: legal.analyzeContract({ userId }),
     compareContracts: legal.compareContracts({ userId }),
-    writeDepartmentMemory: writeDepartmentMemory({ userId, agentSlug: agentType }),
+    writeDepartmentMemory: writeDepartmentMemory({
+      userId,
+      agentSlug: agentType,
+    }),
 
     // Sandbox tools for specialist agents
     ...(agentType === "sandbox_specialist" || agentType === "browser_operator"
@@ -293,7 +329,9 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
           browserMultiTab: daytonaBrowserTools.browserMultiTab({ userId }),
           browserUploadFile: daytonaBrowserTools.browserUploadFile({ userId }),
           browserScreenshot: daytonaBrowserTools.browserScreenshot({ userId }),
-          browserVisualInteract: daytonaBrowserTools.browserVisualInteract({ userId }),
+          browserVisualInteract: daytonaBrowserTools.browserVisualInteract({
+            userId,
+          }),
         }
       : {}),
 
@@ -306,23 +344,46 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     twilioGetMessage: twilio.twilioGetMessage({ userId }),
     twilioListMessages: twilio.twilioListMessages({ userId }),
     twilioListMyNumbers: twilio.twilioListMyNumbers({ userId }),
-    twilioSearchAvailableNumbers: twilio.twilioSearchAvailableNumbers({ userId }),
+    twilioSearchAvailableNumbers: twilio.twilioSearchAvailableNumbers({
+      userId,
+    }),
     twilioProvisionNumber: twilio.twilioProvisionNumber({ userId }),
     twilioReleaseNumber: twilio.twilioReleaseNumber({ userId }),
     twilioUpdateNumber: twilio.twilioUpdateNumber({ userId }),
 
     // Twilio WhatsApp tools (available to all agents)
-    twilioWhatsAppSendMessage: twilioWhatsApp.twilioWhatsAppSendMessage({ userId }),
-    twilioWhatsAppGetMessage: twilioWhatsApp.twilioWhatsAppGetMessage({ userId }),
-    twilioWhatsAppListMessages: twilioWhatsApp.twilioWhatsAppListMessages({ userId }),
-    twilioWhatsAppSendTemplate: twilioWhatsApp.twilioWhatsAppSendTemplate({ userId }),
-    twilioWhatsAppCreateTemplate: twilioWhatsApp.twilioWhatsAppCreateTemplate({ userId }),
-    twilioWhatsAppListTemplates: twilioWhatsApp.twilioWhatsAppListTemplates({ userId }),
-    twilioWhatsAppGetTemplate: twilioWhatsApp.twilioWhatsAppGetTemplate({ userId }),
-    twilioWhatsAppDeleteTemplate: twilioWhatsApp.twilioWhatsAppDeleteTemplate({ userId }),
-    twilioWhatsAppSubmitApproval: twilioWhatsApp.twilioWhatsAppSubmitApproval({ userId }),
-    twilioWhatsAppGetApprovalStatus: twilioWhatsApp.twilioWhatsAppGetApprovalStatus({ userId }),
-    twilioWhatsAppListSenders: twilioWhatsApp.twilioWhatsAppListSenders({ userId }),
+    twilioWhatsAppSendMessage: twilioWhatsApp.twilioWhatsAppSendMessage({
+      userId,
+    }),
+    twilioWhatsAppGetMessage: twilioWhatsApp.twilioWhatsAppGetMessage({
+      userId,
+    }),
+    twilioWhatsAppListMessages: twilioWhatsApp.twilioWhatsAppListMessages({
+      userId,
+    }),
+    twilioWhatsAppSendTemplate: twilioWhatsApp.twilioWhatsAppSendTemplate({
+      userId,
+    }),
+    twilioWhatsAppCreateTemplate: twilioWhatsApp.twilioWhatsAppCreateTemplate({
+      userId,
+    }),
+    twilioWhatsAppListTemplates: twilioWhatsApp.twilioWhatsAppListTemplates({
+      userId,
+    }),
+    twilioWhatsAppGetTemplate: twilioWhatsApp.twilioWhatsAppGetTemplate({
+      userId,
+    }),
+    twilioWhatsAppDeleteTemplate: twilioWhatsApp.twilioWhatsAppDeleteTemplate({
+      userId,
+    }),
+    twilioWhatsAppSubmitApproval: twilioWhatsApp.twilioWhatsAppSubmitApproval({
+      userId,
+    }),
+    twilioWhatsAppGetApprovalStatus:
+      twilioWhatsApp.twilioWhatsAppGetApprovalStatus({ userId }),
+    twilioWhatsAppListSenders: twilioWhatsApp.twilioWhatsAppListSenders({
+      userId,
+    }),
   };
 
   const memoryContext = await recallRelevantMemory(userId, task);
@@ -336,14 +397,18 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     promptTask = parts[0].trim();
     try {
       const urls = JSON.parse(parts[1].trim());
-      if (Array.isArray(urls)) parsedAttachments.push(...urls);
+      if (Array.isArray(urls)) {
+        parsedAttachments.push(...urls);
+      }
     } catch {}
   }
 
   const department = getAgentDepartment(agentType);
   const departmentLabel = getDepartmentLabel(department);
   const departmentLeadSlug = getDepartmentLeadSlug(department);
-  const departmentLead = departmentLeadSlug ? getSubAgentBySlug(departmentLeadSlug) : undefined;
+  const departmentLead = departmentLeadSlug
+    ? getSubAgentBySlug(departmentLeadSlug)
+    : undefined;
   const departmentLeadName = departmentLead?.name ?? "your department lead";
 
   const systemPrompt = `${definition.systemPrompt}${memoryContext}
@@ -470,7 +535,8 @@ You now have the full capability to run truly multi-agent operations. Use this p
 
 Execute the task now. Summarize what you did in your final response.`;
 
-  const subagentModel = process.env.SUBAGENT_MODEL?.trim() || "minimax/minimax-m3";
+  const subagentModel =
+    process.env.SUBAGENT_MODEL?.trim() || "minimax/minimax-m3";
   const model = subagentModel.startsWith("google/")
     ? getGoogleModel(subagentModel)
     : getLanguageModel(subagentModel);
@@ -482,7 +548,11 @@ Execute the task now. Summarize what you did in your final response.`;
         if (url.match(/\.(png|jpe?g|gif|webp|bmp)$/i)) {
           userContent.push({ type: "image", image: new URL(url) });
         } else {
-          userContent.push({ type: "file", data: new URL(url), mimeType: "application/octet-stream" });
+          userContent.push({
+            type: "file",
+            data: new URL(url),
+            mimeType: "application/octet-stream",
+          });
         }
       }
     }
@@ -500,7 +570,12 @@ Execute the task now. Summarize what you did in your final response.`;
       toolCalls: result.steps?.flatMap((s) => s.toolCalls ?? []),
     };
 
-    await updateAgentTask({ id: taskId, userId, status: "completed", result: resultPayload });
+    await updateAgentTask({
+      id: taskId,
+      userId,
+      status: "completed",
+      result: resultPayload,
+    });
 
     if (chatId) {
       const timestamp = new Date();
@@ -519,7 +594,12 @@ Execute the task now. Summarize what you did in your final response.`;
             id: generateUUID(),
             chatId,
             role: "assistant",
-            parts: [{ type: "text", text: `###AGENT_RESULT###${JSON.stringify(agentPayload)}` }],
+            parts: [
+              {
+                type: "text",
+                text: `###AGENT_RESULT###${JSON.stringify(agentPayload)}`,
+              },
+            ],
             attachments: [],
             createdAt: new Date(timestamp.getTime() + 1000),
           },
@@ -527,9 +607,13 @@ Execute the task now. Summarize what you did in your final response.`;
       });
 
       notifySubAgentHandoffToMainAgent({
-        chatId, userId, taskId,
-        agentName: definition.name, slug: agentType,
-        task: promptTask, outcome: "completed",
+        chatId,
+        userId,
+        taskId,
+        agentName: definition.name,
+        slug: agentType,
+        task: promptTask,
+        outcome: "completed",
         summary: result.text || JSON.stringify(resultPayload),
       });
     }
@@ -537,7 +621,8 @@ Execute the task now. Summarize what you did in your final response.`;
     // ── A2A: notify parent workflow if this was a child agent ────────────────
     if (parentEventId) {
       await notifyParentAgent(parentEventId, {
-        taskId, agentType,
+        taskId,
+        agentType,
         success: true,
         text: result.text,
         completedAt: new Date().toISOString(),
@@ -549,34 +634,57 @@ Execute the task now. Summarize what you did in your final response.`;
     return { success: true, text: result.text };
   } catch (error: unknown) {
     const errMsg = error instanceof Error ? error.message : String(error);
-    await updateAgentTask({ id: taskId, userId, status: "failed", result: { error: errMsg } });
+    await updateAgentTask({
+      id: taskId,
+      userId,
+      status: "failed",
+      result: { error: errMsg },
+    });
 
     if (chatId) {
       const failPayload = {
-        agentType: definition.name, slug: agentType, task: promptTask,
-        taskId, error: errMsg, timestamp: new Date().toISOString(),
+        agentType: definition.name,
+        slug: agentType,
+        task: promptTask,
+        taskId,
+        error: errMsg,
+        timestamp: new Date().toISOString(),
       };
       await saveMessages({
         messages: [
           {
-            id: generateUUID(), chatId, role: "assistant",
-            parts: [{ type: "text", text: `###AGENT_RESULT###${JSON.stringify(failPayload)}` }],
-            attachments: [], createdAt: new Date(),
+            id: generateUUID(),
+            chatId,
+            role: "assistant",
+            parts: [
+              {
+                type: "text",
+                text: `###AGENT_RESULT###${JSON.stringify(failPayload)}`,
+              },
+            ],
+            attachments: [],
+            createdAt: new Date(),
           },
         ] as any,
       });
 
       notifySubAgentHandoffToMainAgent({
-        chatId, userId, taskId,
-        agentName: definition.name, slug: agentType,
-        task: promptTask, outcome: "failed", summary: errMsg,
+        chatId,
+        userId,
+        taskId,
+        agentName: definition.name,
+        slug: agentType,
+        task: promptTask,
+        outcome: "failed",
+        summary: errMsg,
       });
     }
 
     // ── A2A: notify parent even on failure ───────────────────────────────────
     if (parentEventId) {
       await notifyParentAgent(parentEventId, {
-        taskId, agentType,
+        taskId,
+        agentType,
         success: false,
         error: errMsg,
         completedAt: new Date().toISOString(),
