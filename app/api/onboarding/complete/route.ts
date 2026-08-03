@@ -58,6 +58,12 @@ export async function POST(req: NextRequest) {
     // 2. Register QStash crons + persist schedule IDs (idempotent scheduleId)
     await registerUserCrons(userId);
 
+    // 3. Seed Business Framework Knowledge Graph (BMC, KPI tree, OKR & WBR templates)
+    const { seedBusinessFramework } = await import("@/lib/agent/seed-business-framework");
+    await seedBusinessFramework(userId).catch((err) => {
+      console.error("[Onboarding Complete] Seed business framework failed:", err);
+    });
+
     // 3. Full activation (morning briefing + sandbox keepalive schedules)
     const baseUrl =
       process.env.BASE_URL ||

@@ -34,6 +34,7 @@ type RegistryModule = { registryAgents: SubAgentDefinition[] };
 
 function loadRegistryAgents(): SubAgentDefinition[] {
   const modules: RegistryModule[] = [
+    require('../../lib/agent/registry/department-leads.ts'),
     require('../../lib/agent/registry/core.ts'),
     require('../../lib/agent/registry/finance-legal.ts'),
     require('../../lib/agent/registry/marketing-growth.ts'),
