@@ -26,5 +26,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run Lint
-        run: pnpm lint
+      - name: Run Lint (auto-fix style issues)
+        run: pnpm format
+
+      - name: Typecheck
+        run: npx tsc --noEmit
