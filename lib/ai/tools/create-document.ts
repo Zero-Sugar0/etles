@@ -18,8 +18,10 @@ export const createDocument = ({
   session,
   dataStream,
   modelId,
-}: CreateDocumentProps) =>
-  tool({
+}: CreateDocumentProps) => {
+  let hasCreatedDocument = false;
+
+  return tool({
     description:
       "Create a document for a writing or content creation activities. This tool will call other functions that will generate the contents of the document based on the title and kind.",
     inputSchema: z.object({
@@ -27,6 +29,17 @@ export const createDocument = ({
       kind: z.enum(artifactKinds),
     }),
     execute: async ({ title, kind }) => {
+      if (hasCreatedDocument) {
+        return {
+          id: "",
+          title,
+          kind,
+          content:
+            "A document was already created in this response. Only one document can be created per response. If you need to update the existing document, use the updateDocument tool instead.",
+        };
+      }
+      hasCreatedDocument = true;
+
       const id = generateUUID();
 
       dataStream.write({
@@ -80,3 +93,4 @@ export const createDocument = ({
       };
     },
   });
+};
