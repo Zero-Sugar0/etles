@@ -293,16 +293,21 @@ export const listSchedules = ({ userId }: { userId: string }) =>
 
         const schedules = [
           ...userCrons.map((s) => {
-            let parsed: any = {};
+            let parsed: Record<string, unknown> = {};
             try {
-              parsed = JSON.parse(s.body ?? "{}");
-            } catch {}
+              const body: unknown = JSON.parse(s.body ?? "{}");
+              if (body && typeof body === "object") {
+                parsed = body as Record<string, unknown>;
+              }
+            } catch {
+              // Non-JSON schedule body — default to empty.
+            }
             return {
               kind: "cron" as const,
               scheduleId: s.scheduleId,
-              name: parsed.name ?? "unnamed",
+              name: (parsed.name as string) ?? "unnamed",
               cron: s.cron,
-              message: parsed.message,
+              message: (parsed.message as string) ?? "",
               destination: s.destination,
             };
           }),
