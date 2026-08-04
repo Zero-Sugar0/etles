@@ -33,6 +33,7 @@ import {
   parseAgentMessage,
 } from "./elements/agent-action";
 import { ChartDisplay } from "./elements/chart-display";
+import { MermaidDisplay } from "./elements/mermaid-display";
 import { EventCard, parseEventMessage } from "./elements/event";
 import { ExpandableContent } from "./elements/expandable-content";
 import { MessageContent } from "./elements/message";
@@ -530,6 +531,83 @@ const PurePreviewMessage = ({
                       {state === "output-error" && (
                         <div className="px-4 py-3 text-destructive text-sm">
                           Could not render the chart.
+                        </div>
+                      )}
+                    </ToolContent>
+                  </Tool>
+                </div>
+              );
+            }
+
+            if (
+              type === "tool-renderMermaid" ||
+              type === "tool-renderFlowchart"
+            ) {
+              const { toolCallId, state } = part;
+              const widthClass =
+                "w-full max-w-full min-w-0 sm:max-w-[min(100%,720px)]";
+
+              if (state === "output-available") {
+                const out = part.output;
+                if (
+                  out &&
+                  typeof out === "object" &&
+                  "error" in out &&
+                  out.error != null
+                ) {
+                  return (
+                    <div
+                      className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-600 text-sm dark:bg-red-950/40 dark:text-red-400"
+                      key={toolCallId}
+                    >
+                      {String((out as { error: unknown }).error)}
+                    </div>
+                  );
+                }
+                if (
+                  out &&
+                  typeof out === "object" &&
+                  "chart" in out &&
+                  typeof out.chart === "string"
+                ) {
+                  return (
+                    <div className={widthClass} key={toolCallId}>
+                      <MermaidDisplay
+                        chart={(out as { chart: string }).chart}
+                        title={
+                          (out as { title?: string }).title ?? undefined
+                        }
+                        description={
+                          (out as { description?: string }).description ??
+                          undefined
+                        }
+                      />
+                    </div>
+                  );
+                }
+                return (
+                  <div className={widthClass} key={toolCallId}>
+                    <p className="text-muted-foreground text-sm">
+                      Diagram data was invalid or incomplete.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className={widthClass} key={toolCallId}>
+                  <Tool
+                    className="w-full"
+                    defaultOpen={state !== "input-streaming"}
+                  >
+                    <ToolHeader state={state} type={type} />
+                    <ToolContent>
+                      {state === "input-available" && (
+                        <ToolInput input={part.input} />
+                      )}
+                      {state === "output-error" && (
+                        <div className="px-4 py-3 text-destructive text-sm">
+                          Could not render the diagram.
                         </div>
                       )}
                     </ToolContent>

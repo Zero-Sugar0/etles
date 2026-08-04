@@ -4,6 +4,8 @@ import type { ArtifactKind } from "@/components/artifact";
 import type { createDocument } from "./ai/tools/create-document";
 import type { getWeather } from "./ai/tools/get-weather";
 import type { renderChart } from "./ai/tools/render-chart";
+import type { renderMermaid } from "./ai/tools/render-mermaid";
+import type { renderFlowchart } from "./ai/tools/render-flowchart";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
 import type { updateDocument } from "./ai/tools/update-document";
 import type { Suggestion } from "./db/schema";
@@ -23,6 +25,8 @@ type requestSuggestionsTool = InferUITool<
   ReturnType<typeof requestSuggestions>
 >;
 type renderChartTool = InferUITool<typeof renderChart>;
+type renderMermaidTool = InferUITool<typeof renderMermaid>;
+type renderFlowchartTool = InferUITool<typeof renderFlowchart>;
 
 export type ChatTools = {
   getWeather: weatherTool;
@@ -30,6 +34,8 @@ export type ChatTools = {
   updateDocument: updateDocumentTool;
   requestSuggestions: requestSuggestionsTool;
   renderChart: renderChartTool;
+  renderMermaid: renderMermaidTool;
+  renderFlowchart: renderFlowchartTool;
 };
 
 export type CustomUIDataTypes = {
