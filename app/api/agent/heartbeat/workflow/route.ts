@@ -16,7 +16,7 @@ import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
-import { getGoogleModel } from "@/lib/ai/providers";
+import { getBackgroundModel } from "@/lib/ai/providers";
 import { getActiveGoalsSnapshot } from "@/lib/ai/tools/goals";
 import {
   getActiveAgentTasksByChatId,
@@ -109,9 +109,10 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
       /* Composio optional */
     }
 
-    const result = await generateText({
-      model: getGoogleModel("gemini-2.5-flash"),
-      system: `You are Etles's background intelligence scanner. Your ONLY job is to check the user's calendar, email, and tasks for anything urgent or time-sensitive in the next 24 hours.
+    try {
+      const result = await generateText({
+        model: getBackgroundModel(),
+        system: `You are Etles's background intelligence scanner. Your ONLY job is to check the user's calendar, email, and tasks for anything urgent or time-sensitive in the next 24 hours.
 
 Return a JSON object with this exact shape:
 {
@@ -123,19 +124,20 @@ Return a JSON object with this exact shape:
 Check: upcoming calendar events (next 4 hours), unread high-priority emails, overdue tasks.
 Be selective — only flag genuinely urgent items. If nothing urgent, set hasUrgentItems: false.
 Return ONLY the JSON object, no other text.`,
-      prompt: `User context:\n${memoryContext.memoryLines}\n\nOpen tasks:\n${contextData.openTasks.join("\n") || "None"}\n\nCheck for urgent items now.`,
-      tools: composioTools as any,
-      stopWhen: stepCountIs(5),
-    });
+        prompt: `User context:\n${memoryContext.memoryLines}\n\nOpen tasks:\n${contextData.openTasks.join("\n") || "None"}\n\nCheck for urgent items now.`,
+        tools: composioTools as any,
+        stopWhen: stepCountIs(5),
+      });
 
-    try {
       const clean = result.text.replace(/```json|```/g, "").trim();
       return JSON.parse(clean) as {
         hasUrgentItems: boolean;
         urgentSummary: string;
         items: string[];
       };
-    } catch {
+    } catch (error) {
+      // Never let a model/tool failure crash the heartbeat — degrade gracefully.
+      console.error("[Heartbeat] check-signals failed:", error);
       return { hasUrgentItems: false, urgentSummary: "", items: [] };
     }
   });
@@ -249,7 +251,7 @@ Return ONLY the JSON object, no other text.`,
   // ── Step 6: Generate proactive message ────────────────────────────────────
   const proactiveMessage = await context.run("generate-message", async () => {
     const { text } = await generateText({
-      model: getGoogleModel("gemini-2.5-flash"),
+      model: getBackgroundModel(),
       system: `You are Etles, the user's proactive AI chief of staff. You're reaching out because something important needs their attention.
 
 Write a SHORT, direct Telegram message (max 4 sentences). No fluff. No "I noticed". Just the facts and what they should do.

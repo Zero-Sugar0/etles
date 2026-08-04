@@ -51,7 +51,6 @@ function getToolIcon(name: string): string {
     delegateToSubAgent: '👥',
     launchMission: '🚀',
     getMissionStatus: '📈',
-    queueApproval: '🔑',
     activateHeartbeat: '💓',
     getAgentSystemStatus: 'ℹ️',
     executeCommand: '🐚',

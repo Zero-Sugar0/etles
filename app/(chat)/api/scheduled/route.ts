@@ -1,24 +1,25 @@
 //app/(chat)/api/scheduled/route.ts
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
-import { NextRequest, NextResponse } from "next/server";
-import { generateText, stepCountIs } from "ai";
-import { getGoogleModel, getLanguageModel } from "@/lib/ai/providers";
+
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
+import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { generateText, stepCountIs } from "ai";
+import { type NextRequest, NextResponse } from "next/server";
+import { getBackgroundModel } from "@/lib/ai/providers";
+import { getWeather } from "@/lib/ai/tools/get-weather";
+import {
+  deleteMemory,
+  recallMemory,
+  saveMemory,
+  updateMemory,
+} from "@/lib/ai/tools/memory";
+import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
 import {
   getChatsByUserId,
   saveMessages,
   updateAgentTask,
 } from "@/lib/db/queries";
-import { getWeather } from "@/lib/ai/tools/get-weather";
-import {
-  saveMemory,
-  recallMemory,
-  updateMemory,
-  deleteMemory,
-} from "@/lib/ai/tools/memory";
 import { generateUUID } from "@/lib/utils";
-import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
 
 const composioStatus = new Composio({ provider: new VercelProvider() });
 
@@ -39,7 +40,9 @@ async function handler(req: NextRequest) {
 
     const activeChat = chats[0];
     if (!activeChat) {
-      console.warn(`[QStash] No active chat found for user ${userId}. Skipping reminder.`);
+      console.warn(
+        `[QStash] No active chat found for user ${userId}. Skipping reminder.`
+      );
       return NextResponse.json({ ok: false, error: "No active chat found" });
     }
 
@@ -49,7 +52,10 @@ async function handler(req: NextRequest) {
     // We only include non-UI tools (no artifacts/documents)
     let composioTools: Record<string, any> = {};
     try {
-      const composioSession = await composioStatus.create(userId);
+      const composioSession = await composioStatus.create(userId, {
+        manageConnections: true,
+        multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
+      });
       composioTools = await composioSession.tools();
     } catch (e) {
       console.error("[QStash] Failed to load Composio tools:", e);
@@ -63,17 +69,38 @@ async function handler(req: NextRequest) {
       updateMemory: updateMemory({ userId }),
       deleteMemory: deleteMemory({ userId }),
       // Twilio WhatsApp Tools
-      twilioWhatsAppSendMessage: twilioWhatsApp.twilioWhatsAppSendMessage({ userId }),
-      twilioWhatsAppGetMessage: twilioWhatsApp.twilioWhatsAppGetMessage({ userId }),
-      twilioWhatsAppListMessages: twilioWhatsApp.twilioWhatsAppListMessages({ userId }),
-      twilioWhatsAppSendTemplate: twilioWhatsApp.twilioWhatsAppSendTemplate({ userId }),
-      twilioWhatsAppCreateTemplate: twilioWhatsApp.twilioWhatsAppCreateTemplate({ userId }),
-      twilioWhatsAppListTemplates: twilioWhatsApp.twilioWhatsAppListTemplates({ userId }),
-      twilioWhatsAppGetTemplate: twilioWhatsApp.twilioWhatsAppGetTemplate({ userId }),
-      twilioWhatsAppDeleteTemplate: twilioWhatsApp.twilioWhatsAppDeleteTemplate({ userId }),
-      twilioWhatsAppSubmitApproval: twilioWhatsApp.twilioWhatsAppSubmitApproval({ userId }),
-      twilioWhatsAppGetApprovalStatus: twilioWhatsApp.twilioWhatsAppGetApprovalStatus({ userId }),
-      twilioWhatsAppListSenders: twilioWhatsApp.twilioWhatsAppListSenders({ userId }),
+      twilioWhatsAppSendMessage: twilioWhatsApp.twilioWhatsAppSendMessage({
+        userId,
+      }),
+      twilioWhatsAppGetMessage: twilioWhatsApp.twilioWhatsAppGetMessage({
+        userId,
+      }),
+      twilioWhatsAppListMessages: twilioWhatsApp.twilioWhatsAppListMessages({
+        userId,
+      }),
+      twilioWhatsAppSendTemplate: twilioWhatsApp.twilioWhatsAppSendTemplate({
+        userId,
+      }),
+      twilioWhatsAppCreateTemplate: twilioWhatsApp.twilioWhatsAppCreateTemplate(
+        { userId }
+      ),
+      twilioWhatsAppListTemplates: twilioWhatsApp.twilioWhatsAppListTemplates({
+        userId,
+      }),
+      twilioWhatsAppGetTemplate: twilioWhatsApp.twilioWhatsAppGetTemplate({
+        userId,
+      }),
+      twilioWhatsAppDeleteTemplate: twilioWhatsApp.twilioWhatsAppDeleteTemplate(
+        { userId }
+      ),
+      twilioWhatsAppSubmitApproval: twilioWhatsApp.twilioWhatsAppSubmitApproval(
+        { userId }
+      ),
+      twilioWhatsAppGetApprovalStatus:
+        twilioWhatsApp.twilioWhatsAppGetApprovalStatus({ userId }),
+      twilioWhatsAppListSenders: twilioWhatsApp.twilioWhatsAppListSenders({
+        userId,
+      }),
     };
 
     // 3. Run the proactive agent
@@ -97,7 +124,7 @@ Today's date is ${new Date().toLocaleDateString()}.
 Be direct, professional, and efficient. Do not ask for user confirmation.`;
 
     const result = await generateText({
-      model: getGoogleModel("gemini-3-flash-preview"),
+      model: getBackgroundModel(),
       system: systemInstruction,
       prompt: `Reminder triggered: ${message}`,
       tools,
@@ -134,12 +161,16 @@ Be direct, professional, and efficient. Do not ask for user confirmation.`;
     // single assistant message per step. The AI SDK UIMessage schema has no
     // "tool" role; results live as parts inside assistant messages.
     if (result.steps) {
-      let offset = 2_000;
+      let offset = 2000;
       for (const step of result.steps) {
-        if (!step.toolCalls?.length) continue;
+        if (!step.toolCalls?.length) {
+          continue;
+        }
         for (const call of step.toolCalls) {
           const toolCallId = (call as any).toolCallId;
-          const toolResult = step.toolResults?.find((r: any) => r.toolCallId === toolCallId);
+          const toolResult = step.toolResults?.find(
+            (r: any) => r.toolCallId === toolCallId
+          );
 
           const parts: any[] = [
             {
@@ -168,7 +199,7 @@ Be direct, professional, and efficient. Do not ask for user confirmation.`;
             createdAt: new Date(timestamp.getTime() + offset),
           });
 
-          offset += 1_000;
+          offset += 1000;
         }
       }
     }
@@ -193,7 +224,7 @@ Be direct, professional, and efficient. Do not ask for user confirmation.`;
       ok: true,
       message: "Proactive trigger completed",
       actionTaken: result.text,
-      toolCount: result.toolCalls?.length ?? 0
+      toolCount: result.toolCalls?.length ?? 0,
     });
   } catch (error: any) {
     console.error("[QStash] Proactive trigger failed:", error);

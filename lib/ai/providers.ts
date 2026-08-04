@@ -7,9 +7,7 @@ import {
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
-import { titleModel } from "./models";
-
-const THINKING_SUFFIX_REGEX = /-thinking$/;
+import { DEFAULT_CHAT_MODEL, titleModel } from "./models";
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -40,7 +38,9 @@ export function getLanguageModel(modelId: string) {
     (modelId.includes("reasoning") && !modelId.includes("non-reasoning"));
 
   // Diagnostic log for model selection
-  console.log(`[AI SDK] Using model: ${modelId} (reasoning: ${isReasoningModel})`);
+  console.log(
+    `[AI SDK] Using model: ${modelId} (reasoning: ${isReasoningModel})`
+  );
 
   if (isReasoningModel) {
     // We wrap with reasoning middleware to extract thinking blocks if present.
@@ -67,6 +67,20 @@ export function getGoogleModel(modelId: string) {
   const directId = modelId.replace(/^google\//, "");
 
   return google(directId);
+}
+
+/**
+ * Returns a model for background/proactive tasks (heartbeat, scheduled
+ * reminders, weekly synthesis). These run without user interaction, so we
+ * route them through the AI Gateway (same auth as the main chat) rather than
+ * requiring a direct Google API key.
+ *
+ * The model is configurable via the HEARTBEAT_MODEL env var (mirroring
+ * SUBAGENT_MODEL for sub-agents). Defaults to the main chat model.
+ */
+export function getBackgroundModel() {
+  const modelId = process.env.HEARTBEAT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
+  return getLanguageModel(modelId);
 }
 
 export function getTitleModel() {

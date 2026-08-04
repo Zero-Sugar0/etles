@@ -1,24 +1,39 @@
 //components/message.tsx
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ExternalLink } from "lucide-react";
-import Link from "next/link";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 import { parseSubAgentHandoffMarker } from "@/lib/agent/sub-agent-handoff-markers";
 import { decodeWorkflowProgress } from "@/lib/agent/workflow-progress";
+import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
-import { isToolCall, isToolResult } from "@/lib/utils";
-import { cn, sanitizeText } from "@/lib/utils";
+import { cn, isToolCall, isToolResult } from "@/lib/utils";
+import {
+  Confirmation,
+  ConfirmationAccepted,
+  ConfirmationAction,
+  ConfirmationActions,
+  ConfirmationRejected,
+  ConfirmationRequest,
+  ConfirmationTitle,
+} from "./ai-elements/confirmation";
+import { Shimmer } from "./ai-elements/shimmer";
+import { ExpandableToolPill } from "./ai-elements/tool-pill";
+import { Video } from "./ai-elements/video";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
-import { AgentActionCard, AgentActionData, AgentMessageBubble, isResult, parseAgentMessage, type AgentResultData } from "./elements/agent-action";
+import {
+  AgentActionCard,
+  type AgentActionData,
+  AgentMessageBubble,
+  type AgentResultData,
+  isResult,
+  parseAgentMessage,
+} from "./elements/agent-action";
 import { ChartDisplay } from "./elements/chart-display";
 import { EventCard, parseEventMessage } from "./elements/event";
-import { WorkflowProgressCard } from "./elements/workflow-step";
 import { ExpandableContent } from "./elements/expandable-content";
 import { MessageContent } from "./elements/message";
 import { Response } from "./elements/response";
@@ -29,28 +44,13 @@ import {
   ToolInput,
   ToolOutput,
 } from "./elements/tool";
-import { SparklesIcon } from "./icons";
+import { WorkflowProgressCard } from "./elements/workflow-step";
+import { ImageEditor } from "./image-editor";
 import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
-import { ImageEditor } from "./image-editor";
-import { Button } from "./ui/button";
 import { Weather } from "./weather";
-import {
-  Confirmation,
-  ConfirmationAction,
-  ConfirmationActions,
-  ConfirmationAccepted,
-  ConfirmationRejected,
-  ConfirmationRequest,
-  ConfirmationTitle,
-} from "./ai-elements/confirmation";
-import { toast } from "sonner";
-import { CheckCircle2, XCircle, Pencil } from "lucide-react";
-import { Video } from "./ai-elements/video";
-import { ExpandableToolPill } from "./ai-elements/tool-pill";
-import { Shimmer } from "./ai-elements/shimmer";
 
 const PurePreviewMessage = ({
   addToolApprovalResponse,
@@ -74,46 +74,6 @@ const PurePreviewMessage = ({
   requiresScrollPadding: boolean;
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
-  const [isPending, setIsPending] = useState(false);
-  const router = useRouter();
-
-  const handleApprovalAction = async (draftId: string, action: "approve" | "reject" | "edit", editPrompt?: string) => {
-    if (isPending) return;
-    setIsPending(true);
-    try {
-      const res = await fetch("/api/approval", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draftId, action, editPrompt, messageId: message.id }),
-      });
-      if (res.ok) {
-        if (action === "approve") {
-          toast.success("Action approved and executing...");
-        } else if (action === "reject") {
-          toast.success("Action rejected");
-        } else if (action === "edit") {
-          toast.success("Revision requested");
-        }
-
-        // Fetch latest messages to sync the client state immediately
-        const syncRes = await fetch(`/api/chat/${chatId}/messages`);
-        if (syncRes.ok) {
-          const data = await syncRes.json();
-          if (data.messages) {
-            setMessages(data.messages);
-          }
-        }
-        router.refresh();
-      } else {
-        const errData = await res.json().catch(() => ({}));
-        toast.error(errData.error || "Action failed");
-      }
-    } catch (error) {
-      toast.error("An error occurred");
-    } finally {
-      setIsPending(false);
-    }
-  };
 
   const attachmentsFromMessage = message.parts.filter(
     (part) => part.type === "file"
@@ -267,7 +227,9 @@ const PurePreviewMessage = ({
               // ---------- WORKFLOW_PROGRESS card (must come before the other prefixes) -----
               const workflowProgress = decodeWorkflowProgress(rawText);
               if (workflowProgress) {
-                return <WorkflowProgressCard key={key} progress={workflowProgress} />;
+                return (
+                  <WorkflowProgressCard key={key} progress={workflowProgress} />
+                );
               }
               // ---------- end WORKFLOW_PROGRESS block --------------------------------------
 
@@ -276,17 +238,25 @@ const PurePreviewMessage = ({
               let partEvent: any = null;
 
               if (rawText.includes("###AGENT_DELEGATED###")) {
-                const [prefix, ...rest] = rawText.split("###AGENT_DELEGATED###");
+                const [prefix, ...rest] = rawText.split(
+                  "###AGENT_DELEGATED###"
+                );
                 conversationalText = prefix;
-                try { partAgent = JSON.parse(rest.join("###AGENT_DELEGATED###")); } catch {}
+                try {
+                  partAgent = JSON.parse(rest.join("###AGENT_DELEGATED###"));
+                } catch {}
               } else if (rawText.includes("###AGENT_RESULT###")) {
                 const [prefix, ...rest] = rawText.split("###AGENT_RESULT###");
                 conversationalText = prefix;
-                try { partAgent = JSON.parse(rest.join("###AGENT_RESULT###")); } catch {}
+                try {
+                  partAgent = JSON.parse(rest.join("###AGENT_RESULT###"));
+                } catch {}
               } else if (rawText.includes("###EVENT###")) {
                 const [prefix, ...rest] = rawText.split("###EVENT###");
                 conversationalText = prefix;
-                try { partEvent = JSON.parse(rest.join("###EVENT###")); } catch {}
+                try {
+                  partEvent = JSON.parse(rest.join("###EVENT###"));
+                } catch {}
               } else {
                 partAgent = parseAgentMessage(rawText);
                 if (!partAgent) {
@@ -298,7 +268,7 @@ const PurePreviewMessage = ({
               }
 
               return (
-                <div key={key} className="flex flex-col gap-3 w-full">
+                <div className="flex flex-col gap-3 w-full" key={key}>
                   {conversationalText.trim() && (
                     <MessageContent
                       className={cn({
@@ -311,7 +281,9 @@ const PurePreviewMessage = ({
                     >
                       {message.role === "user" ? (
                         <ExpandableContent>
-                          <div className="whitespace-pre-wrap">{conversationalText}</div>
+                          <div className="whitespace-pre-wrap">
+                            {conversationalText}
+                          </div>
                         </ExpandableContent>
                       ) : (
                         <Response>{conversationalText}</Response>
@@ -327,8 +299,11 @@ const PurePreviewMessage = ({
                       {partEvent ? (
                         <EventCard event={partEvent} />
                       ) : partAgent ? (
-                        isResult(partAgent) && !(partAgent as AgentResultData).error ? (
-                          <AgentMessageBubble agent={partAgent as AgentResultData} />
+                        isResult(partAgent) &&
+                        !(partAgent as AgentResultData).error ? (
+                          <AgentMessageBubble
+                            agent={partAgent as AgentResultData}
+                          />
                         ) : (
                           <AgentActionCard agent={partAgent} />
                         )
@@ -358,7 +333,10 @@ const PurePreviewMessage = ({
 
             if (mode === "edit") {
               return (
-                <div className="flex w-full flex-row items-start justify-end gap-3" key={key}>
+                <div
+                  className="flex w-full flex-row items-start justify-end gap-3"
+                  key={key}
+                >
                   <div className="min-w-0 flex-1 md:max-w-[80%]">
                     <MessageEditor
                       key={message.id}
@@ -431,19 +409,21 @@ const PurePreviewMessage = ({
                         state === "approval-requested") && (
                         <ToolInput input={part.input} />
                       )}
-                      
+
                       <Confirmation
+                        approval={{ id: approvalId! }}
                         className="mx-4 mb-4"
                         state={state}
-                        approval={{ id: approvalId! }}
                       >
                         <ConfirmationRequest>
                           <ConfirmationTitle>
-                            Approve checking the weather for {part.input?.city || `${part.input?.latitude}, ${part.input?.longitude}`}?
+                            Approve checking the weather for{" "}
+                            {part.input?.city ||
+                              `${part.input?.latitude}, ${part.input?.longitude}`}
+                            ?
                           </ConfirmationTitle>
                           <ConfirmationActions>
                             <ConfirmationAction
-                              variant="outline"
                               onClick={() => {
                                 addToolApprovalResponse({
                                   id: approvalId!,
@@ -451,6 +431,7 @@ const PurePreviewMessage = ({
                                   reason: "User denied weather lookup",
                                 });
                               }}
+                              variant="outline"
                             >
                               Deny
                             </ConfirmationAction>
@@ -470,14 +451,18 @@ const PurePreviewMessage = ({
                         <ConfirmationAccepted>
                           <div className="flex items-center gap-2 text-emerald-500">
                             <CheckCircle2 className="size-4" />
-                            <span className="text-sm font-medium">Weather lookup approved.</span>
+                            <span className="text-sm font-medium">
+                              Weather lookup approved.
+                            </span>
                           </div>
                         </ConfirmationAccepted>
 
                         <ConfirmationRejected>
                           <div className="flex items-center gap-2 text-destructive">
                             <XCircle className="size-4" />
-                            <span className="text-sm font-medium">Weather lookup denied.</span>
+                            <span className="text-sm font-medium">
+                              Weather lookup denied.
+                            </span>
                           </div>
                         </ConfirmationRejected>
                       </Confirmation>
@@ -556,7 +541,8 @@ const PurePreviewMessage = ({
             if ((type as string) === "tool-generateImage") {
               const partAny = part as any;
               const { toolCallId, state } = partAny;
-              const widthClass = "w-full max-w-full min-w-0 sm:max-w-[min(100%,720px)]";
+              const widthClass =
+                "w-full max-w-full min-w-0 sm:max-w-[min(100%,720px)]";
 
               if (state === "output-available") {
                 const out = partAny.output;
@@ -575,15 +561,20 @@ const PurePreviewMessage = ({
                     </div>
                   );
                 }
-                
-                if (out && typeof out === "object" && "url" in out && typeof out.url === "string") {
+
+                if (
+                  out &&
+                  typeof out === "object" &&
+                  "url" in out &&
+                  typeof out.url === "string"
+                ) {
                   return (
                     <div className={widthClass} key={toolCallId}>
-                      <img 
-                        src={out.url} 
-                        alt={(out as any).originalPrompt || "Generated Image"} 
+                      <img
+                        alt={(out as any).originalPrompt || "Generated Image"}
                         className="rounded-lg border border-border bg-muted/50 max-h-[500px] object-contain shadow-sm"
                         loading="lazy"
+                        src={out.url}
                       />
                     </div>
                   );
@@ -618,7 +609,8 @@ const PurePreviewMessage = ({
             if ((type as string) === "tool-generateVideo") {
               const partAny = part as any;
               const { toolCallId, state } = partAny;
-              const widthClass = "w-full max-w-full min-w-0 sm:max-w-[min(100%,720px)]";
+              const widthClass =
+                "w-full max-w-full min-w-0 sm:max-w-[min(100%,720px)]";
 
               if (state === "output-available") {
                 const out = partAny.output;
@@ -637,13 +629,20 @@ const PurePreviewMessage = ({
                     </div>
                   );
                 }
-                
-                if (out && typeof out === "object" && "url" in out && typeof out.url === "string") {
+
+                if (
+                  out &&
+                  typeof out === "object" &&
+                  "url" in out &&
+                  typeof out.url === "string"
+                ) {
                   return (
                     <div className={widthClass} key={toolCallId}>
-                      <Video 
-                        url={out.url} 
-                        aspectRatio={out.aspectRatio === "9:16" ? "portrait" : "video"}
+                      <Video
+                        aspectRatio={
+                          out.aspectRatio === "9:16" ? "portrait" : "video"
+                        }
+                        url={out.url}
                       />
                     </div>
                   );
@@ -780,150 +779,26 @@ const PurePreviewMessage = ({
                   ? (part.output as any).url || (part.output as any).redirectUrl
                   : undefined;
 
-              // Special handling for queueApproval result
-              const isQueueApproval = (type as any) === "tool-queueApproval" && "output" in part && part.output && typeof part.output === "object";
-              const approvalStatus = isQueueApproval ? (part.output as any).status : undefined;
-
-              if (isQueueApproval && (approvalStatus === "pending_approval" || approvalStatus === "approved" || approvalStatus === "rejected" || approvalStatus === "edited")) {
-                const output = part.output as any;
-                const draftId = output.draftId;
-
-                if (approvalStatus !== "pending_approval") {
-                  const config = {
-                    approved: {
-                      bg: "bg-emerald-500/5",
-                      border: "border-emerald-500/10",
-                      text: "text-emerald-400",
-                      icon: <CheckCircle2 size={16} className="text-emerald-500" />,
-                      title: "Action Approved",
-                      sub: "The action was approved and is executing.",
-                    },
-                    rejected: {
-                      bg: "bg-rose-500/5",
-                      border: "border-rose-500/10",
-                      text: "text-rose-400",
-                      icon: <XCircle size={16} className="text-rose-500" />,
-                      title: "Action Rejected",
-                      sub: "The action was declined and cancelled.",
-                    },
-                    edited: {
-                      bg: "bg-amber-500/5",
-                      border: "border-amber-500/10",
-                      text: "text-amber-400",
-                      icon: <Pencil size={16} className="text-amber-500" />,
-                      title: "Revision Requested",
-                      sub: "You requested changes to this action.",
-                    },
-                  }[approvalStatus as "approved" | "rejected" | "edited"] || {
-                    bg: "bg-muted/10",
-                    border: "border-border/50",
-                    text: "text-foreground/80",
-                    icon: <CheckCircle2 size={16} className="text-muted-foreground" />,
-                    title: "Action Completed",
-                    sub: "This action has been completed.",
-                  };
-
-                  return (
-                    <div className="w-[min(100%,500px)] animate-fade-in" key={toolCallId}>
-                       <Tool defaultOpen={true}>
-                          <ToolHeader state="output-available" type="tool-queueApproval" />
-                          <ToolContent>
-                             <div className={cn("px-4 py-3 border-b text-sm font-medium flex items-center gap-2.5", config.bg, config.border, config.text)}>
-                               {config.icon}
-                               <span>{config.title}</span>
-                             </div>
-                             <div className="px-4 py-3 bg-muted/5 text-xs text-muted-foreground space-y-1">
-                               <div className="font-semibold text-foreground/90">{output.summary}</div>
-                               {output.preview && (
-                                 <div className="mt-1 line-clamp-2 text-muted-foreground/70 italic border-l-2 border-border/50 pl-2">
-                                   {output.preview}
-                                 </div>
-                               )}
-                               <div className="pt-1.5 text-[11px] text-muted-foreground/60">{config.sub}</div>
-                             </div>
-                          </ToolContent>
-                       </Tool>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="w-[min(100%,500px)]" key={toolCallId}>
-                     <Tool defaultOpen={true}>
-                        <ToolHeader state="output-available" type="tool-queueApproval" />
-                        <ToolContent>
-                           <div className="px-4 py-3 bg-muted/20 border-b border-border text-sm">
-                              {output.message}
-                           </div>
-                           <Confirmation
-                             className="mx-3 my-3"
-                             state="approval-requested"
-                             approval={{ id: draftId }}
-                           >
-                             <ConfirmationRequest>
-                                <div className="flex flex-col w-full gap-3">
-                                  <ConfirmationActions className="flex flex-row gap-2 w-full justify-between items-center">
-                                    <ConfirmationAction
-                                      variant="outline"
-                                      disabled={isPending}
-                                      className="flex-1 h-9 text-xs border-destructive/20 text-destructive hover:bg-destructive/5"
-                                      onClick={() => handleApprovalAction(draftId, "reject")}
-                                    >
-                                      <XCircle size={14} className="mr-1" />
-                                      Reject
-                                    </ConfirmationAction>
-
-                                    <ConfirmationAction
-                                      variant="outline"
-                                      disabled={isPending}
-                                      className="flex-1 h-9 text-xs border-primary/20"
-                                      onClick={() => {
-                                         const editPrompt = window.prompt("What settings would you like to change?");
-                                         if (editPrompt) {
-                                           handleApprovalAction(draftId, "edit", editPrompt);
-                                         }
-                                      }}
-                                    >
-                                      <Pencil size={14} className="mr-1" />
-                                      Edit
-                                    </ConfirmationAction>
-
-                                    <ConfirmationAction
-                                      disabled={isPending}
-                                      className="flex-1 h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                                      onClick={() => handleApprovalAction(draftId, "approve")}
-                                    >
-                                      <CheckCircle2 size={14} className="mr-1" />
-                                      Approve
-                                    </ConfirmationAction>
-                                  </ConfirmationActions>
-                                </div>
-                             </ConfirmationRequest>
-                           </Confirmation>
-                        </ToolContent>
-                     </Tool>
-                  </div>
-                );
-              }
-
-              const fallbackToolCallId = "toolCallId" in part ? (part.toolCallId as string) : "";
-              const fallbackState = "state" in part ? (part.state as string) : "output-available";
+              const fallbackToolCallId =
+                "toolCallId" in part ? (part.toolCallId as string) : "";
+              const fallbackState =
+                "state" in part ? (part.state as string) : "output-available";
               const actualToolCallId = toolCallId || fallbackToolCallId;
               const actualState = state || fallbackState;
               const approvalId = (part as any).approval?.id;
 
               return (
                 <ExpandableToolPill
-                  key={actualToolCallId}
                   actualToolCallId={actualToolCallId}
-                  type={type}
-                  state={actualState}
+                  addToolApprovalResponse={addToolApprovalResponse}
+                  approvalId={approvalId}
+                  isConsecutiveTool={isConsecutiveTool}
+                  key={actualToolCallId}
                   part={part}
                   rawError={rawError}
                   redirectUrl={redirectUrl}
-                  isConsecutiveTool={isConsecutiveTool}
-                  approvalId={approvalId}
-                  addToolApprovalResponse={addToolApprovalResponse}
+                  state={actualState}
+                  type={type}
                 />
               );
             }

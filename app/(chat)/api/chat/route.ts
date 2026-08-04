@@ -30,6 +30,7 @@ import {
 } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
+import { withApproval } from "@/lib/ai/tools/with-approval";
 import {
   getCollaborationStatus,
   spawnChildAgent,
@@ -104,10 +105,10 @@ import {
   getAgentSystemStatus,
   setMorningBriefingTime,
 } from "@/lib/ai/tools/proactive";
-import { queueApproval } from "@/lib/ai/tools/queue-approval";
 import { renderChart } from "@/lib/ai/tools/render-chart";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import {
+  deleteReminder,
   deleteSchedule,
   listSchedules,
   setCronJob,
@@ -244,7 +245,9 @@ export async function POST(request: Request) {
     }
 
     // Auto-seed Business Model Canvas, KPI tree, and OKRs into Knowledge Graph
-    const { seedBusinessFramework } = await import("@/lib/agent/seed-business-framework");
+    const { seedBusinessFramework } = await import(
+      "@/lib/agent/seed-business-framework"
+    );
     seedBusinessFramework(session.user.id).catch((err) =>
       console.error("[seedBusinessFramework] Background seed error:", err)
     );
@@ -362,7 +365,7 @@ export async function POST(request: Request) {
           manageConnections: true,
           multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
         });
-        composioTools = await composioSession.tools();
+        composioTools = withApproval(await composioSession.tools());
       } catch (error) {
         console.error("Failed to initialize Composio tools:", error);
       }
@@ -526,6 +529,7 @@ export async function POST(request: Request) {
             "setCronJob",
             "listSchedules",
             "deleteSchedule",
+            "deleteReminder",
             "setupTrigger",
             "listActiveTriggers",
             "removeTrigger",
@@ -539,7 +543,6 @@ export async function POST(request: Request) {
             "listSubAgents",
             "launchMission",
             "getMissionStatus",
-            "queueApproval",
             "activateHeartbeat",
             "getAgentSystemStatus",
             "setMorningBriefingTime",
@@ -735,7 +738,8 @@ export async function POST(request: Request) {
               baseUrl: process.env.BASE_URL || new URL(request.url).origin,
             }),
             listSchedules: listSchedules({ userId: session.user.id! }),
-            deleteSchedule: deleteSchedule(),
+            deleteSchedule: deleteSchedule({ userId: session.user.id! }),
+            deleteReminder: deleteReminder({ userId: session.user.id! }),
             // Trigger management tools
             setupTrigger: setupTrigger({ userId: session.user.id! }),
             listActiveTriggers: listActiveTriggers({
@@ -764,11 +768,6 @@ export async function POST(request: Request) {
                   }),
                   getMissionStatus: getMissionStatus({
                     userId: session.user.id!,
-                  }),
-                  queueApproval: queueApproval({
-                    userId: session.user.id!,
-                    chatId: id,
-                    skipTelegram: true,
                   }),
                   activateHeartbeat: activateHeartbeat({
                     userId: session.user.id!,

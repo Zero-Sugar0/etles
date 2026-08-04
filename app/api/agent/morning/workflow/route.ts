@@ -24,7 +24,7 @@ import { Redis } from "@upstash/redis";
 import { Index } from "@upstash/vector";
 import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
-import { getGoogleModel } from "@/lib/ai/providers";
+import { getBackgroundModel } from "@/lib/ai/providers";
 import {
   getBotIntegration,
   getChatsByUserId,
@@ -116,7 +116,7 @@ export const { POST } = serve<MorningPayload>(async (context) => {
 
       const [calResult, emailResult] = await Promise.allSettled([
         generateText({
-          model: getGoogleModel("gemini-2.5-flash"),
+          model: getBackgroundModel(),
           system:
             "You are a calendar assistant. Return only the list of events, no other commentary.",
           prompt: calendarPrompt,
@@ -124,7 +124,7 @@ export const { POST } = serve<MorningPayload>(async (context) => {
           stopWhen: stepCountIs(3),
         }),
         generateText({
-          model: getGoogleModel("gemini-2.5-flash"),
+          model: getBackgroundModel(),
           system:
             "You are an email assistant. Return only the list of important emails, no other commentary.",
           prompt: emailPrompt,
@@ -148,8 +148,8 @@ export const { POST } = serve<MorningPayload>(async (context) => {
       externalSignals.calendarSummary || externalSignals.emailSummary;
 
     const { text } = await generateText({
-      model: getGoogleModel("gemini-2.5-flash"),
-      system: `You are Etles, the user's proactive AI chief of staff. 
+      model: getBackgroundModel(),
+      system: `You are Etles, the user's proactive AI chief of staff.
 You prepare a sharp morning briefing every day delivered to the user as their day starts.
 
 Hard rules:

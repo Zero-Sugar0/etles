@@ -12,8 +12,8 @@
  * ADDED: triggerCollaborationWorkflow for A2A multi-agent orchestration.
  */
 
-import { Client } from "@upstash/workflow";
 import { Client as QStashClient } from "@upstash/qstash";
+import { Client } from "@upstash/workflow";
 
 const token = process.env.QSTASH_TOKEN;
 const appBaseUrl =
@@ -25,7 +25,9 @@ const appBaseUrl =
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
 
 export function getWorkflowClient(): Client | null {
-  if (!token) return null;
+  if (!token) {
+    return null;
+  }
   return new Client({
     baseUrl: process.env.QSTASH_URL,
     token,
@@ -35,9 +37,9 @@ export function getWorkflowClient(): Client | null {
 export function isWorkflowEnabled(): boolean {
   return Boolean(token && appBaseUrl);
 }
- 
+
 // ── Sub-agent workflow ────────────────────────────────────────────────────────
- 
+
 export type WorkflowTriggerPayload = {
   taskId: string;
   userId: string;
@@ -49,13 +51,15 @@ export type WorkflowTriggerPayload = {
   /** Optional: parent workflow run ID for lookback notification. */
   parentWorkflowRunId?: string;
 };
- 
+
 export async function triggerAgentWorkflow(
-  payload: WorkflowTriggerPayload,
+  payload: WorkflowTriggerPayload
 ): Promise<{ workflowRunId: string } | null> {
   const client = getWorkflowClient();
-  if (!client || !appBaseUrl) return null;
- 
+  if (!client || !appBaseUrl) {
+    return null;
+  }
+
   const workflowUrl = `${appBaseUrl}/api/agent/workflow`;
   const failureUrl = `${appBaseUrl}/api/agent/workflow/failure`;
   const { workflowRunId } = await client.trigger({
@@ -66,7 +70,7 @@ export async function triggerAgentWorkflow(
   });
   return { workflowRunId };
 }
- 
+
 // ── Subagent chat workflow ────────────────────────────────────────────────────
 
 export type SubagentChatWorkflowPayload = {
@@ -77,10 +81,12 @@ export type SubagentChatWorkflowPayload = {
 };
 
 export async function triggerSubagentChatWorkflow(
-  payload: SubagentChatWorkflowPayload,
+  payload: SubagentChatWorkflowPayload
 ): Promise<{ workflowRunId: string } | null> {
   const client = getWorkflowClient();
-  if (!client || !appBaseUrl) return null;
+  if (!client || !appBaseUrl) {
+    return null;
+  }
 
   const workflowUrl = `${appBaseUrl}/api/subagents/chat/workflow`;
   const failureUrl = `${appBaseUrl}/api/subagents/chat/workflow/failure`;
@@ -94,7 +100,7 @@ export async function triggerSubagentChatWorkflow(
 }
 
 // ── Telegram workflow ─────────────────────────────────────────────────────────
- 
+
 export type TelegramWorkflowPayload = {
   ownerUserId: string;
   botToken: string;
@@ -103,13 +109,15 @@ export type TelegramWorkflowPayload = {
   userText: string;
   baseUrl: string;
 };
- 
+
 export async function triggerTelegramWorkflow(
-  payload: TelegramWorkflowPayload,
+  payload: TelegramWorkflowPayload
 ): Promise<{ workflowRunId: string } | null> {
   const client = getWorkflowClient();
-  if (!client || !appBaseUrl) return null;
- 
+  if (!client || !appBaseUrl) {
+    return null;
+  }
+
   const { workflowRunId } = await client.trigger({
     url: `${appBaseUrl}/api/telegram/workflow`,
     body: payload,
@@ -117,9 +125,9 @@ export async function triggerTelegramWorkflow(
   });
   return { workflowRunId };
 }
- 
+
 // ── Composio webhook workflow ─────────────────────────────────────────────────
- 
+
 export type ComposioWebhookWorkflowPayload = {
   userId: string;
   triggerSlug: string;
@@ -128,13 +136,15 @@ export type ComposioWebhookWorkflowPayload = {
   chatId: string;
   eventId: string;
 };
- 
+
 export async function triggerComposioWebhookWorkflow(
-  payload: ComposioWebhookWorkflowPayload,
+  payload: ComposioWebhookWorkflowPayload
 ): Promise<{ workflowRunId: string } | null> {
   const client = getWorkflowClient();
-  if (!client || !appBaseUrl) return null;
- 
+  if (!client || !appBaseUrl) {
+    return null;
+  }
+
   const { workflowRunId } = await client.trigger({
     url: `${appBaseUrl}/api/composio/workflow`,
     body: payload,
@@ -158,10 +168,12 @@ export type AgentRunWorkflowPayload = {
 };
 
 export async function triggerAgentRunWorkflow(
-  payload: AgentRunWorkflowPayload,
+  payload: AgentRunWorkflowPayload
 ): Promise<{ workflowRunId: string } | null> {
   const client = getWorkflowClient();
-  if (!client || !appBaseUrl) return null;
+  if (!client || !appBaseUrl) {
+    return null;
+  }
 
   const { workflowRunId } = await client.trigger({
     url: `${appBaseUrl}/api/agent/run/workflow`,
@@ -171,36 +183,40 @@ export async function triggerAgentRunWorkflow(
   });
   return { workflowRunId };
 }
- 
+
 // ── Shared helpers ────────────────────────────────────────────────────────────
- 
+
 /** Upstash API supports lookback via workflowRunId; @upstash/workflow types may lag. */
 type NotifyParams = {
   eventId: string;
   eventData?: unknown;
   workflowRunId?: string;
 };
- 
+
 export async function notifyWorkflow(
   eventId: string,
   eventData: Record<string, unknown>,
-  workflowRunId?: string,
+  workflowRunId?: string
 ): Promise<void> {
   const client = getWorkflowClient();
-  if (!client) return;
- 
+  if (!client) {
+    return;
+  }
+
   const notify = client.notify as (params: NotifyParams) => Promise<unknown>;
   await notify({
     eventId,
     eventData,
-    ...(workflowRunId !== undefined ? { workflowRunId } : {}),
+    ...(workflowRunId === undefined ? {} : { workflowRunId }),
   });
 }
- 
+
 export async function cancelWorkflow(workflowRunId: string): Promise<void> {
   const client = getWorkflowClient();
-  if (!client) return;
- 
+  if (!client) {
+    return;
+  }
+
   await client.cancel({ ids: workflowRunId });
 }
 
@@ -218,10 +234,12 @@ export type MorningBriefingPayload = {
  * Route: POST /api/agent/morning/workflow
  */
 export async function triggerMorningBriefingWorkflow(
-  payload: MorningBriefingPayload,
+  payload: MorningBriefingPayload
 ): Promise<{ workflowRunId: string } | null> {
   const client = getWorkflowClient();
-  if (!client || !appBaseUrl) return null;
+  if (!client || !appBaseUrl) {
+    return null;
+  }
 
   const { workflowRunId } = await client.trigger({
     url: `${appBaseUrl}/api/agent/morning/workflow`,
@@ -242,10 +260,12 @@ export type HeartbeatWorkflowPayload = {
  * Route: POST /api/agent/heartbeat/workflow
  */
 export async function triggerHeartbeatWorkflow(
-  payload: HeartbeatWorkflowPayload,
+  payload: HeartbeatWorkflowPayload
 ): Promise<{ workflowRunId: string } | null> {
   const client = getWorkflowClient();
-  if (!client || !appBaseUrl) return null;
+  if (!client || !appBaseUrl) {
+    return null;
+  }
 
   const { workflowRunId } = await client.trigger({
     url: `${appBaseUrl}/api/agent/heartbeat/workflow`,
@@ -264,10 +284,12 @@ export type SynthesisWorkflowPayload = {
  * Route: POST /api/agent/heartbeat/synthesis
  */
 export async function triggerWeeklySynthesisWorkflow(
-  payload: SynthesisWorkflowPayload,
+  payload: SynthesisWorkflowPayload
 ): Promise<{ workflowRunId: string } | null> {
   const client = getWorkflowClient();
-  if (!client || !appBaseUrl) return null;
+  if (!client || !appBaseUrl) {
+    return null;
+  }
 
   const { workflowRunId } = await client.trigger({
     url: `${appBaseUrl}/api/agent/heartbeat/synthesis`,
@@ -302,10 +324,12 @@ export type CollaborationTaskPayload = {
  * can use context.waitForEvent() to collect results.
  */
 export async function triggerCollaborationWorkflow(
-  payload: CollaborationTaskPayload,
+  payload: CollaborationTaskPayload
 ): Promise<{ workflowRunId: string } | null> {
   const client = getWorkflowClient();
-  if (!client || !appBaseUrl) return null;
+  if (!client || !appBaseUrl) {
+    return null;
+  }
 
   const workflowUrl = `${appBaseUrl}/api/agent/workflow`;
   const failureUrl = `${appBaseUrl}/api/agent/workflow/failure`;
@@ -321,7 +345,9 @@ export async function triggerCollaborationWorkflow(
 
 export async function registerUserCrons(userId: string): Promise<void> {
   const token = process.env.QSTASH_TOKEN;
-  if (!token || !appBaseUrl) return;
+  if (!token || !appBaseUrl) {
+    return;
+  }
 
   const heartbeatUrl = `${appBaseUrl}/api/agent/heartbeat`;
   const heartbeatSecret = process.env.AGENT_DELEGATE_SECRET ?? "dev-internal";
@@ -364,6 +390,23 @@ export async function registerUserCrons(userId: string): Promise<void> {
     console.error("[registerUserCrons] synthesis schedule failed:", err);
   }
 
+  // Morning briefing cron — created so pause/resume of `morning-{userId}` is valid.
+  try {
+    const morning = await qstash.schedules.create({
+      destination: `${appBaseUrl}/api/agent/morning/workflow`,
+      cron: "0 8 * * *",
+      body: JSON.stringify({ userId }),
+      headers: {
+        "Content-Type": "application/json",
+        "x-heartbeat-secret": heartbeatSecret,
+      },
+      scheduleId: `morning-${userId}`,
+    });
+    results.morningScheduleId = morning.scheduleId;
+  } catch (err) {
+    console.error("[registerUserCrons] morning briefing schedule failed:", err);
+  }
+
   // Persist schedule IDs so getAgentSystemStatus shows ACTIVE
   if (
     results.heartbeatScheduleId &&
@@ -376,11 +419,13 @@ export async function registerUserCrons(userId: string): Promise<void> {
       token: process.env.UPSTASH_REDIS_REST_TOKEN,
     });
     const existing =
-      (await redis.get<Record<string, string>>(`agent:heartbeat:schedules:${userId}`)) ?? {};
+      (await redis.get<Record<string, string>>(
+        `agent:heartbeat:schedules:${userId}`
+      )) ?? {};
     await redis.set(
       `agent:heartbeat:schedules:${userId}`,
       JSON.stringify({ ...existing, ...results }),
-      { ex: 60 * 60 * 24 * 365 },
+      { ex: 60 * 60 * 24 * 365 }
     );
   }
 }
@@ -388,7 +433,9 @@ export async function registerUserCrons(userId: string): Promise<void> {
 export async function pauseUserCrons(userId: string): Promise<void> {
   const token = process.env.QSTASH_TOKEN;
   const qstashUrl = process.env.QSTASH_URL || "https://qstash.upstash.io";
-  if (!token) return;
+  if (!token) {
+    return;
+  }
 
   await Promise.allSettled([
     fetch(`${qstashUrl}/v2/schedules/hb-${userId}/pause`, {
@@ -409,7 +456,9 @@ export async function pauseUserCrons(userId: string): Promise<void> {
 export async function resumeUserCrons(userId: string): Promise<void> {
   const token = process.env.QSTASH_TOKEN;
   const qstashUrl = process.env.QSTASH_URL || "https://qstash.upstash.io";
-  if (!token) return;
+  if (!token) {
+    return;
+  }
 
   await Promise.allSettled([
     fetch(`${qstashUrl}/v2/schedules/hb-${userId}/resume`, {
@@ -426,4 +475,3 @@ export async function resumeUserCrons(userId: string): Promise<void> {
     }),
   ]);
 }
- 

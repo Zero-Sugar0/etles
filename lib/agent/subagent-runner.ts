@@ -28,6 +28,7 @@ import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
 import { notifySubAgentHandoffToMainAgent } from "@/lib/agent/subagent-handoff-notify";
 import { getGoogleModel, getLanguageModel } from "@/lib/ai/providers";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
+import { withApproval } from "@/lib/ai/tools/with-approval";
 import * as browserUseTools from "@/lib/ai/tools/browser-use";
 import {
   getCollaborationStatus,
@@ -186,7 +187,7 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
       manageConnections: true,
       multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
     });
-    composioTools = await session.tools();
+    composioTools = withApproval(await session.tools());
   } catch {
     /* Composio optional */
   }
@@ -236,7 +237,7 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     setReminder: setReminder({ userId, baseUrl }),
     setCronJob: setCronJob({ userId, baseUrl }),
     listSchedules: listSchedules({ userId }),
-    deleteSchedule: deleteSchedule(),
+    deleteSchedule: deleteSchedule({ userId }),
     upsertKnowledgeEntity: upsertKnowledgeEntity({ userId }),
     addKnowledgeRelation: addKnowledgeRelation({ userId }),
     getKnowledgeEntity: getKnowledgeEntity({ userId }),
