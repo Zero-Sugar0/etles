@@ -1,5 +1,4 @@
-import { streamObject } from "ai";
-import { z } from "zod";
+import { smoothStream, streamText } from "ai";
 import { codePrompt, updateDocumentPrompt } from "@/lib/ai/prompts";
 import { getArtifactModel } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
@@ -9,31 +8,26 @@ export const codeDocumentHandler = createDocumentHandler<"code">({
   onCreateDocument: async ({ title, dataStream, modelId }) => {
     let draftContent = "";
 
-    const { fullStream } = streamObject({
+    const { fullStream } = streamText({
       model: getArtifactModel(modelId),
       system: codePrompt,
+      experimental_transform: smoothStream({ chunking: "word" }),
       prompt: title,
-      schema: z.object({
-        code: z.string(),
-      }),
     });
 
     for await (const delta of fullStream) {
       const { type } = delta;
 
-      if (type === "object") {
-        const { object } = delta;
-        const { code } = object;
+      if (type === "text-delta") {
+        const { text } = delta;
 
-        if (code) {
-          dataStream.write({
-            type: "data-codeDelta",
-            data: code ?? "",
-            transient: true,
-          });
+        draftContent += text;
 
-          draftContent = code;
-        }
+        dataStream.write({
+          type: "data-codeDelta",
+          data: text,
+          transient: true,
+        });
       }
     }
 
@@ -42,31 +36,34 @@ export const codeDocumentHandler = createDocumentHandler<"code">({
   onUpdateDocument: async ({ document, description, dataStream, modelId }) => {
     let draftContent = "";
 
-    const { fullStream } = streamObject({
+    const { fullStream } = streamText({
       model: getArtifactModel(modelId),
       system: updateDocumentPrompt(document.content, "code"),
+      experimental_transform: smoothStream({ chunking: "word" }),
       prompt: description,
-      schema: z.object({
-        code: z.string(),
-      }),
+      providerOptions: {
+        openai: {
+          prediction: {
+            type: "content",
+            content: document.content,
+          },
+        },
+      },
     });
 
     for await (const delta of fullStream) {
       const { type } = delta;
 
-      if (type === "object") {
-        const { object } = delta;
-        const { code } = object;
+      if (type === "text-delta") {
+        const { text } = delta;
 
-        if (code) {
-          dataStream.write({
-            type: "data-codeDelta",
-            data: code ?? "",
-            transient: true,
-          });
+        draftContent += text;
 
-          draftContent = code;
-        }
+        dataStream.write({
+          type: "data-codeDelta",
+          data: text,
+          transient: true,
+        });
       }
     }
 
