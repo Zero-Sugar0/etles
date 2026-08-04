@@ -106,6 +106,8 @@ import {
   setMorningBriefingTime,
 } from "@/lib/ai/tools/proactive";
 import { renderChart } from "@/lib/ai/tools/render-chart";
+import { renderMermaid } from "@/lib/ai/tools/render-mermaid";
+import { renderFlowchart } from "@/lib/ai/tools/render-flowchart";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import {
   deleteReminder,
@@ -513,6 +515,8 @@ export async function POST(request: Request) {
             "generateImage",
             "generateVideo",
             "renderChart",
+            "renderMermaid",
+            "renderFlowchart",
             "createDocument",
             "updateDocument",
             "editDocument",
@@ -685,6 +689,8 @@ export async function POST(request: Request) {
             generateImage: generateImageTool(dataStream),
             generateVideo: generateVideoTool(),
             renderChart,
+            renderMermaid,
+            renderFlowchart,
             wikiQuery: wikiQuery({ userId: session.user.id! }),
             wikiIngest: wikiIngest({ userId: session.user.id! }),
             readAgentSkill: readAgentSkill(),
