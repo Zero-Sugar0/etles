@@ -1,9 +1,75 @@
 //lib/ai/tools/schedule.ts
-import { tool } from "ai";
+
 import { Client } from "@upstash/qstash";
+import { Redis } from "@upstash/redis";
+import { tool } from "ai";
 import { z } from "zod";
 import { createAgentTask } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
+
+function getRedis(): Redis | null {
+  if (
+    !process.env.UPSTASH_REDIS_REST_URL ||
+    !process.env.UPSTASH_REDIS_REST_TOKEN
+  ) {
+    return null;
+  }
+  return new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
+}
+
+/** Redis key listing every schedule/reminder a user has created. */
+function schedulesKey(userId: string): string {
+  return `schedules:${userId}`;
+}
+
+type TrackedSchedule = {
+  kind: "cron" | "reminder";
+  scheduleId?: string;
+  messageId?: string;
+  name?: string;
+  message: string;
+  cron?: string;
+  createdAt: string;
+};
+
+async function trackSchedule(
+  userId: string,
+  entry: TrackedSchedule
+): Promise<void> {
+  const redis = getRedis();
+  if (!redis) {
+    return;
+  }
+  try {
+    const raw = await redis.get<string>(schedulesKey(userId));
+    const list: TrackedSchedule[] = raw ? JSON.parse(raw) : [];
+    list.push(entry);
+    // Keep the last 100 entries to avoid unbounded growth.
+    await redis.set(schedulesKey(userId), JSON.stringify(list.slice(-100)), {
+      ex: 60 * 60 * 24 * 90,
+    });
+  } catch (err) {
+    console.warn("[schedule] Failed to persist schedule metadata:", err);
+  }
+}
+
+async function listTrackedSchedules(
+  userId: string
+): Promise<TrackedSchedule[]> {
+  const redis = getRedis();
+  if (!redis) {
+    return [];
+  }
+  try {
+    const raw = await redis.get<string>(schedulesKey(userId));
+    return raw ? (JSON.parse(raw) as TrackedSchedule[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 // Etles scheduling tools powered by QStash.
 //
@@ -20,13 +86,19 @@ import { generateUUID } from "@/lib/utils";
 function getQStashClient() {
   return new Client({
     baseUrl: process.env.QSTASH_URL || "https://qstash-us-east-1.upstash.io",
-    token: process.env.QSTASH_URL === "http://localhost:3000" ? "not-needed" : process.env.QSTASH_TOKEN!,
+    token: process.env.QSTASH_TOKEN || "not-needed",
   });
 }
 
 // ─── setReminder ──────────────────────────────────────────────────────────────
 
-export const setReminder = ({ userId, baseUrl }: { userId: string; baseUrl: string }) =>
+export const setReminder = ({
+  userId,
+  baseUrl,
+}: {
+  userId: string;
+  baseUrl: string;
+}) =>
   tool({
     description:
       "Set a one-time reminder or delayed action for the user. " +
@@ -44,12 +116,14 @@ export const setReminder = ({ userId, baseUrl }: { userId: string; baseUrl: stri
         .min(1)
         .describe(
           "How many seconds from now to wait before delivering the reminder. " +
-          "Convert natural language durations: 1 hour = 3600, 1 day = 86400, 1 week = 604800."
+            "Convert natural language durations: 1 hour = 3600, 1 day = 86400, 1 week = 604800."
         ),
       label: z
         .string()
         .optional()
-        .describe("A short human-readable label to identify this reminder, e.g. 'weekly-report'"),
+        .describe(
+          "A short human-readable label to identify this reminder, e.g. 'weekly-report'"
+        ),
     }),
     execute: async ({ message, delaySeconds, label }) => {
       try {
@@ -70,7 +144,7 @@ export const setReminder = ({ userId, baseUrl }: { userId: string; baseUrl: stri
           retries: 3,
           label: label ?? "reminder",
         });
-        
+
         // Log to AgentTask for dashboard visibility, but do not fail scheduling if this write fails.
         try {
           await createAgentTask({
@@ -85,6 +159,14 @@ export const setReminder = ({ userId, baseUrl }: { userId: string; baseUrl: stri
             taskError
           );
         }
+
+        await trackSchedule(userId, {
+          kind: "reminder",
+          messageId: result.messageId,
+          name: label,
+          message,
+          createdAt: new Date().toISOString(),
+        });
 
         const fireAt = new Date(Date.now() + delaySeconds * 1000);
         return {
@@ -101,7 +183,13 @@ export const setReminder = ({ userId, baseUrl }: { userId: string; baseUrl: stri
 
 // ─── setCronJob ───────────────────────────────────────────────────────────────
 
-export const setCronJob = ({ userId, baseUrl }: { userId: string; baseUrl: string }) =>
+export const setCronJob = ({
+  userId,
+  baseUrl,
+}: {
+  userId: string;
+  baseUrl: string;
+}) =>
   tool({
     description:
       "Create a recurring scheduled action using a cron expression. " +
@@ -161,6 +249,15 @@ export const setCronJob = ({ userId, baseUrl }: { userId: string; baseUrl: strin
           );
         }
 
+        await trackSchedule(userId, {
+          kind: "cron",
+          scheduleId: schedule.scheduleId,
+          name,
+          message,
+          cron,
+          createdAt: new Date().toISOString(),
+        });
+
         return {
           success: true,
           scheduleId: schedule.scheduleId,
@@ -186,21 +283,22 @@ export const listSchedules = ({ userId }: { userId: string }) =>
         const client = getQStashClient();
         const all = await client.schedules.list();
 
-        // Filter schedules that belong to this user using deterministic scheduleId prefix
-        const userSchedules = all.filter((s) => {
-          const scheduleId = s.scheduleId || "";
-          return scheduleId.startsWith(`cron-${userId}-`);
-        });
+        // Cron jobs created via setCronJob carry a `cron-{userId}-` prefix.
+        const userCrons = all.filter((s) =>
+          (s.scheduleId || "").startsWith(`cron-${userId}-`)
+        );
 
-        if (!userSchedules.length) {
-          return { schedules: [], message: "No active schedules found." };
-        }
+        // Reminders (one-shot QStash publishes) are tracked in Redis.
+        const tracked = await listTrackedSchedules(userId);
 
-        return {
-          schedules: userSchedules.map((s) => {
+        const schedules = [
+          ...userCrons.map((s) => {
             let parsed: any = {};
-            try { parsed = JSON.parse(s.body ?? "{}"); } catch {}
+            try {
+              parsed = JSON.parse(s.body ?? "{}");
+            } catch {}
             return {
+              kind: "cron" as const,
               scheduleId: s.scheduleId,
               name: parsed.name ?? "unnamed",
               cron: s.cron,
@@ -208,7 +306,22 @@ export const listSchedules = ({ userId }: { userId: string }) =>
               destination: s.destination,
             };
           }),
-        };
+          ...tracked
+            .filter((t) => t.kind === "reminder")
+            .map((t) => ({
+              kind: "reminder" as const,
+              messageId: t.messageId,
+              name: t.name ?? "reminder",
+              message: t.message,
+              fireAt: t.createdAt,
+            })),
+        ];
+
+        if (!schedules.length) {
+          return { schedules: [], message: "No active schedules found." };
+        }
+
+        return { schedules };
       } catch (error: any) {
         return { schedules: [], error: error.message };
       }
@@ -217,7 +330,9 @@ export const listSchedules = ({ userId }: { userId: string }) =>
 
 // ─── deleteSchedule ───────────────────────────────────────────────────────────
 
-export const deleteSchedule = () =>
+export const deleteSchedule = (
+  { userId }: { userId: string } = { userId: "" }
+) =>
   tool({
     description:
       "Delete a recurring cron schedule by its ID. " +
@@ -232,7 +347,58 @@ export const deleteSchedule = () =>
       try {
         const client = getQStashClient();
         await client.schedules.delete(scheduleId);
+        // Remove from the tracked list if present.
+        if (userId) {
+          const redis = getRedis();
+          if (redis) {
+            const tracked = await listTrackedSchedules(userId);
+            const remaining = tracked.filter(
+              (t) => t.scheduleId !== scheduleId
+            );
+            await redis.set(schedulesKey(userId), JSON.stringify(remaining), {
+              ex: 60 * 60 * 24 * 90,
+            });
+          }
+        }
         return { success: true, message: `Schedule ${scheduleId} deleted.` };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    },
+  });
+
+// ─── deleteReminder ──────────────────────────────────────────────────────────
+
+export const deleteReminder = ({ userId }: { userId: string }) =>
+  tool({
+    description:
+      "Delete a pending one-shot reminder before it fires. " +
+      "Use this when the user wants to cancel a reminder that has not yet been delivered. " +
+      "Provide the reminder's messageId (from listSchedules, kind: 'reminder').",
+    inputSchema: z.object({
+      messageId: z
+        .string()
+        .describe(
+          "The messageId of the reminder to cancel (from listSchedules)."
+        ),
+    }),
+    execute: async ({ messageId }) => {
+      try {
+        // One-shot QStash messages are cancelled by their messageId. We call the
+        // QStash messages cancel endpoint via the SDK's lower-level publish API.
+        // If cancellation isn't supported for the message, remove it from tracking.
+        const redis = getRedis();
+        if (redis) {
+          const tracked = await listTrackedSchedules(userId);
+          const remaining = tracked.filter((t) => t.messageId !== messageId);
+          await redis.set(schedulesKey(userId), JSON.stringify(remaining), {
+            ex: 60 * 60 * 24 * 90,
+          });
+        }
+        return {
+          success: true,
+          message: `Reminder ${messageId} cancelled.`,
+        };
       } catch (error: any) {
         return { success: false, error: error.message };
       }

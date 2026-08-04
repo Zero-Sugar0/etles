@@ -137,9 +137,30 @@ const AGENT_DEPARTMENT_MAP: Record<string, AgentDepartment> = {
 
   // Supply Chain & E-commerce
   supply_chain_lead: "supply_chain_ecommerce",
+  logistics_coordinator: "supply_chain_ecommerce",
+  warehouse_operator: "supply_chain_ecommerce",
+  inventory_forecaster: "supply_chain_ecommerce",
+  threepl_manager: "supply_chain_ecommerce",
 
   // Partnerships & Alliances
   partnerships_lead: "partnerships_alliances",
+  channel_manager: "partnerships_alliances",
+  tech_alliances_manager: "partnerships_alliances",
+  co_marketing_specialist: "partnerships_alliances",
+
+  // Security (additional)
+  soc_analyst: "security",
+  pen_tester: "security",
+  incident_commander: "security",
+
+  // IT / Internal Ops (part of Executive & Operations)
+  it_support: "executive_ops",
+  access_manager: "executive_ops",
+  asset_tracker: "executive_ops",
+
+  // Data / ML (part of Growth & Analytics + Engineering)
+  ml_engineer: "engineering",
+  data_scientist: "growth_analytics",
 };
 
 const DEPARTMENT_LEAD_SLUGS: Record<AgentDepartment, string | undefined> = {
@@ -165,7 +186,9 @@ export function getAgentDepartment(agentSlug: string): AgentDepartment {
   return AGENT_DEPARTMENT_MAP[agentSlug] ?? "general";
 }
 
-export function getDepartmentLeadSlug(department: AgentDepartment): string | undefined {
+export function getDepartmentLeadSlug(
+  department: AgentDepartment
+): string | undefined {
   return DEPARTMENT_LEAD_SLUGS[department];
 }
 

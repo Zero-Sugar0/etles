@@ -2,8 +2,8 @@
  * Onboarding completion hook.
  * Route: POST /api/onboarding/complete
  *
- * Called by Etles (via the queueApproval tool or directly) after the
- * user finishes onboarding. Registers per-user QStash crons for:
+ * Called by Etles after the user finishes onboarding.
+ * Registers per-user QStash crons for:
  * - Hourly heartbeat (proactive check-ins)
  * - Weekly synthesis (Monday 8am UTC)
  *

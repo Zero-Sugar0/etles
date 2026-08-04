@@ -7,18 +7,18 @@
  * and produce a forward-looking brief saved to memory key "weekly_synthesis".
  */
 
-import { serve } from "@upstash/workflow/nextjs";
-import { generateText } from "ai";
 import { Redis } from "@upstash/redis";
 import { Index } from "@upstash/vector";
-import { getGoogleModel } from "@/lib/ai/providers";
+import { serve } from "@upstash/workflow/nextjs";
+import { generateText } from "ai";
+import { getBackgroundModel } from "@/lib/ai/providers";
 import {
-  getChatsByUserId,
   getBotIntegration,
+  getChatsByUserId,
   saveMessages,
 } from "@/lib/db/queries";
-import { generateUUID } from "@/lib/utils";
 import { sendLongMessage } from "@/lib/telegram/api";
+import { generateUUID } from "@/lib/utils";
 
 export const maxDuration = 300;
 
@@ -74,7 +74,7 @@ export const { POST } = serve<SynthesisPayload>(async (context) => {
         lastRun: new Date().toISOString(),
         status,
       }),
-      { ex: 86400 * 14 },
+      { ex: 86_400 * 14 }
     );
   };
 
@@ -95,7 +95,7 @@ export const { POST } = serve<SynthesisPayload>(async (context) => {
     });
 
     const { text } = await generateText({
-      model: getGoogleModel("gemini-2.5-flash"),
+      model: getBackgroundModel(),
       system: `You are Etles, an elite chief-of-staff AI preparing a weekly executive operating brief.
 
 Your job is to convert noisy user memory into a high-signal, decision-grade briefing.
@@ -162,24 +162,33 @@ If memory is sparse, say so briefly and still provide the best possible plan.`,
       endingBefore: null,
     });
     const activeChat = chats[0];
-    if (!activeChat) return;
+    if (!activeChat) {
+      return;
+    }
 
     const message = `📋 <b>Your Weekly Brief</b>\n\n${weeklyBrief}`;
 
     await saveMessages({
-      messages: [{
-        id: generateUUID(),
-        chatId: activeChat.id,
-        role: "assistant",
-        parts: [{ type: "text", text: message }],
-        attachments: [],
-        createdAt: new Date(),
-      }] as any,
+      messages: [
+        {
+          id: generateUUID(),
+          chatId: activeChat.id,
+          role: "assistant",
+          parts: [{ type: "text", text: message }],
+          attachments: [],
+          createdAt: new Date(),
+        },
+      ] as any,
     });
 
     // Push to Telegram
-    const integration = await getBotIntegration({ userId, platform: "telegram" });
-    if (!integration) return;
+    const integration = await getBotIntegration({
+      userId,
+      platform: "telegram",
+    });
+    if (!integration) {
+      return;
+    }
 
     const redis =
       process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -188,7 +197,9 @@ If memory is sparse, say so briefly and still provide the best possible plan.`,
             token: process.env.UPSTASH_REDIS_REST_TOKEN,
           })
         : null;
-    if (!redis) return;
+    if (!redis) {
+      return;
+    }
 
     const keys = await redis.keys(`tg:chat:${userId}:*`);
     for (const key of keys) {
