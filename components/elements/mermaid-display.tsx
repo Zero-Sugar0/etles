@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type MermaidDisplayProps = {
@@ -19,6 +19,7 @@ export function MermaidDisplay({
 }: MermaidDisplayProps) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const reactId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,55 +36,79 @@ export function MermaidDisplay({
       try {
         const { default: mermaid } = await import("mermaid");
 
-        // Configure mermaid with theme
         mermaid.initialize({
           startOnLoad: false,
-          theme: isDark ? "dark" : "default",
+          securityLevel: "loose",
+          theme: "base",
           themeVariables: isDark
             ? {
                 background: "transparent",
-                primaryColor: "#1e293b",
-                primaryTextColor: "#e2e8f0",
+                primaryColor: "#111827",
+                primaryTextColor: "#f8fafc",
                 primaryBorderColor: "#475569",
-                lineColor: "#64748b",
                 secondaryColor: "#0f172a",
+                secondaryTextColor: "#e2e8f0",
+                secondaryBorderColor: "#334155",
                 tertiaryColor: "#1e293b",
-                fontSize: "14px",
+                tertiaryTextColor: "#e2e8f0",
+                tertiaryBorderColor: "#475569",
+                lineColor: "#94a3b8",
+                edgeLabelBackground: "#020617",
+                clusterBkg: "#020617",
+                clusterBorder: "#334155",
+                fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+                fontSize: "15px",
+                labelTextColor: "#f8fafc",
+                nodeTextColor: "#f8fafc",
+                textColor: "#e2e8f0",
               }
             : {
                 background: "transparent",
-                primaryColor: "#f1f5f9",
-                primaryTextColor: "#1e293b",
-                primaryBorderColor: "#cbd5e1",
-                lineColor: "#94a3b8",
+                primaryColor: "#ffffff",
+                primaryTextColor: "#0f172a",
+                primaryBorderColor: "#94a3b8",
                 secondaryColor: "#ffffff",
+                secondaryTextColor: "#0f172a",
+                secondaryBorderColor: "#cbd5e1",
                 tertiaryColor: "#f8fafc",
-                fontSize: "14px",
+                tertiaryTextColor: "#0f172a",
+                tertiaryBorderColor: "#cbd5e1",
+                lineColor: "#64748b",
+                edgeLabelBackground: "#ffffff",
+                clusterBkg: "#f8fafc",
+                clusterBorder: "#cbd5e1",
+                fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+                fontSize: "15px",
+                labelTextColor: "#0f172a",
+                nodeTextColor: "#0f172a",
+                textColor: "#0f172a",
               },
           flowchart: {
-            useMaxWidth: true,
-            htmlLabels: true,
-            curve: "basis",
-            padding: 16,
+            useMaxWidth: false,
+            htmlLabels: false,
+            curve: "linear",
+            padding: 28,
+            nodeSpacing: 56,
+            rankSpacing: 72,
+            wrappingWidth: 180,
           },
           sequence: {
-            useMaxWidth: true,
+            useMaxWidth: false,
             showSequenceNumbers: false,
           },
           gantt: {
-            useMaxWidth: true,
+            useMaxWidth: false,
           },
           timeline: {
-            useMaxWidth: true,
+            useMaxWidth: false,
             disableMulticolor: false,
           },
           mindmap: {
-            useMaxWidth: true,
+            useMaxWidth: false,
           },
         });
 
-        // Generate a unique ID for this diagram
-        const id = `mermaid-${Math.random().toString(36).slice(2, 11)}`;
+        const id = `mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
         const { svg: renderedSvg } = await mermaid.render(id, chart);
 
@@ -109,7 +134,7 @@ export function MermaidDisplay({
     return () => {
       cancelled = true;
     };
-  }, [chart, isDark]);
+  }, [chart, isDark, reactId]);
 
   return (
     <div
@@ -129,9 +154,9 @@ export function MermaidDisplay({
         </p>
       ) : null}
 
-      <div className="flex min-h-[120px] w-full items-center justify-center overflow-x-auto rounded-lg border border-border/50 bg-background/50 p-4">
+      <div className="min-h-[160px] w-full overflow-x-auto rounded-lg border border-border/60 bg-background/70 p-3 sm:p-5">
         {isLoading ? (
-          <div className="flex flex-col items-center gap-2 py-8">
+          <div className="flex min-h-[120px] flex-col items-center justify-center gap-2 py-8">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             <span className="text-xs text-muted-foreground">
               Rendering diagram...
@@ -158,13 +183,51 @@ export function MermaidDisplay({
           </div>
         ) : svg ? (
           <div
-            className="w-full"
+            className="mermaid-rendered min-w-max"
             // biome-ignore lint/security/noDangerouslySetInnerHtml: mermaid generates safe SVG
             dangerouslySetInnerHTML={{ __html: svg }}
             ref={containerRef}
           />
         ) : null}
       </div>
+      <style jsx>{`
+        .mermaid-rendered {
+          display: flex;
+          justify-content: center;
+          width: 100%;
+        }
+
+        .mermaid-rendered :global(svg) {
+          display: block;
+          height: auto;
+          max-width: none;
+          overflow: visible;
+        }
+
+        .mermaid-rendered :global(.node rect),
+        .mermaid-rendered :global(.node circle),
+        .mermaid-rendered :global(.node ellipse),
+        .mermaid-rendered :global(.node polygon),
+        .mermaid-rendered :global(.node path) {
+          filter: drop-shadow(0 8px 18px rgba(15, 23, 42, 0.08));
+          stroke-width: 1.5px;
+        }
+
+        .mermaid-rendered :global(.nodeLabel),
+        .mermaid-rendered :global(.edgeLabel),
+        .mermaid-rendered :global(.label) {
+          line-height: 1.35;
+        }
+
+        .mermaid-rendered :global(.edgeLabel) {
+          border-radius: 6px;
+          padding: 2px 4px;
+        }
+
+        .mermaid-rendered :global(.edgePath .path) {
+          stroke-width: 1.8px;
+        }
+      `}</style>
     </div>
   );
 }
