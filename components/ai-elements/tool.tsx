@@ -6,12 +6,19 @@ import {
   ZapIcon,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { isValidElement } from "react";
+import { isValidElement, useEffect, useState } from "react";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  findToolkit,
+  preloadToolkitLogos,
+  resolveToolkitLogoSrc,
+  splitComposioToolName,
+  type ToolkitInfo,
+} from "@/lib/toolkit-logos";
 import { cn } from "@/lib/utils";
 
 export type ToolProps = ComponentProps<typeof Collapsible>;
@@ -96,6 +103,10 @@ export const formatToolName = (type: string): string => {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
+function getToolLogoSlug(type: string): string | null {
+  return splitComposioToolName(type)?.appSlug ?? null;
+}
+
 // ─── Status Badge ─────────────────────────────────────────────────────────────
 
 const getStatusIndicator = (state: ToolUIPart["state"]) => {
@@ -143,25 +154,59 @@ export const ToolHeader = ({
   type,
   state,
   ...props
-}: ToolHeaderProps) => (
-  <CollapsibleTrigger
-    className={cn(
-      "group flex w-full items-center justify-between gap-3 px-4 py-3",
-      className
-    )}
-    {...props}
-  >
-    <div className="flex items-center gap-2.5 min-w-0">
-      {/* Activity icon */}
-      <ZapIcon className="size-3.5 text-muted-foreground/70 shrink-0" />
-      <span className="font-medium text-sm text-foreground/80 truncate">
-        {title ?? formatToolName(type)}
-      </span>
-      {getStatusIndicator(state)}
-    </div>
-    <ChevronDownIcon className="size-3.5 text-muted-foreground shrink-0 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-  </CollapsibleTrigger>
-);
+}: ToolHeaderProps) => {
+  const appSlug = getToolLogoSlug(type);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!appSlug) {
+      return undefined;
+    }
+
+    let active = true;
+    preloadToolkitLogos().then((toolkits: ToolkitInfo[]) => {
+      if (!active) {
+        return;
+      }
+      setLogoUrl(findToolkit(toolkits, appSlug)?.logo ?? null);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [appSlug]);
+
+  return (
+    <CollapsibleTrigger
+      className={cn(
+        "group flex w-full items-center justify-between gap-3 px-4 py-3",
+        className
+      )}
+      {...props}
+    >
+      <div className="flex min-w-0 items-center gap-2.5">
+        {appSlug ? (
+          <img
+            alt=""
+            className="size-4 shrink-0 rounded-[3px] object-contain"
+            onError={(e) => {
+              e.currentTarget.onerror = null;
+              e.currentTarget.src = "/logos/api.svg";
+            }}
+            src={logoUrl || resolveToolkitLogoSrc(appSlug)}
+          />
+        ) : (
+          <ZapIcon className="size-3.5 shrink-0 text-muted-foreground/70" />
+        )}
+        <span className="truncate font-medium text-foreground/80 text-sm">
+          {title ?? formatToolName(type)}
+        </span>
+        {getStatusIndicator(state)}
+      </div>
+      <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+    </CollapsibleTrigger>
+  );
+};
 
 // ─── Tool Content ─────────────────────────────────────────────────────────────
 

@@ -3,6 +3,7 @@
 import type { ComponentProps } from "react";
 import { Streamdown } from "streamdown";
 import { cn } from "@/lib/utils";
+import { markdownComponents } from "./markdown-components";
 
 type ResponseProps = ComponentProps<typeof Streamdown>;
 
@@ -14,7 +15,7 @@ export function Response({ className, children, ...props }: ResponseProps) {
         className
       )}
       components={{
-        p: ({ children }) => <div className="mb-4 last:mb-0">{children}</div>,
+        ...(markdownComponents as any),
       }}
       {...props}
     >

@@ -11,6 +11,70 @@ export type ToolkitInfo = {
   isConnected?: boolean;
 };
 
+const KNOWN_COMPOSIO_TOOLKIT_SLUGS = [
+  "activecampaign",
+  "airtable",
+  "apollo",
+  "asana",
+  "box",
+  "calendly",
+  "clickup",
+  "cloudflare",
+  "confluence",
+  "discord",
+  "docusign",
+  "dropbox",
+  "facebook",
+  "figma",
+  "github",
+  "gitlab",
+  "gmail",
+  "googlecalendar",
+  "googlechat",
+  "googledocs",
+  "googledrive",
+  "googleforms",
+  "googlemeet",
+  "googlesheets",
+  "hubspot",
+  "instagram",
+  "intercom",
+  "jira",
+  "klaviyo",
+  "linear",
+  "linkedin",
+  "mailchimp",
+  "microsoftteams",
+  "monday",
+  "notion",
+  "onedrive",
+  "outlook",
+  "paypal",
+  "pipedrive",
+  "posthog",
+  "quickbooks",
+  "reddit",
+  "salesforce",
+  "sendgrid",
+  "sentry",
+  "shopify",
+  "slack",
+  "stripe",
+  "telegram",
+  "todoist",
+  "trello",
+  "twilio",
+  "typeform",
+  "webflow",
+  "whatsapp",
+  "woocommerce",
+  "xero",
+  "youtube",
+  "zapier",
+  "zendesk",
+  "zoom",
+];
+
 /** Map tool-name prefixes / aliases → Composio toolkit slug */
 export const TOOLKIT_SLUG_ALIASES: Record<string, string> = {
   googlecalendar: "googlecalendar",
@@ -35,6 +99,17 @@ export const TOOLKIT_SLUG_ALIASES: Record<string, string> = {
   twilio_whatsapp: "whatsapp",
 };
 
+const LOCAL_LOGO_SLUG_ALIASES: Record<string, string> = {
+  googlecalendar: "google-calendar",
+  googlechat: "google",
+  googledocs: "google-docs",
+  googledrive: "google-drive",
+  googleforms: "google-forms",
+  googlemeet: "google-meet",
+  googlesheets: "google-sheets",
+  microsoftteams: "teams",
+};
+
 let globalToolkitsPromise: Promise<ToolkitInfo[]> | null = null;
 let globalToolkitsCache: ToolkitInfo[] | null = null;
 
@@ -45,6 +120,40 @@ export function normalizeToolkitSlug(raw: string): string {
 
 export function resolveToolkitSlug(appSlug: string): string {
   return normalizeToolkitSlug(appSlug);
+}
+
+export function resolveToolkitLogoSlug(appSlug: string): string {
+  const resolved = resolveToolkitSlug(appSlug);
+  return LOCAL_LOGO_SLUG_ALIASES[resolved] ?? resolved;
+}
+
+export function resolveToolkitLogoSrc(appSlug: string): string {
+  return `/logos/${resolveToolkitLogoSlug(appSlug)}.svg`;
+}
+
+function isKnownToolkitSlug(candidate: string): boolean {
+  return KNOWN_COMPOSIO_TOOLKIT_SLUGS.includes(normalizeToolkitSlug(candidate));
+}
+
+export function splitComposioToolName(type: string): {
+  actionName: string;
+  appSlug: string;
+} | null {
+  const raw = type.replace(/^tool-/, "");
+  const withoutComposio = raw.replace(/^composio[_-]/i, "");
+  const parts = withoutComposio.split(/[_-]+/).filter(Boolean);
+
+  for (let i = Math.min(parts.length - 1, 4); i >= 1; i--) {
+    const candidate = parts.slice(0, i).join("_").toLowerCase();
+    if (isKnownToolkitSlug(candidate)) {
+      return {
+        appSlug: resolveToolkitSlug(candidate),
+        actionName: parts.slice(i).join("_").toLowerCase() || "execute",
+      };
+    }
+  }
+
+  return null;
 }
 
 export function findToolkit(

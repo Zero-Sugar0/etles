@@ -22,7 +22,9 @@ import {
   findToolkit,
   formatActionDescriptor,
   preloadToolkitLogos,
+  resolveToolkitLogoSrc,
   resolveToolkitSlug,
+  splitComposioToolName,
   type ToolkitInfo,
 } from "@/lib/toolkit-logos";
 
@@ -359,31 +361,11 @@ export function parseToolNameDetails(type: string): {
   // Extract by underscores (Composio integrations: GMAIL_SEND_EMAIL, GOOGLE_CALENDAR_LIST_EVENTS)
   const underscoreIndex = raw.indexOf("_");
   if (underscoreIndex !== -1) {
-    const parts = raw.split("_");
-    let appParts: string[] = [];
-    let actionParts: string[] = [];
-
-    if (parts[0]?.toLowerCase() === "composio" && parts.length > 2) {
-      appParts = [parts[1] ?? ""];
-      actionParts = parts.slice(2);
-    } else {
-      // Greedy match: try longest prefix that resolves to a known toolkit slug
-      for (let i = 1; i < parts.length; i++) {
-        const candidate = parts.slice(0, i).join("_").toLowerCase();
-        const resolved = resolveToolkitSlug(candidate);
-        if (resolved.length >= 2) {
-          appParts = parts.slice(0, i);
-          actionParts = parts.slice(i);
-        }
-      }
-      if (appParts.length === 0) {
-        appParts = [parts[0] ?? ""];
-        actionParts = parts.slice(1);
-      }
-    }
-
-    const appSlug = resolveToolkitSlug(appParts.join("_"));
-    const actionName = actionParts.join("_").toLowerCase() || "execute";
+    const parsed = splitComposioToolName(raw);
+    const parts = raw.replace(/^composio_/i, "").split("_");
+    const appSlug = parsed?.appSlug ?? resolveToolkitSlug(parts[0] ?? raw);
+    const actionName =
+      parsed?.actionName ?? (parts.slice(1).join("_").toLowerCase() || "execute");
 
     return {
       appSlug,
@@ -409,6 +391,71 @@ export function parseToolNameDetails(type: string): {
     appLabel: raw.toLowerCase(),
     actionName: "execute",
   };
+}
+
+function getFirstStringValue(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = getFirstStringValue(item);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const preferredKeys = [
+      "tool_slug",
+      "toolSlug",
+      "toolName",
+      "tool",
+      "toolkit",
+      "toolkitSlug",
+      "app",
+      "appSlug",
+      "slug",
+    ];
+    for (const key of preferredKeys) {
+      const found = getFirstStringValue(obj[key]);
+      if (found) {
+        return found;
+      }
+    }
+  }
+  return null;
+}
+
+function getComposioToolDetailsFromPayload(
+  input: unknown,
+  output: unknown
+): ReturnType<typeof parseToolNameDetails> | null {
+  const candidate = getFirstStringValue(input) ?? getFirstStringValue(output);
+  if (!candidate) {
+    return null;
+  }
+
+  const parsed = splitComposioToolName(candidate);
+  if (parsed) {
+    return {
+      appSlug: parsed.appSlug,
+      appLabel: parsed.appSlug,
+      actionName: parsed.actionName,
+    };
+  }
+
+  const resolved = resolveToolkitSlug(candidate);
+  if (resolved !== candidate.toLowerCase()) {
+    return {
+      appSlug: resolved,
+      appLabel: resolved,
+      actionName: "execute",
+    };
+  }
+
+  return null;
 }
 
 // Generate smart preview summary text from input/output payloads
@@ -508,7 +555,12 @@ export function ToolPill({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [resolvedAppLabel, setAppLabel] = useState<string | null>(null);
 
-  const { appSlug, appLabel, actionName } = parseToolNameDetails(type);
+  const parsedDetails = parseToolNameDetails(type);
+  const payloadDetails =
+    parsedDetails.appSlug === "composio"
+      ? getComposioToolDetailsFromPayload(input, output)
+      : null;
+  const { appSlug, appLabel, actionName } = payloadDetails ?? parsedDetails;
 
   useEffect(() => {
     let active = true;
@@ -531,8 +583,7 @@ export function ToolPill({
   const friendlyAction = formatActionDescriptor(actionName);
   const summaryText = getToolPreviewText(type, input, output, state);
 
-  const resolvedSlug = resolveToolkitSlug(appSlug);
-  const finalLogoSrc = logoUrl || `/logos/${resolvedSlug}.svg`;
+  const finalLogoSrc = logoUrl || resolveToolkitLogoSrc(appSlug);
 
   return (
     <div
@@ -551,7 +602,7 @@ export function ToolPill({
       <img
         src={finalLogoSrc}
         alt={displayAppLabel}
-        className="size-3.5 object-contain rounded-[3px] shrink-0 dark:invert"
+        className="size-3.5 object-contain rounded-[3px] shrink-0"
         onError={(e) => {
           // If fallback local SVG fails, default to generic API icon
           e.currentTarget.onerror = null;

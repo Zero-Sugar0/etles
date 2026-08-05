@@ -12,6 +12,7 @@ import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
+import { markdownComponents } from "@/components/elements/markdown-components";
 import {
   Tooltip,
   TooltipContent,
@@ -311,6 +312,7 @@ export const MessageResponse = memo(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className
       )}
+      components={markdownComponents as any}
       {...props}
     />
   ),
