@@ -17,12 +17,19 @@ import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import { Index } from "@upstash/vector";
 import { generateText, stepCountIs } from "ai";
+import { auditAgentRunEvent } from "@/lib/agent/agent-run-audit";
 import { notifyParentAgent } from "@/lib/agent/agent-bus";
 import {
   getAgentDepartment,
   getDepartmentLabel,
   getDepartmentLeadSlug,
 } from "@/lib/agent/departments";
+import {
+  buildAgentManifest,
+  buildManifestSystemSection,
+  filterComposioToolsForManifest,
+  filterInternalToolsForManifest,
+} from "@/lib/agent/production-manifest";
 import { seedBusinessFramework } from "@/lib/agent/seed-business-framework";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
 import { notifySubAgentHandoffToMainAgent } from "@/lib/agent/subagent-handoff-notify";
@@ -153,6 +160,7 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
   error?: string;
 }> {
   const { taskId, userId, chatId, agentType, task, parentEventId } = params;
+  const startedAt = Date.now();
 
   const definition = getSubAgentBySlug(agentType);
   if (!definition) {
@@ -177,6 +185,8 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
 
   await updateAgentTask({ id: taskId, userId, status: "running" });
 
+  const manifest = buildAgentManifest(definition);
+
   // Seed the shared business framework (BMC, KPI tree, OKR/WBR templates)
   // once per user so executive agents have a common operating model.
   await seedBusinessFramework(userId).catch(() => {});
@@ -187,7 +197,10 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
       manageConnections: true,
       multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
     });
-    composioTools = withApproval(await session.tools());
+    composioTools = filterComposioToolsForManifest(
+      withApproval(await session.tools()),
+      manifest
+    );
   } catch {
     /* Composio optional */
   }
@@ -386,6 +399,17 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
       userId,
     }),
   };
+  const scopedTools = filterInternalToolsForManifest(tools, manifest);
+
+  await auditAgentRunEvent("agent_run_started", {
+    agentType,
+    approvalMode: manifest.approvalMode,
+    chatId,
+    riskLevel: manifest.riskLevel,
+    scopedToolCount: Object.keys(scopedTools).length,
+    taskId,
+    userId,
+  });
 
   const memoryContext = await recallRelevantMemory(userId, task);
 
@@ -412,7 +436,11 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     : undefined;
   const departmentLeadName = departmentLead?.name ?? "your department lead";
 
+  const manifestSystemSection = buildManifestSystemSection(manifest);
+
   const systemPrompt = `${definition.systemPrompt}${memoryContext}
+
+${manifestSystemSection}
 
 Today's date is ${new Date().toLocaleDateString()}.
 
@@ -562,11 +590,17 @@ Execute the task now. Summarize what you did in your final response.`;
       model,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
-      tools,
+      tools: scopedTools as any,
       stopWhen: stepCountIs(25),
     });
 
     const resultPayload = {
+      manifest: {
+        approvalMode: manifest.approvalMode,
+        allowedToolPacks: manifest.allowedToolPacks,
+        riskLevel: manifest.riskLevel,
+        scopedToolCount: Object.keys(scopedTools).length,
+      },
       text: result.text,
       toolCalls: result.steps?.flatMap((s) => s.toolCalls ?? []),
     };
@@ -578,6 +612,17 @@ Execute the task now. Summarize what you did in your final response.`;
       result: resultPayload,
     });
 
+    await auditAgentRunEvent("agent_run_completed", {
+      agentType,
+      approvalMode: manifest.approvalMode,
+      chatId,
+      durationMs: Date.now() - startedAt,
+      riskLevel: manifest.riskLevel,
+      scopedToolCount: Object.keys(scopedTools).length,
+      taskId,
+      userId,
+    });
+
     if (chatId) {
       const timestamp = new Date();
       const agentPayload = {
@@ -586,6 +631,7 @@ Execute the task now. Summarize what you did in your final response.`;
         task: promptTask,
         taskId,
         result: result.text,
+        riskLevel: manifest.riskLevel,
         timestamp: timestamp.toISOString(),
       };
 
@@ -640,6 +686,18 @@ Execute the task now. Summarize what you did in your final response.`;
       userId,
       status: "failed",
       result: { error: errMsg },
+    });
+
+    await auditAgentRunEvent("agent_run_failed", {
+      agentType,
+      approvalMode: manifest.approvalMode,
+      chatId,
+      durationMs: Date.now() - startedAt,
+      error: errMsg,
+      riskLevel: manifest.riskLevel,
+      scopedToolCount: Object.keys(scopedTools).length,
+      taskId,
+      userId,
     });
 
     if (chatId) {

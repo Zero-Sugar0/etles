@@ -140,9 +140,23 @@ export async function initCoordination(
 
   const key = coordinationKey(coordinationId);
   try {
+    const raw = await redis.hget<string>(key, "__meta").catch(() => null);
+    let nextExpectedCount = expectedCount;
+    if (raw) {
+      try {
+        const existing = JSON.parse(raw) as { expectedCount?: number };
+        nextExpectedCount = Math.max(
+          Number(existing.expectedCount ?? 0) + expectedCount,
+          expectedCount
+        );
+      } catch {
+        nextExpectedCount = expectedCount;
+      }
+    }
+
     await redis.hset(key, {
       __meta: JSON.stringify({
-        expectedCount,
+        expectedCount: nextExpectedCount,
         createdAt: new Date().toISOString(),
       }),
     });

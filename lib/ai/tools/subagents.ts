@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { getAgentDepartment, getDepartmentLeadSlug } from "@/lib/agent/departments";
+import { buildAgentManifest } from "@/lib/agent/production-manifest";
 import {
   getAllAgentSlugs,
   getSubAgentBySlug,
@@ -48,12 +49,18 @@ export const listSubAgents = () =>
     execute: () => {
       const agents = SUBAGENT_DEFINITIONS.map((a) => {
         const department = getAgentDepartment(a.slug);
+        const manifest = buildAgentManifest(a);
         return {
           slug: a.slug,
           name: a.name,
           description: a.description,
           department,
           departmentLeadSlug: getDepartmentLeadSlug(department),
+          production: {
+            approvalMode: manifest.approvalMode,
+            allowedToolPacks: manifest.allowedToolPacks,
+            riskLevel: manifest.riskLevel,
+          },
         };
       });
 
