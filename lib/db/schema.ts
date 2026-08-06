@@ -285,3 +285,20 @@ export const campaignQueue = pgTable("CampaignQueue", {
 });
 
 export type CampaignQueueItem = InferSelectModel<typeof campaignQueue>;
+
+export const userMedia = pgTable("UserMedia", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  url: text("url").notNull(),
+  name: text("name").notNull(),
+  mimeType: varchar("mimeType", { length: 64 }).notNull().default("image/png"),
+  source: varchar("source", { enum: ["upload", "generated"] })
+    .notNull()
+    .default("upload"),
+  prompt: text("prompt"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type UserMedia = InferSelectModel<typeof userMedia>;

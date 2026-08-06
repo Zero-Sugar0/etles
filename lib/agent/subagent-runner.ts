@@ -50,6 +50,7 @@ import {
 import { generateImageTool } from "@/lib/ai/tools/generate-image";
 import { generateVideoTool } from "@/lib/ai/tools/generate-video";
 import { getWeather } from "@/lib/ai/tools/get-weather";
+import { listUserMedia } from "@/lib/ai/tools/media-library";
 import {
   addGoal,
   deleteGoal,
@@ -101,6 +102,8 @@ import * as twilio from "@/lib/ai/tools/twilio";
 import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
 import { wikiIngest, wikiQuery } from "@/lib/ai/tools/wiki";
 import { withApproval } from "@/lib/ai/tools/with-approval";
+import { withBackgroundApproval } from "@/lib/ai/tools/background-approval";
+import { withRetry } from "@/lib/ai/tools/with-retry";
 import { saveMessages, updateAgentTask } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 
@@ -152,6 +155,21 @@ export interface RunSubAgentParams {
   task: string;
   taskId: string;
   userId: string;
+  /**
+   * Depth in the A2A spawn chain. Root agents = 0. Injected by the agent
+   * workflow route from the trigger payload. Used for recursion depth limits.
+   */
+  depth?: number;
+  /**
+   * Task ID of the root agent. Used to namespace the hourly spawn budget
+   * in Redis so all agents in the same chain share one budget counter.
+   */
+  rootTaskId?: string;
+  /**
+   * Indicates whether this execution is running autonomously in the background
+   * (A2A, webhook, scheduled). Defaults to true if chatId is absent or parentEventId present.
+   */
+  isBackground?: boolean;
 }
 
 export async function runSubAgent(params: RunSubAgentParams): Promise<{
@@ -159,7 +177,18 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
   text?: string;
   error?: string;
 }> {
-  const { taskId, userId, chatId, agentType, task, parentEventId } = params;
+  const {
+    taskId,
+    userId,
+    chatId,
+    agentType,
+    task,
+    parentEventId,
+    depth = 0,
+    rootTaskId,
+    isBackground = Boolean(!chatId || parentEventId),
+  } = params;
+  const effectiveRootTaskId = rootTaskId ?? taskId;
   const startedAt = Date.now();
 
   const definition = getSubAgentBySlug(agentType);
@@ -197,8 +226,20 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
       manageConnections: true,
       multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
     });
+    // withApproval / withBackgroundApproval flags/gates irreversible tools
+    // withRetry adds exponential backoff on transient API errors (5xx, 429, network)
+    const rawTools = await session.tools();
+    const approvedTools = isBackground
+      ? withBackgroundApproval(rawTools, {
+          userId,
+          chatId,
+          agentSlug: agentType,
+          isBackground: true,
+        })
+      : withApproval(rawTools);
+
     composioTools = filterComposioToolsForManifest(
-      withApproval(await session.tools()),
+      withRetry(approvedTools),
       manifest
     );
   } catch {
@@ -221,6 +262,8 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
       userId,
       chatId: chatId ?? "",
       parentEventId: undefined,
+      depth,
+      rootTaskId: effectiveRootTaskId,
     }),
     waitForChildAgents: waitForChildAgents(),
     getCollaborationStatus: getCollaborationStatus(),
@@ -239,8 +282,9 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     writeScratchpad: writeScratchpad({ userId, keyId: chatId || taskId }),
     clearScratchpad: clearScratchpad({ userId, keyId: chatId || taskId }),
     getWeather,
-    generateImage: generateImageTool(),
+    generateImage: generateImageTool({ userId }),
     generateVideo: generateVideoTool(),
+    listUserMedia: listUserMedia({ userId }),
     saveMemory: saveMemory({ userId }),
     recallMemory: recallMemory({ userId }),
     updateMemory: updateMemory({ userId }),
@@ -591,7 +635,7 @@ Execute the task now. Summarize what you did in your final response.`;
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }],
       tools: scopedTools as any,
-      stopWhen: stepCountIs(25),
+      stopWhen: stepCountIs(Number(process.env.SUBAGENT_MAX_STEPS ?? 50)),
     });
 
     const resultPayload = {

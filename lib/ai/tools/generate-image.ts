@@ -21,9 +21,15 @@ function mapAspectRatioToOpenAISize(
   return "1024x1024";
 }
 
-export const generateImageTool = (
-  dataStream?: UIMessageStreamWriter<ChatMessage>
-) =>
+import { saveUserMedia } from "@/lib/db/queries";
+
+export const generateImageTool = ({
+  userId,
+  dataStream,
+}: {
+  userId?: string;
+  dataStream?: UIMessageStreamWriter<ChatMessage>;
+} = {}) =>
   tool({
     description:
       "Generate an image or edit an existing image based on a prompt.",
@@ -154,6 +160,20 @@ export const generateImageTool = (
           access: "public",
           contentType: "image/png",
         });
+
+        // Save generated image metadata to userMedia library table
+        if (userId && blobData.url) {
+          await saveUserMedia({
+            userId,
+            url: blobData.url,
+            name: `Generated Image (${prompt.slice(0, 30)})`,
+            mimeType: "image/png",
+            source: "generated",
+            prompt,
+          }).catch((err) => {
+            console.error("[generateImageTool] Failed to save generated image to userMedia:", err);
+          });
+        }
 
         // ONLY Return metadata to the model. Do NOT return the base64 string because
         // doing so bloats the AI message token limit severely and slows down the conversation.

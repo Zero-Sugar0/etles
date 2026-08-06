@@ -3,7 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { Brain, CheckIcon, Eye, MicIcon, Wrench } from "lucide-react";
+import { Brain, CheckIcon, Eye, MicIcon, Pencil, Trash2, Wrench } from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -656,16 +656,30 @@ function PureMultimodalInput({
                           )}
                         </div>
                       </div>
-                      <QueueItemActions className="shrink-0 ml-2">
+                      <QueueItemActions className="shrink-0 ml-2 gap-0.5">
                         <QueueItemAction
-                          className="text-[10px] h-6 px-2 font-medium rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive opacity-15 group-hover:opacity-100 transition-all"
+                          className="size-6 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground opacity-0 group-hover:opacity-100 transition-all"
+                          title="Edit message"
+                          onClick={() => {
+                            // bring this queued message back into the input for editing
+                            const found = queuedMessages.find((m) => m.id === msg.id);
+                            if (found) {
+                              setQueuedMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                            }
+                          }}
+                        >
+                          <Pencil className="size-3" />
+                        </QueueItemAction>
+                        <QueueItemAction
+                          className="size-6 rounded-md text-muted-foreground hover:bg-destructive/15 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all"
+                          title="Remove from queue"
                           onClick={() => {
                             setQueuedMessages((prev) =>
                               prev.filter((m) => m.id !== msg.id)
                             );
                           }}
                         >
-                          Remove
+                          <Trash2 className="size-3" />
                         </QueueItemAction>
                       </QueueItemActions>
                     </QueueItem>

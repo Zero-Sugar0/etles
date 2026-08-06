@@ -5,7 +5,7 @@
 import type { WorkflowContext } from "@upstash/workflow";
 import { createWorkflow, serveMany } from "@upstash/workflow/nextjs";
 import { generateText } from "ai";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { getLanguageModel, getMissionModel } from "@/lib/ai/providers";
 import {
   createCampaignQueueItem,
   saveMessages,
@@ -24,6 +24,7 @@ type MissionPayload = {
   goal: string;
   startupDescription: string;
   productUrl?: string;
+  durationDays?: number;
 };
 
 type Lead = {
@@ -95,7 +96,7 @@ async function handleLeadReply({
   chatId: string;
 }) {
   const { text } = await generateText({
-    model: getLanguageModel("google/gemini-3-flash"),
+    model: getMissionModel(),
     prompt: `${lead.name} replied to our outreach. Draft the perfect follow-up.
 
 Their reply: ${JSON.stringify(reply)}
@@ -125,7 +126,7 @@ const leadLifecycleWorkflow = createWorkflow(
     // Day 0: Send first personalised email
     await context.run("send-first-touch", async () => {
       const { text } = await generateText({
-        model: getLanguageModel("google/gemini-3-flash"),
+        model: getMissionModel(),
         prompt: `Write a cold outreach email to ${lead.name} at ${lead.company}.
 
 Personalisation hook: ${lead.personalisation}
@@ -172,7 +173,7 @@ Rules:
     // Day 3: Follow-up — new angle, new value
     await context.run("send-followup-1", async () => {
       const { text } = await generateText({
-        model: getLanguageModel("google/gemini-3-flash"),
+        model: getMissionModel(),
         prompt: `Write follow-up #1 to ${lead.name}. No reply to the first email.
 
 NEVER say "just following up", "circling back", "wanted to bump this up".
@@ -213,7 +214,7 @@ End with a DIFFERENT, lower-friction ask.
     // Day 7: Completely different angle — short, intriguing
     await context.run("send-angle-shift", async () => {
       const { text } = await generateText({
-        model: getLanguageModel("google/gemini-3-flash"),
+        model: getMissionModel(),
         prompt: `Write follow-up #2 to ${lead.name}. Two previous emails, no reply.
 
 Try a completely different frame — a short question only, a relevant industry 
@@ -252,7 +253,7 @@ observation, or a counterintuitive take.
     // Day 14: Graceful break-up — paradoxically gets the most replies
     await context.run("send-breakup", async () => {
       const { text } = await generateText({
-        model: getLanguageModel("google/gemini-3-flash"),
+        model: getMissionModel(),
         prompt: `Write a gracious break-up email to ${lead.name}. 3 emails, no reply.
 
 2 sentences. No pressure. Thank them. Leave the door open warmly.
@@ -304,7 +305,7 @@ const socialCampaignWorkflow = createWorkflow(
 
       await context.run(`post-day-${day}`, async () => {
         const { text } = await generateText({
-          model: getLanguageModel("google/gemini-3-flash"),
+          model: getMissionModel(),
           prompt: `Write a LinkedIn post for day ${day} of a startup launch campaign.
 
 Product: ${productDescription}
@@ -354,7 +355,7 @@ const communityWorkflow = createWorkflow(
 
       await context.run(`engage-${community.platform}-${i}`, async () => {
         const { text } = await generateText({
-          model: getLanguageModel("google/gemini-3-flash"),
+          model: getMissionModel(),
           prompt: `Write an authentic post for the ${community.name} community on ${community.platform}.
 
 Community vibe: ${community.vibe}
@@ -412,9 +413,10 @@ const missionWorkflow = createWorkflow(
 
     // ── Step 1: AI strategist plans the full campaign ────────────────────────
     const plan = await context.run("plan-mission", async () => {
+      const targetDuration = context.requestPayload.durationDays ?? 14;
       const { text } = await generateText({
-        model: getLanguageModel("google/gemini-3-flash"),
-        prompt: `You are a world-class growth strategist. Plan a 14-day user acquisition campaign.
+        model: getMissionModel(),
+        prompt: `You are a world-class growth strategist. Plan a ${targetDuration}-day user acquisition campaign.
 
 Goal: ${goal}
 Startup: ${startupDescription}
@@ -433,7 +435,7 @@ Return ONLY valid JSON (no markdown fences, no backticks):
   ],
   "communities": [{ "name": "r/startups", "platform": "Reddit", "vibe": "skeptical founders" }],
   "dailyTargets": { "outreach": 5, "signups": 1 },
-  "campaignDuration": 14
+  "campaignDuration": ${targetDuration}
 }
 
 Include 15 leads and 5 communities minimum.`,
@@ -463,7 +465,7 @@ Include 15 leads and 5 communities minimum.`,
             },
           ],
           dailyTargets: { outreach: 5, signups: 1 },
-          campaignDuration: 14,
+          campaignDuration: targetDuration,
         } satisfies MissionPlan;
       }
     });
@@ -474,14 +476,14 @@ Include 15 leads and 5 communities minimum.`,
         chatId,
         `🚀 **Mission launched: ${goal}**
 
-Here's your 14-day campaign plan:
+Here's your ${plan.campaignDuration}-day campaign plan:
 
 **Target users:** ${plan.icps.map((i) => i.title).join(", ")}
 **Leads queued:** ${plan.leads.length} personalised outreach sequences
 **Communities:** ${plan.communities.map((c) => c.name).join(", ")}
 **Daily targets:** ${plan.dailyTargets.outreach} outreach/day, ${plan.dailyTargets.signups} signups/day
 
-Running outreach, social content, and community engagement simultaneously. Each lead gets a personalised 14-day sequence. When someone replies, I'll bring it to you immediately with a draft response.
+Running outreach, social content, and community engagement simultaneously. Each lead gets a personalised ${plan.campaignDuration}-day sequence. When someone replies, I'll bring it to you immediately with a draft response.
 
 I'll check in every morning. You don't need to do anything unless I flag something.`
       );
@@ -527,7 +529,7 @@ I'll check in every morning. You don't need to do anything unless I flag somethi
 
       await context.run(`daily-report-day-${day}`, async () => {
         const { text } = await generateText({
-          model: getLanguageModel("google/gemini-3-flash"),
+          model: getMissionModel(),
           prompt: `Generate a brief daily mission report for Day ${day}/${plan.campaignDuration}.
 
 Goal: ${goal}

@@ -34,6 +34,10 @@ import {
   resolveRoutes,
 } from "@/lib/ai/trigger-routing";
 import { getChatsByUserId, saveMessages } from "@/lib/db/queries";
+import {
+  isQStashEnabled,
+  publishToQStash,
+} from "@/lib/workflow/qstash-publish";
 import { generateUUID } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -424,24 +428,45 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   }
 
-  // Queued routes are non-blocking — use waitUntil so the response returns fast.
-  // For production durability, replace this with a QStash publish to a
-  // dedicated worker route (same pattern as your /api/scheduled handler).
+  // Queued routes are published to QStash for durable, retry-safe delivery.
+  // QStash POSTs to /api/agent/webhook-worker which runs the agent and returns
+  // 2xx on success or 5xx to trigger retry. Falls back to fire-and-forget
+  // (waitUntil) if QSTASH_TOKEN is not configured.
   for (const route of queuedRoutes) {
     const taskPrompt = buildTaskPrompt(route, data, triggerName);
-    const background = runAgentRoute(
-      userId,
-      chatId,
-      route.agentSlug,
-      taskPrompt,
-      triggerName,
-      baseUrl
-    ).catch((e) =>
-      console.error(`[Webhook] Queued agent "${route.agentSlug}" failed:`, e)
-    );
 
-    // Vercel / Next.js edge runtime — keep the process alive for the background task
-    (req as any).context?.waitUntil?.(background);
+    if (isQStashEnabled()) {
+      // ✅ Durable path: QStash guarantees delivery + retries
+      await publishToQStash({
+        url: `${baseUrl}/api/agent/webhook-worker`,
+        body: {
+          userId,
+          agentSlug: route.agentSlug,
+          task: taskPrompt,
+          chatId,
+          triggerName,
+        },
+        retries: 3,
+      }).catch((err) =>
+        console.error(
+          `[Webhook] Failed to publish "${route.agentSlug}" to QStash:`,
+          err
+        )
+      );
+    } else {
+      // ⚠️ Fallback: fire-and-forget via waitUntil (dev mode / no QStash)
+      const background = runAgentRoute(
+        userId,
+        chatId,
+        route.agentSlug,
+        taskPrompt,
+        triggerName,
+        baseUrl
+      ).catch((e) =>
+        console.error(`[Webhook] Queued agent "${route.agentSlug}" failed:`, e)
+      );
+      (req as any).context?.waitUntil?.(background);
+    }
 
     results.push({ agentSlug: route.agentSlug, status: "ok" });
   }

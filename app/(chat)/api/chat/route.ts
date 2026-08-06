@@ -68,6 +68,7 @@ import { editDocument } from "@/lib/ai/tools/edit-document";
 import { generateImageTool } from "@/lib/ai/tools/generate-image";
 import { generateVideoTool } from "@/lib/ai/tools/generate-video";
 import { getWeather } from "@/lib/ai/tools/get-weather";
+import { listUserMedia } from "@/lib/ai/tools/media-library";
 import {
   addGoal,
   deleteGoal,
@@ -686,8 +687,12 @@ export async function POST(request: Request) {
               userId: session.user.id!,
               keyId: id,
             }),
-            generateImage: generateImageTool(dataStream),
+            generateImage: generateImageTool({
+              userId: session.user.id,
+              dataStream,
+            }),
             generateVideo: generateVideoTool(),
+            listUserMedia: listUserMedia({ userId: session.user.id }),
             renderChart,
             renderMermaid,
             renderFlowchart,

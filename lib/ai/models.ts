@@ -551,6 +551,23 @@ export const chatModels: ChatModel[] = [
     features: { reasoning: true, vision: true, tools: true },
     gatewayOrder: ["alibaba"],
   },
+  // Meta
+  {
+    id: "meta/muse-spark-1.2",
+    name: "Muse Spark 1.2",
+    provider: "meta",
+    description: "Meta's multimodal reasoning model with vision and tool use",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["meta"],
+  },
+  {
+    id: "meta/muse-spark-1.2-contributor",
+    name: "Muse Spark 1.2 Contributor",
+    provider: "meta",
+    description: "Contributor-tier Muse Spark with advanced reasoning and vision",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["meta"],
+  },
   // Reasoning models (extended thinking) - classified as provider: reasoning for UI grouping
   {
     id: "google/gemini-3.1-pro-preview",

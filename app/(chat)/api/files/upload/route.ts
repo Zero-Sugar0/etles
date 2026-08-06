@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/app/(auth)/auth";
+import { saveUserMedia } from "@/lib/db/queries";
 
 // Use Blob instead of File since File is not available in Node.js environment
 const FileSchema = z.object({
@@ -54,6 +55,19 @@ export async function POST(request: Request) {
       const data = await put(`${filename}`, fileBuffer, {
         access: "public",
       });
+
+      // Save upload metadata to userMedia table for frontend & agent library
+      if (session?.user?.id && data.url) {
+        await saveUserMedia({
+          userId: session.user.id,
+          url: data.url,
+          name: filename || "Uploaded File",
+          mimeType: file.type || "image/png",
+          source: "upload",
+        }).catch((err) => {
+          console.error("[UploadRoute] Failed to save file to userMedia library:", err);
+        });
+      }
 
       return NextResponse.json(data);
     } catch (_error) {

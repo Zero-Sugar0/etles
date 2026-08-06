@@ -40,6 +40,8 @@ import {
   suggestion,
   type User,
   user,
+  type UserMedia,
+  userMedia,
   userSkill,
   vote,
   voteDeprecated,
@@ -1536,3 +1538,82 @@ export async function deleteCampaignQueueItem(
     );
   }
 }
+
+// ── UserMedia Queries ─────────────────────────────────────────────────────────
+
+export async function saveUserMedia({
+  userId,
+  url,
+  name,
+  mimeType = "image/png",
+  source = "upload",
+  prompt,
+}: {
+  userId: string;
+  url: string;
+  name: string;
+  mimeType?: string;
+  source?: "upload" | "generated";
+  prompt?: string;
+}): Promise<UserMedia> {
+  try {
+    const [saved] = await db
+      .insert(userMedia)
+      .values({
+        userId,
+        url,
+        name,
+        mimeType,
+        source,
+        prompt,
+      })
+      .returning();
+    return saved;
+  } catch (error) {
+    console.error("[saveUserMedia] Error saving user media:", error);
+    throw new ChatbotError("bad_request:database", "Failed to save user media");
+  }
+}
+
+export async function getUserMediaByUserId({
+  userId,
+  source,
+}: {
+  userId: string;
+  source?: "upload" | "generated";
+}): Promise<UserMedia[]> {
+  try {
+    const conditions = [eq(userMedia.userId, userId)];
+    if (source) {
+      conditions.push(eq(userMedia.source, source));
+    }
+    return await db
+      .select()
+      .from(userMedia)
+      .where(and(...conditions))
+      .orderBy(desc(userMedia.createdAt));
+  } catch (error) {
+    console.error("[getUserMediaByUserId] Error fetching user media:", error);
+    return [];
+  }
+}
+
+export async function deleteUserMediaById({
+  id,
+  userId,
+}: {
+  id: string;
+  userId: string;
+}): Promise<UserMedia | null> {
+  try {
+    const [deleted] = await db
+      .delete(userMedia)
+      .where(and(eq(userMedia.id, id), eq(userMedia.userId, userId)))
+      .returning();
+    return deleted ?? null;
+  } catch (error) {
+    console.error("[deleteUserMediaById] Error deleting user media:", error);
+    return null;
+  }
+}
+

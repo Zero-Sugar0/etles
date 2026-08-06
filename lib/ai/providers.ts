@@ -98,6 +98,20 @@ export function getBackgroundModel() {
   return getLanguageModel(modelId);
 }
 
+/**
+ * Returns a model for autonomous mission workflows (planning, lead sequences,
+ * social posts, community engagement, daily reports).
+ *
+ * Configurable via MISSION_MODEL or SUBAGENT_MODEL env vars. Defaults to DEFAULT_CHAT_MODEL.
+ */
+export function getMissionModel() {
+  const modelId =
+    process.env.MISSION_MODEL?.trim() ||
+    process.env.SUBAGENT_MODEL?.trim() ||
+    DEFAULT_CHAT_MODEL;
+  return getLanguageModel(modelId);
+}
+
 export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");

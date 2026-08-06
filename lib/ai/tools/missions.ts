@@ -42,8 +42,17 @@ export const launchMission = ({
         .string()
         .optional()
         .describe("Your product URL if you have one"),
+      durationDays: z
+        .number()
+        .min(1)
+        .max(90)
+        .optional()
+        .default(14)
+        .describe(
+          "How many days to run this autonomous mission. Default is 14 days, configurable up to 90 days."
+        ),
     }),
-    execute: async ({ goal, startupDescription, productUrl }) => {
+    execute: async ({ goal, startupDescription, productUrl, durationDays = 14 }) => {
       if (!process.env.QSTASH_TOKEN) {
         return {
           success: false,
@@ -72,6 +81,7 @@ export const launchMission = ({
             goal,
             startupDescription,
             productUrl,
+            durationDays,
           },
           retries: 3,
         });
@@ -98,7 +108,7 @@ export const launchMission = ({
           success: true,
           missionId,
           workflowRunId,
-          message: `Mission launched! Planning your 14-day campaign for "${goal}" now. You'll see the full plan in seconds. I'll check in daily with progress reports — no action needed from you until I flag something.`,
+          message: `Mission launched! Planning your ${durationDays}-day campaign for "${goal}" now. You'll see the full plan in seconds. I'll check in daily with progress reports — no action needed from you until I flag something.`,
         };
       } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error);

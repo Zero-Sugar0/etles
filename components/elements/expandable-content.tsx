@@ -53,8 +53,9 @@ export function ExpandableContent({
       >
         {children}
 
+        {/* Gradient fade overlay at the bottom of collapsed content */}
         {!isExpanded && shouldTruncate && (
-          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background/90 via-background/40 to-transparent pointer-events-none" />
+          <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background to-transparent pointer-events-none" />
         )}
       </div>
 

@@ -21,6 +21,9 @@ export const { POST } = serve<WorkflowTriggerPayload>(async (context) => {
 
   // parentEventId is present when this agent was spawned by another agent (A2A)
   const parentEventId = (payload as any).parentEventId as string | undefined;
+  // depth and rootTaskId are passed by spawnChildAgent for recursion depth limiting
+  const depth = (payload as any).depth as number | undefined;
+  const rootTaskId = (payload as any).rootTaskId as string | undefined;
 
   const result = await context.run("run-sub-agent", async () => {
     return await runSubAgent({
@@ -29,6 +32,9 @@ export const { POST } = serve<WorkflowTriggerPayload>(async (context) => {
       chatId,
       agentType,
       task,
+      parentEventId,
+      depth,
+      rootTaskId,
     });
   });
 

@@ -50,6 +50,10 @@ export type WorkflowTriggerPayload = {
   parentEventId?: string;
   /** Optional: parent workflow run ID for lookback notification. */
   parentWorkflowRunId?: string;
+  /** Depth of this agent in the A2A spawn chain (root = 0). Used for recursion depth limits. */
+  depth?: number;
+  /** Task ID of the root agent — used to namespace the hourly spawn budget in Redis. */
+  rootTaskId?: string;
 };
 
 export async function triggerAgentWorkflow(

@@ -18,6 +18,7 @@
 
 import { tool } from "ai";
 import { z } from "zod";
+import { checkAndIncrementSpawnBudget } from "@/lib/agent/agent-depth-budget";
 import {
   collectAgentResults,
   getCoordinationStatus,
@@ -34,12 +35,18 @@ export const spawnChildAgent = ({
   chatId,
   parentEventId,
   parentWorkflowRunId,
+  depth = 0,
+  rootTaskId,
 }: {
   userId: string;
   chatId: string;
   /** The parentEventId this child should notify on completion. Auto-generated if not passed. */
   parentEventId?: string;
   parentWorkflowRunId?: string;
+  /** Current agent's depth (root = 0). Passed by subagent-runner so children know their level. */
+  depth?: number;
+  /** Task ID of the root agent — used to namespace depth/budget tracking in Redis. */
+  rootTaskId?: string;
 }) =>
   tool({
     description:
@@ -83,8 +90,24 @@ export const spawnChildAgent = ({
       const taskId = generateUUID();
       const coordination = coordinationId ?? generateUUID();
       const childEventId = `collab:${coordination}:${taskId}`;
+      const effectiveRootTaskId = rootTaskId ?? taskId;
 
       try {
+        // ── Production Guard: depth limit + hourly budget ─────────────────────
+        const budgetCheck = await checkAndIncrementSpawnBudget(
+          userId,
+          effectiveRootTaskId,
+          depth
+        );
+        if (!budgetCheck.allowed) {
+          return {
+            success: false,
+            reason: budgetCheck.reason,
+            error: budgetCheck.detail,
+            taskId,
+          };
+        }
+
         // Create the DB task record
         await createAgentTask({
           id: taskId,
@@ -107,6 +130,8 @@ export const spawnChildAgent = ({
         await initCoordination(coordination, 1);
 
         // Trigger child workflow with parentEventId for A2A notification
+        // Pass depth+1 and rootTaskId so the child's spawnChildAgent factory
+        // carries the correct depth context for further nesting checks.
         const result = await triggerAgentWorkflow({
           taskId,
           userId,
@@ -114,6 +139,8 @@ export const spawnChildAgent = ({
           agentType,
           task,
           parentEventId: childEventId,
+          depth: depth + 1,
+          rootTaskId: effectiveRootTaskId,
         });
 
         if (!result) {

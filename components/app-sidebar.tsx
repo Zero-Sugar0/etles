@@ -1,6 +1,6 @@
 "use client";
 
-import { BookText, Bot, Megaphone } from "lucide-react";
+import { BookText, Bot, Image as ImageIcon, Megaphone } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
@@ -145,6 +145,18 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   >
                     <BookText className="size-4" />
                     <span>Skills</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    className="h-9 rounded-lg"
+                    onClick={() => {
+                      setOpenMobile(false);
+                      router.push("/media");
+                    }}
+                  >
+                    <ImageIcon className="size-4" />
+                    <span>Media Library</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 {user && (
