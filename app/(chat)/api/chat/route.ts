@@ -30,7 +30,6 @@ import {
 } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
-import { withApproval } from "@/lib/ai/tools/with-approval";
 import {
   getCollaborationStatus,
   spawnChildAgent,
@@ -106,8 +105,8 @@ import {
   setMorningBriefingTime,
 } from "@/lib/ai/tools/proactive";
 import { renderChart } from "@/lib/ai/tools/render-chart";
-import { renderMermaid } from "@/lib/ai/tools/render-mermaid";
 import { renderFlowchart } from "@/lib/ai/tools/render-flowchart";
+import { renderMermaid } from "@/lib/ai/tools/render-mermaid";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import {
   deleteReminder,
@@ -142,6 +141,7 @@ import * as twilioTools from "@/lib/ai/tools/twilio";
 import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { wikiIngest, wikiQuery } from "@/lib/ai/tools/wiki";
+import { withApproval } from "@/lib/ai/tools/with-approval";
 import { guestRegex, isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,

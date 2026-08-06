@@ -211,8 +211,7 @@ export const agentTask = pgTable("AgentTask", {
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),
-  chatId: uuid("chatId")
-    .references(() => chat.id),
+  chatId: uuid("chatId").references(() => chat.id),
   agentType: varchar("agentType", { length: 64 }).notNull(),
   task: text("task").notNull(),
   status: varchar("status", {
@@ -248,8 +247,7 @@ export const mission = pgTable("Mission", {
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),
-  chatId: uuid("chatId")
-    .references(() => chat.id),
+  chatId: uuid("chatId").references(() => chat.id),
   goal: text("goal").notNull(),
   startupDescription: text("startupDescription"),
   productUrl: varchar("productUrl", { length: 255 }),
@@ -287,4 +285,3 @@ export const campaignQueue = pgTable("CampaignQueue", {
 });
 
 export type CampaignQueueItem = InferSelectModel<typeof campaignQueue>;
-

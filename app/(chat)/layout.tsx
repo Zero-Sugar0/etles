@@ -1,11 +1,10 @@
 import { cookies } from "next/headers";
 import Script from "next/script";
 import { Suspense } from "react";
+import { auth } from "@/app/(auth)/auth";
 import { AppSidebar } from "@/components/app-sidebar";
 import { DataStreamProvider } from "@/components/data-stream-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { auth } from "@/app/(auth)/auth";
-import { headers } from "next/headers";
 import { getUserById } from "@/lib/db/queries";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -28,7 +27,7 @@ async function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const [session, cookieStore] = await Promise.all([auth(), cookies()]);
   const isCollapsed = cookieStore.get("sidebar_state")?.value !== "true";
 
-  let dbUser = undefined;
+  let dbUser;
   if (session?.user?.id) {
     try {
       const users = await getUserById(session.user.id);

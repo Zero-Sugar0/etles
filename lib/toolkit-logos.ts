@@ -158,7 +158,7 @@ export function splitComposioToolName(type: string): {
 
 export function findToolkit(
   toolkits: ToolkitInfo[],
-  appSlug: string,
+  appSlug: string
 ): ToolkitInfo | undefined {
   const normalized = resolveToolkitSlug(appSlug);
   return toolkits.find((t) => {

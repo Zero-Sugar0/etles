@@ -7,7 +7,9 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
 async function main() {
   const token = process.env.QSTASH_TOKEN;
-  if (!token) return;
+  if (!token) {
+    return;
+  }
 
   const qstash = new Client({ token });
   try {

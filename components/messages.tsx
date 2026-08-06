@@ -1,14 +1,19 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { ArrowDownIcon, TerminalIcon, StopCircleIcon, Loader2 } from "lucide-react";
+import {
+  ArrowDownIcon,
+  Loader2,
+  StopCircleIcon,
+  TerminalIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useActiveAgentTasks } from "@/hooks/use-active-agent-tasks";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
-import { useActiveAgentTasks } from "@/hooks/use-active-agent-tasks";
-import { Button } from "./ui/button";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
+import { Button } from "./ui/button";
 
 type MessagesProps = {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
@@ -48,8 +53,11 @@ function PureMessages({
     status,
   });
 
-  const { tasks: activeTasks, mutate: mutateTasks } = useActiveAgentTasks(chatId);
-  const [cancellingTasks, setCancellingTasks] = useState<Record<string, boolean>>({});
+  const { tasks: activeTasks, mutate: mutateTasks } =
+    useActiveAgentTasks(chatId);
+  const [cancellingTasks, setCancellingTasks] = useState<
+    Record<string, boolean>
+  >({});
 
   const handleCancelTask = async (taskId: string) => {
     setCancellingTasks((prev) => ({ ...prev, [taskId]: true }));
@@ -68,7 +76,7 @@ function PureMessages({
   };
 
   const highlightFailTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
+    null
   );
 
   useEffect(() => {
@@ -112,7 +120,7 @@ function PureMessages({
       "ring-2",
       "ring-primary",
       "ring-offset-2",
-      "ring-offset-background",
+      "ring-offset-background"
     );
 
     const clearRing = window.setTimeout(() => {
@@ -120,7 +128,7 @@ function PureMessages({
         "ring-2",
         "ring-primary",
         "ring-offset-2",
-        "ring-offset-background",
+        "ring-offset-background"
       );
       onHighlightConsumed?.();
     }, 3200);
@@ -131,7 +139,7 @@ function PureMessages({
         "ring-2",
         "ring-primary",
         "ring-offset-2",
-        "ring-offset-background",
+        "ring-offset-background"
       );
     };
   }, [highlightTaskId, messages, onHighlightConsumed]);
@@ -198,14 +206,14 @@ function PureMessages({
                   const isStopping = !!cancellingTasks[task.id];
                   return (
                     <div
-                      key={task.id}
                       className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 py-2.5 px-1.5 hover:bg-muted/30 transition-colors duration-150 group"
+                      key={task.id}
                     >
                       {/* Left Side: Pulse + Agent Slug */}
                       <div className="flex items-center gap-2.5 min-w-0 md:w-[170px] shrink-0">
                         <span className="relative flex size-1.5 shrink-0">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75"></span>
-                          <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500"></span>
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+                          <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
                         </span>
                         <div className="flex items-center gap-1.5 min-w-0 font-mono text-xs font-semibold">
                           <span className="text-foreground truncate uppercase tracking-wide">
@@ -219,20 +227,25 @@ function PureMessages({
 
                       {/* Center Side: Interactive terminal prompt line */}
                       <div className="flex items-center gap-2 min-w-0 grow">
-                        <span className="text-primary/70 font-mono text-xs shrink-0 select-none font-bold">&gt;</span>
-                        <p className="font-mono text-xs text-muted-foreground truncate leading-none md:max-w-[420px] hover:text-foreground transition-colors duration-150 select-all cursor-text" title={task.task}>
+                        <span className="text-primary/70 font-mono text-xs shrink-0 select-none font-bold">
+                          &gt;
+                        </span>
+                        <p
+                          className="font-mono text-xs text-muted-foreground truncate leading-none md:max-w-[420px] hover:text-foreground transition-colors duration-150 select-all cursor-text"
+                          title={task.task}
+                        >
                           {task.task}
                         </p>
                       </div>
 
                       {/* Right Side: Action Trigger */}
                       <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
                         className="h-6 px-2 rounded-md text-[10px] font-mono font-semibold text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors duration-150 shrink-0 gap-1 ml-auto md:ml-0 opacity-80 group-hover:opacity-100"
                         disabled={isStopping}
                         onClick={() => handleCancelTask(task.id)}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
                       >
                         {isStopping ? (
                           <Loader2 className="size-3 animate-spin text-destructive" />

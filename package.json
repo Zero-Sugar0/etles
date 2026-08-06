@@ -10,7 +10,7 @@
     "test:cli": "tsx --test tests/composer.test.ts",
     "test:cli:integration": "tsx src/test-runner.ts",
     "lint": "ultracite check",
-    "format": "ultracite fix",
+    "format": "biome format --write --files-ignore-unknown=true app components hooks lib scripts src tests",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "npx tsx lib/db/migrate.ts",
     "db:studio": "drizzle-kit studio",

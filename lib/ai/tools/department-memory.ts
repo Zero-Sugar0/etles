@@ -4,9 +4,9 @@
  * read/write a shared vector namespace so project context compounds.
  */
 
+import { Index } from "@upstash/vector";
 import { tool } from "ai";
 import { z } from "zod";
-import { Index } from "@upstash/vector";
 import { getAgentDepartment } from "@/lib/agent/departments";
 
 function getDepartmentNamespace(userId: string, department: string) {
@@ -32,7 +32,9 @@ export const readDepartmentMemory = ({
     inputSchema: z.object({
       query: z
         .string()
-        .describe("Semantic search query, e.g. 'Q3 launch blockers' or 'client Acme status'"),
+        .describe(
+          "Semantic search query, e.g. 'Q3 launch blockers' or 'client Acme status'"
+        ),
       topK: z.number().min(1).max(15).optional().default(8),
     }),
     execute: async ({ query, topK }) => {
@@ -82,9 +84,16 @@ export const writeDepartmentMemory = ({
     inputSchema: z.object({
       key: z
         .string()
-        .describe("Short unique key, e.g. 'project-alpha-status' or 'acme-deal-notes'"),
-      content: z.string().describe("Dense markdown or plain text to share with the department"),
-      tags: z.array(z.string()).optional().describe("Optional tags for filtering"),
+        .describe(
+          "Short unique key, e.g. 'project-alpha-status' or 'acme-deal-notes'"
+        ),
+      content: z
+        .string()
+        .describe("Dense markdown or plain text to share with the department"),
+      tags: z
+        .array(z.string())
+        .optional()
+        .describe("Optional tags for filtering"),
     }),
     execute: async ({ key, content, tags }) => {
       const department = getAgentDepartment(agentSlug);

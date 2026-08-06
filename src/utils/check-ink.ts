@@ -1,3 +1,6 @@
-import * as ink from 'ink';
+import * as ink from "ink";
 
-console.log('Ink exports keys:', Object.keys(ink).filter(k => k.startsWith('use') || k === 'render'));
+console.log(
+  "Ink exports keys:",
+  Object.keys(ink).filter((k) => k.startsWith("use") || k === "render")
+);

@@ -1,6 +1,9 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { getAgentDepartment, getDepartmentLeadSlug } from "@/lib/agent/departments";
+import {
+  getAgentDepartment,
+  getDepartmentLeadSlug,
+} from "@/lib/agent/departments";
 import { buildAgentManifest } from "@/lib/agent/production-manifest";
 import {
   getAllAgentSlugs,

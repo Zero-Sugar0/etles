@@ -1,60 +1,60 @@
-import { tool } from "ai";
-import { z } from "zod";
-import { exec } from "child_process";
-import { promisify } from "util";
 import {
-  S3Client,
-  ListBucketsCommand,
-  ListObjectsV2Command,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
+  AllocateAddressCommand,
+  AssociateAddressCommand,
+  AuthorizeSecurityGroupEgressCommand,
+  AuthorizeSecurityGroupIngressCommand,
+  CreateKeyPairCommand,
+  CreateSecurityGroupCommand,
+  DescribeAddressesCommand,
+  DescribeInstancesCommand,
+  DescribeKeyPairsCommand,
+  DescribeSecurityGroupsCommand,
+  EC2Client,
+  RebootInstancesCommand,
+  ReleaseAddressCommand,
+  RunInstancesCommand,
+  StartInstancesCommand,
+  StopInstancesCommand,
+  TerminateInstancesCommand,
+} from "@aws-sdk/client-ec2";
+import {
+  CreateFunctionCommand,
+  DeleteFunctionCommand,
+  GetFunctionCommand,
+  GetFunctionConcurrencyCommand,
+  GetFunctionConfigurationCommand,
+  InvokeCommand,
+  LambdaClient,
+  ListAliasesCommand,
+  ListFunctionsCommand,
+  ListVersionsByFunctionCommand,
+  PublishVersionCommand,
+  PutFunctionConcurrencyCommand,
+  UpdateFunctionCodeCommand,
+  UpdateFunctionConfigurationCommand,
+} from "@aws-sdk/client-lambda";
+import {
   CopyObjectCommand,
   CreateBucketCommand,
   DeleteBucketCommand,
-  PutBucketPolicyCommand,
-  GetBucketPolicyCommand,
-  PutBucketLifecycleConfigurationCommand,
+  DeleteObjectCommand,
   GetBucketLifecycleConfigurationCommand,
-  PutBucketTaggingCommand,
+  GetBucketPolicyCommand,
   GetBucketTaggingCommand,
+  GetObjectCommand,
+  ListBucketsCommand,
+  ListObjectsV2Command,
+  PutBucketLifecycleConfigurationCommand,
+  PutBucketPolicyCommand,
+  PutBucketTaggingCommand,
+  PutObjectCommand,
+  S3Client,
 } from "@aws-sdk/client-s3";
-import {
-  EC2Client,
-  DescribeInstancesCommand,
-  StartInstancesCommand,
-  StopInstancesCommand,
-  RebootInstancesCommand,
-  TerminateInstancesCommand,
-  DescribeSecurityGroupsCommand,
-  DescribeKeyPairsCommand,
-  AllocateAddressCommand,
-  AssociateAddressCommand,
-  ReleaseAddressCommand,
-  DescribeAddressesCommand,
-  CreateSecurityGroupCommand,
-  AuthorizeSecurityGroupIngressCommand,
-  AuthorizeSecurityGroupEgressCommand,
-  CreateKeyPairCommand,
-  RunInstancesCommand,
-} from "@aws-sdk/client-ec2";
-import {
-  LambdaClient,
-  ListFunctionsCommand,
-  InvokeCommand,
-  GetFunctionCommand,
-  CreateFunctionCommand,
-  UpdateFunctionCodeCommand,
-  UpdateFunctionConfigurationCommand,
-  DeleteFunctionCommand,
-  ListAliasesCommand,
-  ListVersionsByFunctionCommand,
-  PublishVersionCommand,
-  GetFunctionConfigurationCommand,
-  PutFunctionConcurrencyCommand,
-  GetFunctionConcurrencyCommand,
-} from "@aws-sdk/client-lambda";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
+import { tool } from "ai";
+import { exec } from "child_process";
+import { promisify } from "util";
+import { z } from "zod";
 
 // ─── AWS CLI Helper ───────────────────────────────────────────────────────────
 // Falls back to AWS CLI for services without SDK packages installed.
@@ -65,9 +65,11 @@ const execAsync = promisify(exec);
 async function runAwsCli(args: string[], region?: string): Promise<any> {
   const regionFlag = region ? `--region ${region}` : "";
   const { stdout, stderr } = await execAsync(
-    `aws ${args.join(" ")} ${regionFlag} --output json`,
+    `aws ${args.join(" ")} ${regionFlag} --output json`
   );
-  if (stderr && !stdout) throw new Error(stderr);
+  if (stderr && !stdout) {
+    throw new Error(stderr);
+  }
   try {
     return JSON.parse(stdout);
   } catch {
@@ -78,19 +80,27 @@ async function runAwsCli(args: string[], region?: string): Promise<any> {
 // ─── SDK Client Factories ─────────────────────────────────────────────────────
 
 function getS3Client(region?: string) {
-  return new S3Client({ region: region || process.env.AWS_REGION || "us-east-1" });
+  return new S3Client({
+    region: region || process.env.AWS_REGION || "us-east-1",
+  });
 }
 
 function getEC2Client(region?: string) {
-  return new EC2Client({ region: region || process.env.AWS_REGION || "us-east-1" });
+  return new EC2Client({
+    region: region || process.env.AWS_REGION || "us-east-1",
+  });
 }
 
 function getLambdaClient(region?: string) {
-  return new LambdaClient({ region: region || process.env.AWS_REGION || "us-east-1" });
+  return new LambdaClient({
+    region: region || process.env.AWS_REGION || "us-east-1",
+  });
 }
 
 function getSTSClient(region?: string) {
-  return new STSClient({ region: region || process.env.AWS_REGION || "us-east-1" });
+  return new STSClient({
+    region: region || process.env.AWS_REGION || "us-east-1",
+  });
 }
 
 // =============================================================================
@@ -122,22 +132,77 @@ export const awsS3 = ({ userId }: { userId: string }) =>
       ]),
       bucket: z.string().optional().describe("S3 bucket name"),
       key: z.string().optional().describe("S3 object key (path)"),
-      destinationBucket: z.string().optional().describe("Destination bucket for copy"),
-      destinationKey: z.string().optional().describe("Destination key for copy"),
-      content: z.string().optional().describe("Content for upload (string or base64)"),
-      contentBase64: z.boolean().optional().default(false).describe("If true, content is base64-encoded"),
+      destinationBucket: z
+        .string()
+        .optional()
+        .describe("Destination bucket for copy"),
+      destinationKey: z
+        .string()
+        .optional()
+        .describe("Destination key for copy"),
+      content: z
+        .string()
+        .optional()
+        .describe("Content for upload (string or base64)"),
+      contentBase64: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe("If true, content is base64-encoded"),
       policy: z.string().optional().describe("Bucket policy JSON"),
-      lifecycleRules: z.string().optional().describe("Lifecycle rules JSON array"),
-      tags: z.record(z.string(), z.string()).optional().describe("Tags for bucket"),
+      lifecycleRules: z
+        .string()
+        .optional()
+        .describe("Lifecycle rules JSON array"),
+      tags: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("Tags for bucket"),
       region: z.string().optional().describe("AWS region"),
-      prefix: z.string().optional().describe("Object prefix filter for list_objects"),
-      maxKeys: z.number().int().min(1).max(1000).optional().default(100).describe("Max objects to return"),
-      expiresIn: z.number().int().optional().default(3600).describe("Presigned URL expiry in seconds"),
-      acl: z.enum(["private", "public-read", "public-read-write", "authenticated-read"]).optional().describe("Bucket ACL"),
+      prefix: z
+        .string()
+        .optional()
+        .describe("Object prefix filter for list_objects"),
+      maxKeys: z
+        .number()
+        .int()
+        .min(1)
+        .max(1000)
+        .optional()
+        .default(100)
+        .describe("Max objects to return"),
+      expiresIn: z
+        .number()
+        .int()
+        .optional()
+        .default(3600)
+        .describe("Presigned URL expiry in seconds"),
+      acl: z
+        .enum([
+          "private",
+          "public-read",
+          "public-read-write",
+          "authenticated-read",
+        ])
+        .optional()
+        .describe("Bucket ACL"),
     }),
     execute: async ({
-      action, bucket, key, destinationBucket, destinationKey, content, contentBase64,
-      policy, lifecycleRules, tags, region, prefix, maxKeys, expiresIn, acl,
+      action,
+      bucket,
+      key,
+      destinationBucket,
+      destinationKey,
+      content,
+      contentBase64,
+      policy,
+      lifecycleRules,
+      tags,
+      region,
+      prefix,
+      maxKeys,
+      expiresIn,
+      acl,
     }) => {
       const client = getS3Client(region);
       try {
@@ -156,28 +221,52 @@ export const awsS3 = ({ userId }: { userId: string }) =>
           }
 
           case "create_bucket": {
-            if (!bucket) return { success: false, error: "Bucket name required" };
-            const regionActual = region || process.env.AWS_REGION || "us-east-1";
+            if (!bucket) {
+              return { success: false, error: "Bucket name required" };
+            }
+            const regionActual =
+              region || process.env.AWS_REGION || "us-east-1";
             const params: any = { Bucket: bucket };
             if (regionActual !== "us-east-1") {
-              params.CreateBucketConfiguration = { LocationConstraint: regionActual };
+              params.CreateBucketConfiguration = {
+                LocationConstraint: regionActual,
+              };
             }
-            if (acl) params.ACL = acl;
+            if (acl) {
+              params.ACL = acl;
+            }
             await client.send(new CreateBucketCommand(params));
-            return { success: true, bucket, region: regionActual, message: `Bucket '${bucket}' created` };
+            return {
+              success: true,
+              bucket,
+              region: regionActual,
+              message: `Bucket '${bucket}' created`,
+            };
           }
 
           case "delete_bucket": {
-            if (!bucket) return { success: false, error: "Bucket name required" };
+            if (!bucket) {
+              return { success: false, error: "Bucket name required" };
+            }
             await client.send(new DeleteBucketCommand({ Bucket: bucket }));
-            return { success: true, bucket, message: `Bucket '${bucket}' deleted` };
+            return {
+              success: true,
+              bucket,
+              message: `Bucket '${bucket}' deleted`,
+            };
           }
 
           // ── Object Operations ──
           case "list_objects": {
-            if (!bucket) return { success: false, error: "Bucket name required" };
+            if (!bucket) {
+              return { success: false, error: "Bucket name required" };
+            }
             const data = await client.send(
-              new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, MaxKeys: maxKeys }),
+              new ListObjectsV2Command({
+                Bucket: bucket,
+                Prefix: prefix,
+                MaxKeys: maxKeys,
+              })
             );
             return {
               success: true,
@@ -197,16 +286,32 @@ export const awsS3 = ({ userId }: { userId: string }) =>
 
           case "upload": {
             if (!bucket || !key || content === undefined) {
-              return { success: false, error: "Bucket, key, and content required" };
+              return {
+                success: false,
+                error: "Bucket, key, and content required",
+              };
             }
-            const body = contentBase64 ? Buffer.from(content, "base64") : content;
-            await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body }));
-            return { success: true, bucket, key, message: `Uploaded s3://${bucket}/${key}` };
+            const body = contentBase64
+              ? Buffer.from(content, "base64")
+              : content;
+            await client.send(
+              new PutObjectCommand({ Bucket: bucket, Key: key, Body: body })
+            );
+            return {
+              success: true,
+              bucket,
+              key,
+              message: `Uploaded s3://${bucket}/${key}`,
+            };
           }
 
           case "download": {
-            if (!bucket || !key) return { success: false, error: "Bucket and key required" };
-            const data = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+            if (!bucket || !key) {
+              return { success: false, error: "Bucket and key required" };
+            }
+            const data = await client.send(
+              new GetObjectCommand({ Bucket: bucket, Key: key })
+            );
             const body = await data.Body?.transformToString();
             return {
               success: true,
@@ -222,20 +327,35 @@ export const awsS3 = ({ userId }: { userId: string }) =>
           }
 
           case "delete_object": {
-            if (!bucket || !key) return { success: false, error: "Bucket and key required" };
-            await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
-            return { success: true, bucket, key, message: `Deleted s3://${bucket}/${key}` };
+            if (!bucket || !key) {
+              return { success: false, error: "Bucket and key required" };
+            }
+            await client.send(
+              new DeleteObjectCommand({ Bucket: bucket, Key: key })
+            );
+            return {
+              success: true,
+              bucket,
+              key,
+              message: `Deleted s3://${bucket}/${key}`,
+            };
           }
 
           case "copy_object": {
             if (!bucket || !key || !destinationBucket || !destinationKey) {
-              return { success: false, error: "Bucket, key, destinationBucket, and destinationKey required" };
+              return {
+                success: false,
+                error:
+                  "Bucket, key, destinationBucket, and destinationKey required",
+              };
             }
-            await client.send(new CopyObjectCommand({
-              Bucket: destinationBucket,
-              Key: destinationKey,
-              CopySource: `/${bucket}/${key}`,
-            }));
+            await client.send(
+              new CopyObjectCommand({
+                Bucket: destinationBucket,
+                Key: destinationKey,
+                CopySource: `/${bucket}/${key}`,
+              })
+            );
             return {
               success: true,
               source: `s3://${bucket}/${key}`,
@@ -246,62 +366,126 @@ export const awsS3 = ({ userId }: { userId: string }) =>
 
           // ── Policy ──
           case "get_policy": {
-            if (!bucket) return { success: false, error: "Bucket name required" };
-            const data = await client.send(new GetBucketPolicyCommand({ Bucket: bucket }));
-            return { success: true, bucket, policy: data.Policy ? JSON.parse(data.Policy) : null };
+            if (!bucket) {
+              return { success: false, error: "Bucket name required" };
+            }
+            const data = await client.send(
+              new GetBucketPolicyCommand({ Bucket: bucket })
+            );
+            return {
+              success: true,
+              bucket,
+              policy: data.Policy ? JSON.parse(data.Policy) : null,
+            };
           }
 
           case "put_policy": {
-            if (!bucket || !policy) return { success: false, error: "Bucket and policy required" };
-            await client.send(new PutBucketPolicyCommand({ Bucket: bucket, Policy: policy }));
+            if (!bucket || !policy) {
+              return { success: false, error: "Bucket and policy required" };
+            }
+            await client.send(
+              new PutBucketPolicyCommand({ Bucket: bucket, Policy: policy })
+            );
             return { success: true, bucket, message: "Policy updated" };
           }
 
           // ── Lifecycle ──
           case "get_lifecycle": {
-            if (!bucket) return { success: false, error: "Bucket name required" };
-            const data = await client.send(new GetBucketLifecycleConfigurationCommand({ Bucket: bucket }));
+            if (!bucket) {
+              return { success: false, error: "Bucket name required" };
+            }
+            const data = await client.send(
+              new GetBucketLifecycleConfigurationCommand({ Bucket: bucket })
+            );
             return { success: true, bucket, rules: data.Rules };
           }
 
           case "put_lifecycle": {
-            if (!bucket || !lifecycleRules) return { success: false, error: "Bucket and lifecycleRules required" };
-            const rules = typeof lifecycleRules === "string" ? JSON.parse(lifecycleRules) : lifecycleRules;
-            await client.send(new PutBucketLifecycleConfigurationCommand({
-              Bucket: bucket,
-              LifecycleConfiguration: { Rules: rules },
-            }));
-            return { success: true, bucket, message: "Lifecycle rules updated" };
+            if (!bucket || !lifecycleRules) {
+              return {
+                success: false,
+                error: "Bucket and lifecycleRules required",
+              };
+            }
+            const rules =
+              typeof lifecycleRules === "string"
+                ? JSON.parse(lifecycleRules)
+                : lifecycleRules;
+            await client.send(
+              new PutBucketLifecycleConfigurationCommand({
+                Bucket: bucket,
+                LifecycleConfiguration: { Rules: rules },
+              })
+            );
+            return {
+              success: true,
+              bucket,
+              message: "Lifecycle rules updated",
+            };
           }
 
           // ── Tags ──
           case "get_tags": {
-            if (!bucket) return { success: false, error: "Bucket name required" };
-            const data = await client.send(new GetBucketTaggingCommand({ Bucket: bucket }));
-            return { success: true, bucket, tags: (data.TagSet || []).reduce((acc: Record<string, string>, t) => {
-              if (t.Key && t.Value) acc[t.Key] = t.Value;
-              return acc;
-            }, {}) };
+            if (!bucket) {
+              return { success: false, error: "Bucket name required" };
+            }
+            const data = await client.send(
+              new GetBucketTaggingCommand({ Bucket: bucket })
+            );
+            return {
+              success: true,
+              bucket,
+              tags: (data.TagSet || []).reduce(
+                (acc: Record<string, string>, t) => {
+                  if (t.Key && t.Value) {
+                    acc[t.Key] = t.Value;
+                  }
+                  return acc;
+                },
+                {}
+              ),
+            };
           }
 
           case "put_tags": {
-            if (!bucket || !tags) return { success: false, error: "Bucket and tags required" };
-            const tagSet = Object.entries(tags).map(([Key, Value]) => ({ Key, Value }));
-            await client.send(new PutBucketTaggingCommand({
-              Bucket: bucket,
-              Tagging: { TagSet: tagSet },
+            if (!bucket || !tags) {
+              return { success: false, error: "Bucket and tags required" };
+            }
+            const tagSet = Object.entries(tags).map(([Key, Value]) => ({
+              Key,
+              Value,
             }));
+            await client.send(
+              new PutBucketTaggingCommand({
+                Bucket: bucket,
+                Tagging: { TagSet: tagSet },
+              })
+            );
             return { success: true, bucket, tags, message: "Tags updated" };
           }
 
           case "generate_presigned_url": {
             // Use AWS CLI for presigned URLs since SDK v3 requires @aws-sdk/s3-request-presigner
-            if (!bucket || !key) return { success: false, error: "Bucket and key required" };
-            const result = await runAwsCli([
-              "s3", "presign", `s3://${bucket}/${key}`,
-              `--expires-in`, String(expiresIn || 3600),
-            ], region);
-            return { success: true, url: result.trim(), bucket, key, expiresIn: expiresIn || 3600 };
+            if (!bucket || !key) {
+              return { success: false, error: "Bucket and key required" };
+            }
+            const result = await runAwsCli(
+              [
+                "s3",
+                "presign",
+                `s3://${bucket}/${key}`,
+                "--expires-in",
+                String(expiresIn || 3600),
+              ],
+              region
+            );
+            return {
+              success: true,
+              url: result.trim(),
+              bucket,
+              key,
+              expiresIn: expiresIn || 3600,
+            };
           }
 
           default:
@@ -346,44 +530,96 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
       region: z.string().optional().describe("AWS region"),
       // Run instance params
       imageId: z.string().optional().describe("AMI ID for run_instance"),
-      instanceType: z.string().optional().default("t3.micro").describe("Instance type"),
+      instanceType: z
+        .string()
+        .optional()
+        .default("t3.micro")
+        .describe("Instance type"),
       keyName: z.string().optional().describe("Key pair name"),
-      securityGroupIds: z.array(z.string()).optional().describe("Security group IDs"),
+      securityGroupIds: z
+        .array(z.string())
+        .optional()
+        .describe("Security group IDs"),
       subnetId: z.string().optional().describe("Subnet ID"),
       minCount: z.number().int().optional().default(1),
       maxCount: z.number().int().optional().default(1),
-      userData: z.string().optional().describe("Base64-encoded user data script"),
+      userData: z
+        .string()
+        .optional()
+        .describe("Base64-encoded user data script"),
       // Security group params
       groupName: z.string().optional().describe("Security group name"),
-      groupDescription: z.string().optional().describe("Security group description"),
+      groupDescription: z
+        .string()
+        .optional()
+        .describe("Security group description"),
       vpcId: z.string().optional().describe("VPC ID"),
-      ipProtocol: z.string().optional().default("tcp").describe("Protocol for rules (tcp, udp, icmp, -1)"),
+      ipProtocol: z
+        .string()
+        .optional()
+        .default("tcp")
+        .describe("Protocol for rules (tcp, udp, icmp, -1)"),
       fromPort: z.number().int().optional().describe("Start of port range"),
       toPort: z.number().int().optional().describe("End of port range"),
-      cidrBlock: z.string().optional().default("0.0.0.0/0").describe("CIDR block for rules"),
+      cidrBlock: z
+        .string()
+        .optional()
+        .default("0.0.0.0/0")
+        .describe("CIDR block for rules"),
       // Elastic IP params
-      allocationId: z.string().optional().describe("Allocation ID for release/associate"),
+      allocationId: z
+        .string()
+        .optional()
+        .describe("Allocation ID for release/associate"),
       instanceId: z.string().optional().describe("Instance ID for association"),
       // Filters
-      filters: z.array(z.object({
-        name: z.string(),
-        values: z.array(z.string()),
-      })).optional().describe("EC2 filter criteria"),
+      filters: z
+        .array(
+          z.object({
+            name: z.string(),
+            values: z.array(z.string()),
+          })
+        )
+        .optional()
+        .describe("EC2 filter criteria"),
     }),
     execute: async ({
-      action, instanceIds, region, imageId, instanceType, keyName,
-      securityGroupIds, subnetId, minCount, maxCount, userData,
-      groupName, groupDescription, vpcId, ipProtocol, fromPort, toPort, cidrBlock,
-      allocationId, instanceId, filters,
+      action,
+      instanceIds,
+      region,
+      imageId,
+      instanceType,
+      keyName,
+      securityGroupIds,
+      subnetId,
+      minCount,
+      maxCount,
+      userData,
+      groupName,
+      groupDescription,
+      vpcId,
+      ipProtocol,
+      fromPort,
+      toPort,
+      cidrBlock,
+      allocationId,
+      instanceId,
+      filters,
     }) => {
       const client = getEC2Client(region);
       try {
         switch (action) {
           case "list_instances": {
             const params: any = {};
-            if (filters) params.Filters = filters;
-            if (instanceIds?.length) params.InstanceIds = instanceIds;
-            const data = await client.send(new DescribeInstancesCommand(params));
+            if (filters) {
+              params.Filters = filters;
+            }
+            if (instanceIds?.length) {
+              params.InstanceIds = instanceIds;
+            }
+            const data = await client.send(
+              new DescribeInstancesCommand(params)
+            );
             const instances = (data.Reservations || []).flatMap((r) =>
               (r.Instances || []).map((i) => ({
                 instanceId: i.InstanceId,
@@ -400,10 +636,15 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
                   id: sg.GroupId,
                   name: sg.GroupName,
                 })),
-                tags: (i.Tags || []).reduce((acc: Record<string, string>, t) => {
-                  if (t.Key && t.Value) acc[t.Key] = t.Value;
-                  return acc;
-                }, {}),
+                tags: (i.Tags || []).reduce(
+                  (acc: Record<string, string>, t) => {
+                    if (t.Key && t.Value) {
+                      acc[t.Key] = t.Value;
+                    }
+                    return acc;
+                  },
+                  {}
+                ),
                 keyName: i.KeyName,
                 imageId: i.ImageId,
                 platform: i.Platform,
@@ -412,14 +653,18 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
                 ebsOptimized: i.EbsOptimized,
                 rootDeviceType: i.RootDeviceType,
                 rootDeviceName: i.RootDeviceName,
-              })),
+              }))
             );
             return { success: true, instances, totalCount: instances.length };
           }
 
           case "start": {
-            if (!instanceIds?.length) return { success: false, error: "Instance IDs required" };
-            const data = await client.send(new StartInstancesCommand({ InstanceIds: instanceIds }));
+            if (!instanceIds?.length) {
+              return { success: false, error: "Instance IDs required" };
+            }
+            const data = await client.send(
+              new StartInstancesCommand({ InstanceIds: instanceIds })
+            );
             return {
               success: true,
               action: "started",
@@ -432,8 +677,12 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
           }
 
           case "stop": {
-            if (!instanceIds?.length) return { success: false, error: "Instance IDs required" };
-            const data = await client.send(new StopInstancesCommand({ InstanceIds: instanceIds }));
+            if (!instanceIds?.length) {
+              return { success: false, error: "Instance IDs required" };
+            }
+            const data = await client.send(
+              new StopInstancesCommand({ InstanceIds: instanceIds })
+            );
             return {
               success: true,
               action: "stopped",
@@ -446,14 +695,27 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
           }
 
           case "reboot": {
-            if (!instanceIds?.length) return { success: false, error: "Instance IDs required" };
-            await client.send(new RebootInstancesCommand({ InstanceIds: instanceIds }));
-            return { success: true, action: "rebooted", instanceIds, message: "Reboot initiated" };
+            if (!instanceIds?.length) {
+              return { success: false, error: "Instance IDs required" };
+            }
+            await client.send(
+              new RebootInstancesCommand({ InstanceIds: instanceIds })
+            );
+            return {
+              success: true,
+              action: "rebooted",
+              instanceIds,
+              message: "Reboot initiated",
+            };
           }
 
           case "terminate": {
-            if (!instanceIds?.length) return { success: false, error: "Instance IDs required" };
-            const data = await client.send(new TerminateInstancesCommand({ InstanceIds: instanceIds }));
+            if (!instanceIds?.length) {
+              return { success: false, error: "Instance IDs required" };
+            }
+            const data = await client.send(
+              new TerminateInstancesCommand({ InstanceIds: instanceIds })
+            );
             return {
               success: true,
               action: "terminated",
@@ -466,17 +728,27 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
           }
 
           case "run_instance": {
-            if (!imageId) return { success: false, error: "imageId required" };
+            if (!imageId) {
+              return { success: false, error: "imageId required" };
+            }
             const params: any = {
               ImageId: imageId,
               InstanceType: instanceType || "t3.micro",
               MinCount: minCount || 1,
               MaxCount: maxCount || 1,
             };
-            if (keyName) params.KeyName = keyName;
-            if (securityGroupIds?.length) params.SecurityGroupIds = securityGroupIds;
-            if (subnetId) params.SubnetId = subnetId;
-            if (userData) params.UserData = userData;
+            if (keyName) {
+              params.KeyName = keyName;
+            }
+            if (securityGroupIds?.length) {
+              params.SecurityGroupIds = securityGroupIds;
+            }
+            if (subnetId) {
+              params.SubnetId = subnetId;
+            }
+            if (userData) {
+              params.UserData = userData;
+            }
             const data = await client.send(new RunInstancesCommand(params));
             const launched = (data.Instances || []).map((i) => ({
               instanceId: i.InstanceId,
@@ -485,14 +757,24 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
               launchTime: i.LaunchTime?.toISOString(),
               privateIp: i.PrivateIpAddress,
             }));
-            return { success: true, instances: launched, count: launched.length };
+            return {
+              success: true,
+              instances: launched,
+              count: launched.length,
+            };
           }
 
           case "list_security_groups": {
             const params: any = {};
-            if (filters) params.Filters = filters;
-            if (groupName) params.GroupNames = [groupName];
-            const data = await client.send(new DescribeSecurityGroupsCommand(params));
+            if (filters) {
+              params.Filters = filters;
+            }
+            if (groupName) {
+              params.GroupNames = [groupName];
+            }
+            const data = await client.send(
+              new DescribeSecurityGroupsCommand(params)
+            );
             return {
               success: true,
               securityGroups: (data.SecurityGroups || []).map((sg) => ({
@@ -513,40 +795,64 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
                   toPort: p.ToPort,
                   cidr: p.IpRanges?.map((r) => r.CidrIp),
                 })),
-                tags: (sg.Tags || []).reduce((acc: Record<string, string>, t) => {
-                  if (t.Key && t.Value) acc[t.Key] = t.Value;
-                  return acc;
-                }, {}),
+                tags: (sg.Tags || []).reduce(
+                  (acc: Record<string, string>, t) => {
+                    if (t.Key && t.Value) {
+                      acc[t.Key] = t.Value;
+                    }
+                    return acc;
+                  },
+                  {}
+                ),
               })),
             };
           }
 
           case "create_security_group": {
             if (!groupName || !groupDescription) {
-              return { success: false, error: "groupName and groupDescription required" };
+              return {
+                success: false,
+                error: "groupName and groupDescription required",
+              };
             }
             const params: any = {
               GroupName: groupName,
               Description: groupDescription,
             };
-            if (vpcId) params.VpcId = vpcId;
-            const data = await client.send(new CreateSecurityGroupCommand(params));
-            return { success: true, groupId: data.GroupId, groupName, vpcId: vpcId || "default" };
+            if (vpcId) {
+              params.VpcId = vpcId;
+            }
+            const data = await client.send(
+              new CreateSecurityGroupCommand(params)
+            );
+            return {
+              success: true,
+              groupId: data.GroupId,
+              groupName,
+              vpcId: vpcId || "default",
+            };
           }
 
           case "authorize_ingress": {
             if (!groupName || fromPort === undefined || toPort === undefined) {
-              return { success: false, error: "groupName, fromPort, and toPort required" };
+              return {
+                success: false,
+                error: "groupName, fromPort, and toPort required",
+              };
             }
-            await client.send(new AuthorizeSecurityGroupIngressCommand({
-              GroupName: groupName,
-              IpPermissions: [{
-                IpProtocol: ipProtocol || "tcp",
-                FromPort: fromPort,
-                ToPort: toPort,
-                IpRanges: [{ CidrIp: cidrBlock || "0.0.0.0/0" }],
-              }],
-            }));
+            await client.send(
+              new AuthorizeSecurityGroupIngressCommand({
+                GroupName: groupName,
+                IpPermissions: [
+                  {
+                    IpProtocol: ipProtocol || "tcp",
+                    FromPort: fromPort,
+                    ToPort: toPort,
+                    IpRanges: [{ CidrIp: cidrBlock || "0.0.0.0/0" }],
+                  },
+                ],
+              })
+            );
             return {
               success: true,
               groupName,
@@ -557,17 +863,24 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
 
           case "authorize_egress": {
             if (!groupName || fromPort === undefined || toPort === undefined) {
-              return { success: false, error: "groupName, fromPort, and toPort required" };
+              return {
+                success: false,
+                error: "groupName, fromPort, and toPort required",
+              };
             }
-            await client.send(new AuthorizeSecurityGroupEgressCommand({
-              GroupId: groupName,
-              IpPermissions: [{
-                IpProtocol: ipProtocol || "tcp",
-                FromPort: fromPort,
-                ToPort: toPort,
-                IpRanges: [{ CidrIp: cidrBlock || "0.0.0.0/0" }],
-              }],
-            } as any));
+            await client.send(
+              new AuthorizeSecurityGroupEgressCommand({
+                GroupId: groupName,
+                IpPermissions: [
+                  {
+                    IpProtocol: ipProtocol || "tcp",
+                    FromPort: fromPort,
+                    ToPort: toPort,
+                    IpRanges: [{ CidrIp: cidrBlock || "0.0.0.0/0" }],
+                  },
+                ],
+              } as any)
+            );
             return {
               success: true,
               groupName,
@@ -584,17 +897,26 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
                 name: kp.KeyName,
                 type: kp.KeyType,
                 fingerprint: kp.KeyFingerprint,
-                tags: (kp.Tags || []).reduce((acc: Record<string, string>, t) => {
-                  if (t.Key && t.Value) acc[t.Key] = t.Value;
-                  return acc;
-                }, {}),
+                tags: (kp.Tags || []).reduce(
+                  (acc: Record<string, string>, t) => {
+                    if (t.Key && t.Value) {
+                      acc[t.Key] = t.Value;
+                    }
+                    return acc;
+                  },
+                  {}
+                ),
               })),
             };
           }
 
           case "create_key_pair": {
-            if (!keyName) return { success: false, error: "keyName required" };
-            const data = await client.send(new CreateKeyPairCommand({ KeyName: keyName }));
+            if (!keyName) {
+              return { success: false, error: "keyName required" };
+            }
+            const data = await client.send(
+              new CreateKeyPairCommand({ KeyName: keyName })
+            );
             return {
               success: true,
               keyName: data.KeyName,
@@ -614,16 +936,23 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
                 associationId: a.AssociationId,
                 instanceId: a.InstanceId,
                 domain: a.Domain,
-                tags: (a.Tags || []).reduce((acc: Record<string, string>, t) => {
-                  if (t.Key && t.Value) acc[t.Key] = t.Value;
-                  return acc;
-                }, {}),
+                tags: (a.Tags || []).reduce(
+                  (acc: Record<string, string>, t) => {
+                    if (t.Key && t.Value) {
+                      acc[t.Key] = t.Value;
+                    }
+                    return acc;
+                  },
+                  {}
+                ),
               })),
             };
           }
 
           case "allocate_elastic_ip": {
-            const data = await client.send(new AllocateAddressCommand({ Domain: "vpc" }));
+            const data = await client.send(
+              new AllocateAddressCommand({ Domain: "vpc" })
+            );
             return {
               success: true,
               publicIp: data.PublicIp,
@@ -634,19 +963,37 @@ export const awsEC2 = ({ userId }: { userId: string }) =>
 
           case "associate_elastic_ip": {
             if (!allocationId || !instanceId) {
-              return { success: false, error: "allocationId and instanceId required" };
+              return {
+                success: false,
+                error: "allocationId and instanceId required",
+              };
             }
-            const data = await client.send(new AssociateAddressCommand({
-              AllocationId: allocationId,
-              InstanceId: instanceId,
-            }));
-            return { success: true, associationId: data.AssociationId, instanceId, allocationId };
+            const data = await client.send(
+              new AssociateAddressCommand({
+                AllocationId: allocationId,
+                InstanceId: instanceId,
+              })
+            );
+            return {
+              success: true,
+              associationId: data.AssociationId,
+              instanceId,
+              allocationId,
+            };
           }
 
           case "release_elastic_ip": {
-            if (!allocationId) return { success: false, error: "allocationId required" };
-            await client.send(new ReleaseAddressCommand({ AllocationId: allocationId }));
-            return { success: true, allocationId, message: "Elastic IP released" };
+            if (!allocationId) {
+              return { success: false, error: "allocationId required" };
+            }
+            await client.send(
+              new ReleaseAddressCommand({ AllocationId: allocationId })
+            );
+            return {
+              success: true,
+              allocationId,
+              message: "Elastic IP released",
+            };
           }
 
           default:
@@ -683,39 +1030,94 @@ export const awsLambda = ({ userId }: { userId: string }) =>
         "put_concurrency",
         "get_concurrency",
       ]),
-      functionName: z.string().optional().describe("Lambda function name or ARN"),
+      functionName: z
+        .string()
+        .optional()
+        .describe("Lambda function name or ARN"),
       region: z.string().optional().describe("AWS region"),
       payload: z.string().optional().describe("JSON payload for invocation"),
-      invocationType: z.enum(["RequestResponse", "Event", "DryRun"]).optional().default("RequestResponse"),
+      invocationType: z
+        .enum(["RequestResponse", "Event", "DryRun"])
+        .optional()
+        .default("RequestResponse"),
       // Create/Update params
-      runtime: z.string().optional().describe("Runtime e.g. nodejs20.x, python3.12"),
+      runtime: z
+        .string()
+        .optional()
+        .describe("Runtime e.g. nodejs20.x, python3.12"),
       role: z.string().optional().describe("IAM role ARN for create_function"),
-      handler: z.string().optional().describe("Function handler e.g. index.handler"),
-      code: z.string().optional().describe("Base64-encoded zip file for function code"),
-      codeS3Bucket: z.string().optional().describe("S3 bucket containing function code"),
+      handler: z
+        .string()
+        .optional()
+        .describe("Function handler e.g. index.handler"),
+      code: z
+        .string()
+        .optional()
+        .describe("Base64-encoded zip file for function code"),
+      codeS3Bucket: z
+        .string()
+        .optional()
+        .describe("S3 bucket containing function code"),
       codeS3Key: z.string().optional().describe("S3 key for function code"),
       description: z.string().optional().describe("Function description"),
-      memorySize: z.number().int().optional().describe("Memory in MB (128-10240)"),
-      timeout: z.number().int().optional().describe("Timeout in seconds (1-900)"),
-      environment: z.record(z.string(), z.string()).optional().describe("Environment variables"),
+      memorySize: z
+        .number()
+        .int()
+        .optional()
+        .describe("Memory in MB (128-10240)"),
+      timeout: z
+        .number()
+        .int()
+        .optional()
+        .describe("Timeout in seconds (1-900)"),
+      environment: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("Environment variables"),
       // Alias/Version
       aliasName: z.string().optional().describe("Alias name"),
       versionNumber: z.string().optional().describe("Version number"),
       // Concurrency
-      reservedConcurrency: z.number().int().optional().describe("Reserved concurrency (0 for no limit)"),
-      maxItems: z.number().int().optional().default(50).describe("Max items to return"),
+      reservedConcurrency: z
+        .number()
+        .int()
+        .optional()
+        .describe("Reserved concurrency (0 for no limit)"),
+      maxItems: z
+        .number()
+        .int()
+        .optional()
+        .default(50)
+        .describe("Max items to return"),
     }),
     execute: async ({
-      action, functionName, region, payload, invocationType,
-      runtime, role, handler, code, codeS3Bucket, codeS3Key,
-      description, memorySize, timeout, environment,
-      aliasName, versionNumber, reservedConcurrency, maxItems,
+      action,
+      functionName,
+      region,
+      payload,
+      invocationType,
+      runtime,
+      role,
+      handler,
+      code,
+      codeS3Bucket,
+      codeS3Key,
+      description,
+      memorySize,
+      timeout,
+      environment,
+      aliasName,
+      versionNumber,
+      reservedConcurrency,
+      maxItems,
     }) => {
       const client = getLambdaClient(region);
       try {
         switch (action) {
           case "list_functions": {
-            const data = await client.send(new ListFunctionsCommand({ MaxItems: maxItems }));
+            const data = await client.send(
+              new ListFunctionsCommand({ MaxItems: maxItems })
+            );
             return {
               success: true,
               functions: (data.Functions || []).map((fn) => ({
@@ -733,35 +1135,50 @@ export const awsLambda = ({ userId }: { userId: string }) =>
                 lastUpdateStatus: fn.LastUpdateStatus,
                 architectures: fn.Architectures,
                 packageType: fn.PackageType,
-                runtimeVersionConfig: fn.RuntimeVersionConfig?.RuntimeVersionArn,
+                runtimeVersionConfig:
+                  fn.RuntimeVersionConfig?.RuntimeVersionArn,
               })),
               totalCount: (data.Functions || []).length,
             };
           }
 
           case "invoke": {
-            if (!functionName) return { success: false, error: "Function name required" };
-            const data = await client.send(new InvokeCommand({
-              FunctionName: functionName,
-              InvocationType: invocationType || "RequestResponse",
-              Payload: payload ? Buffer.from(payload) : undefined,
-            }));
-            const resultPayload = data.Payload ? Buffer.from(data.Payload).toString() : null;
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
+            const data = await client.send(
+              new InvokeCommand({
+                FunctionName: functionName,
+                InvocationType: invocationType || "RequestResponse",
+                Payload: payload ? Buffer.from(payload) : undefined,
+              })
+            );
+            const resultPayload = data.Payload
+              ? Buffer.from(data.Payload).toString()
+              : null;
             let parsedResult: any = resultPayload;
-            try { parsedResult = JSON.parse(resultPayload || "null"); } catch {}
+            try {
+              parsedResult = JSON.parse(resultPayload || "null");
+            } catch {}
             return {
               success: data.StatusCode === 200 || data.StatusCode === 202,
               statusCode: data.StatusCode,
               result: parsedResult,
-              logResult: data.LogResult ? Buffer.from(data.LogResult, "base64").toString() : undefined,
+              logResult: data.LogResult
+                ? Buffer.from(data.LogResult, "base64").toString()
+                : undefined,
               executedVersion: data.ExecutedVersion,
               functionError: data.FunctionError,
             };
           }
 
           case "get_function": {
-            if (!functionName) return { success: false, error: "Function name required" };
-            const data = await client.send(new GetFunctionCommand({ FunctionName: functionName }));
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
+            const data = await client.send(
+              new GetFunctionCommand({ FunctionName: functionName })
+            );
             return {
               success: true,
               configuration: {
@@ -796,8 +1213,14 @@ export const awsLambda = ({ userId }: { userId: string }) =>
           }
 
           case "get_config": {
-            if (!functionName) return { success: false, error: "Function name required" };
-            const data = await client.send(new GetFunctionConfigurationCommand({ FunctionName: functionName }));
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
+            const data = await client.send(
+              new GetFunctionConfigurationCommand({
+                FunctionName: functionName,
+              })
+            );
             return {
               success: true,
               configuration: {
@@ -825,7 +1248,10 @@ export const awsLambda = ({ userId }: { userId: string }) =>
 
           case "create_function": {
             if (!functionName || !runtime || !role || !handler) {
-              return { success: false, error: "functionName, runtime, role, and handler required" };
+              return {
+                success: false,
+                error: "functionName, runtime, role, and handler required",
+              };
             }
             const params: any = {
               FunctionName: functionName,
@@ -838,12 +1264,23 @@ export const awsLambda = ({ userId }: { userId: string }) =>
             } else if (codeS3Bucket && codeS3Key) {
               params.Code = { S3Bucket: codeS3Bucket, S3Key: codeS3Key };
             } else {
-              return { success: false, error: "code (base64 zip) or codeS3Bucket+codeS3Key required" };
+              return {
+                success: false,
+                error: "code (base64 zip) or codeS3Bucket+codeS3Key required",
+              };
             }
-            if (description) params.Description = description;
-            if (memorySize) params.MemorySize = memorySize;
-            if (timeout) params.Timeout = timeout;
-            if (environment) params.Environment = { Variables: environment };
+            if (description) {
+              params.Description = description;
+            }
+            if (memorySize) {
+              params.MemorySize = memorySize;
+            }
+            if (timeout) {
+              params.Timeout = timeout;
+            }
+            if (environment) {
+              params.Environment = { Variables: environment };
+            }
             const data = await client.send(new CreateFunctionCommand(params));
             return {
               success: true,
@@ -856,7 +1293,9 @@ export const awsLambda = ({ userId }: { userId: string }) =>
           }
 
           case "update_code": {
-            if (!functionName) return { success: false, error: "Function name required" };
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
             const params: any = { FunctionName: functionName };
             if (code) {
               params.ZipFile = Buffer.from(code, "base64");
@@ -864,9 +1303,14 @@ export const awsLambda = ({ userId }: { userId: string }) =>
               params.S3Bucket = codeS3Bucket;
               params.S3Key = codeS3Key;
             } else {
-              return { success: false, error: "code (base64 zip) or codeS3Bucket+codeS3Key required" };
+              return {
+                success: false,
+                error: "code (base64 zip) or codeS3Bucket+codeS3Key required",
+              };
             }
-            const data = await client.send(new UpdateFunctionCodeCommand(params));
+            const data = await client.send(
+              new UpdateFunctionCodeCommand(params)
+            );
             return {
               success: true,
               functionName: data.FunctionName,
@@ -876,16 +1320,34 @@ export const awsLambda = ({ userId }: { userId: string }) =>
           }
 
           case "update_config": {
-            if (!functionName) return { success: false, error: "Function name required" };
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
             const params: any = { FunctionName: functionName };
-            if (description) params.Description = description;
-            if (handler) params.Handler = handler;
-            if (memorySize) params.MemorySize = memorySize;
-            if (timeout) params.Timeout = timeout;
-            if (runtime) params.Runtime = runtime;
-            if (role) params.Role = role;
-            if (environment) params.Environment = { Variables: environment };
-            const data = await client.send(new UpdateFunctionConfigurationCommand(params));
+            if (description) {
+              params.Description = description;
+            }
+            if (handler) {
+              params.Handler = handler;
+            }
+            if (memorySize) {
+              params.MemorySize = memorySize;
+            }
+            if (timeout) {
+              params.Timeout = timeout;
+            }
+            if (runtime) {
+              params.Runtime = runtime;
+            }
+            if (role) {
+              params.Role = role;
+            }
+            if (environment) {
+              params.Environment = { Variables: environment };
+            }
+            const data = await client.send(
+              new UpdateFunctionConfigurationCommand(params)
+            );
             return {
               success: true,
               functionName: data.FunctionName,
@@ -895,14 +1357,26 @@ export const awsLambda = ({ userId }: { userId: string }) =>
           }
 
           case "delete_function": {
-            if (!functionName) return { success: false, error: "Function name required" };
-            await client.send(new DeleteFunctionCommand({ FunctionName: functionName }));
-            return { success: true, functionName, message: `Function '${functionName}' deleted` };
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
+            await client.send(
+              new DeleteFunctionCommand({ FunctionName: functionName })
+            );
+            return {
+              success: true,
+              functionName,
+              message: `Function '${functionName}' deleted`,
+            };
           }
 
           case "list_aliases": {
-            if (!functionName) return { success: false, error: "Function name required" };
-            const data = await client.send(new ListAliasesCommand({ FunctionName: functionName }));
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
+            const data = await client.send(
+              new ListAliasesCommand({ FunctionName: functionName })
+            );
             return {
               success: true,
               aliases: (data.Aliases || []).map((a) => ({
@@ -916,11 +1390,15 @@ export const awsLambda = ({ userId }: { userId: string }) =>
           }
 
           case "list_versions": {
-            if (!functionName) return { success: false, error: "Function name required" };
-            const data = await client.send(new ListVersionsByFunctionCommand({
-              FunctionName: functionName,
-              MaxItems: maxItems,
-            }));
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
+            const data = await client.send(
+              new ListVersionsByFunctionCommand({
+                FunctionName: functionName,
+                MaxItems: maxItems,
+              })
+            );
             return {
               success: true,
               versions: (data.Versions || []).map((v) => ({
@@ -937,11 +1415,15 @@ export const awsLambda = ({ userId }: { userId: string }) =>
           }
 
           case "publish_version": {
-            if (!functionName) return { success: false, error: "Function name required" };
-            const data = await client.send(new PublishVersionCommand({
-              FunctionName: functionName,
-              Description: description,
-            }));
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
+            const data = await client.send(
+              new PublishVersionCommand({
+                FunctionName: functionName,
+                Description: description,
+              })
+            );
             return {
               success: true,
               version: data.Version,
@@ -951,14 +1433,18 @@ export const awsLambda = ({ userId }: { userId: string }) =>
           }
 
           case "put_concurrency": {
-            if (!functionName) return { success: false, error: "Function name required" };
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
             if (reservedConcurrency === undefined) {
               return { success: false, error: "reservedConcurrency required" };
             }
-            const data = await client.send(new PutFunctionConcurrencyCommand({
-              FunctionName: functionName,
-              ReservedConcurrentExecutions: reservedConcurrency,
-            }));
+            const data = await client.send(
+              new PutFunctionConcurrencyCommand({
+                FunctionName: functionName,
+                ReservedConcurrentExecutions: reservedConcurrency,
+              })
+            );
             return {
               success: true,
               functionName,
@@ -967,8 +1453,12 @@ export const awsLambda = ({ userId }: { userId: string }) =>
           }
 
           case "get_concurrency": {
-            if (!functionName) return { success: false, error: "Function name required" };
-            const data = await client.send(new GetFunctionConcurrencyCommand({ FunctionName: functionName }));
+            if (!functionName) {
+              return { success: false, error: "Function name required" };
+            }
+            const data = await client.send(
+              new GetFunctionConcurrencyCommand({ FunctionName: functionName })
+            );
             return {
               success: true,
               functionName,
@@ -1024,24 +1514,53 @@ export const awsIAM = ({ userId }: { userId: string }) =>
       policyName: z.string().optional().describe("Policy name"),
       policyDocument: z.string().optional().describe("Policy document JSON"),
       pathPrefix: z.string().optional().describe("Path prefix filter"),
-      scope: z.enum(["All", "AWS", "Local"]).optional().default("All").describe("Policy scope"),
+      scope: z
+        .enum(["All", "AWS", "Local"])
+        .optional()
+        .default("All")
+        .describe("Policy scope"),
       accessKeyId: z.string().optional().describe("Access key ID"),
-      status: z.enum(["Active", "Inactive"]).optional().describe("Access key status"),
-      actionNames: z.array(z.string()).optional().describe("Actions to simulate"),
-      resourceArns: z.array(z.string()).optional().describe("Resource ARNs for simulation"),
-      policySourceArn: z.string().optional().describe("Policy source ARN for simulate_principal_policy"),
+      status: z
+        .enum(["Active", "Inactive"])
+        .optional()
+        .describe("Access key status"),
+      actionNames: z
+        .array(z.string())
+        .optional()
+        .describe("Actions to simulate"),
+      resourceArns: z
+        .array(z.string())
+        .optional()
+        .describe("Resource ARNs for simulation"),
+      policySourceArn: z
+        .string()
+        .optional()
+        .describe("Policy source ARN for simulate_principal_policy"),
       region: z.string().optional(),
     }),
     execute: async ({
-      action, userName, roleName, policyArn, policyName, policyDocument,
-      pathPrefix, scope, accessKeyId, status, actionNames, resourceArns, region,
+      action,
+      userName,
+      roleName,
+      policyArn,
+      policyName,
+      policyDocument,
+      pathPrefix,
+      scope,
+      accessKeyId,
+      status,
+      actionNames,
+      resourceArns,
+      region,
       policySourceArn,
     }) => {
       try {
         switch (action) {
           case "list_users": {
             const args = ["iam", "list-users"];
-            if (pathPrefix) args.push("--path-prefix", pathPrefix);
+            if (pathPrefix) {
+              args.push("--path-prefix", pathPrefix);
+            }
             const data = await runAwsCli(args, region);
             return {
               success: true,
@@ -1057,8 +1576,13 @@ export const awsIAM = ({ userId }: { userId: string }) =>
           }
 
           case "get_user": {
-            if (!userName) return { success: false, error: "userName required" };
-            const data = await runAwsCli(["iam", "get-user", "--user-name", userName], region);
+            if (!userName) {
+              return { success: false, error: "userName required" };
+            }
+            const data = await runAwsCli(
+              ["iam", "get-user", "--user-name", userName],
+              region
+            );
             const u = data.User;
             return {
               success: true,
@@ -1069,17 +1593,22 @@ export const awsIAM = ({ userId }: { userId: string }) =>
                 createDate: u.CreateDate,
                 passwordLastUsed: u.PasswordLastUsed,
                 path: u.Path,
-                tags: (u.Tags || []).reduce((acc: Record<string, string>, t: any) => {
-                  acc[t.Key] = t.Value;
-                  return acc;
-                }, {}),
+                tags: (u.Tags || []).reduce(
+                  (acc: Record<string, string>, t: any) => {
+                    acc[t.Key] = t.Value;
+                    return acc;
+                  },
+                  {}
+                ),
               },
             };
           }
 
           case "list_roles": {
             const args = ["iam", "list-roles"];
-            if (pathPrefix) args.push("--path-prefix", pathPrefix);
+            if (pathPrefix) {
+              args.push("--path-prefix", pathPrefix);
+            }
             const data = await runAwsCli(args, region);
             return {
               success: true,
@@ -1091,9 +1620,9 @@ export const awsIAM = ({ userId }: { userId: string }) =>
                 description: r.Description,
                 maxSessionDuration: r.MaxSessionDuration,
                 assumeRolePolicyDocument: r.AssumeRolePolicyDocument
-                  ? (typeof r.AssumeRolePolicyDocument === "string"
+                  ? typeof r.AssumeRolePolicyDocument === "string"
                     ? JSON.parse(decodeURIComponent(r.AssumeRolePolicyDocument))
-                    : r.AssumeRolePolicyDocument)
+                    : r.AssumeRolePolicyDocument
                   : null,
                 path: r.Path,
               })),
@@ -1101,8 +1630,13 @@ export const awsIAM = ({ userId }: { userId: string }) =>
           }
 
           case "get_role": {
-            if (!roleName) return { success: false, error: "roleName required" };
-            const data = await runAwsCli(["iam", "get-role", "--role-name", roleName], region);
+            if (!roleName) {
+              return { success: false, error: "roleName required" };
+            }
+            const data = await runAwsCli(
+              ["iam", "get-role", "--role-name", roleName],
+              region
+            );
             const r = data.Role;
             return {
               success: true,
@@ -1114,22 +1648,27 @@ export const awsIAM = ({ userId }: { userId: string }) =>
                 description: r.Description,
                 maxSessionDuration: r.MaxSessionDuration,
                 assumeRolePolicyDocument: r.AssumeRolePolicyDocument
-                  ? (typeof r.AssumeRolePolicyDocument === "string"
+                  ? typeof r.AssumeRolePolicyDocument === "string"
                     ? JSON.parse(decodeURIComponent(r.AssumeRolePolicyDocument))
-                    : r.AssumeRolePolicyDocument)
+                    : r.AssumeRolePolicyDocument
                   : null,
                 path: r.Path,
-                tags: (r.Tags || []).reduce((acc: Record<string, string>, t: any) => {
-                  acc[t.Key] = t.Value;
-                  return acc;
-                }, {}),
+                tags: (r.Tags || []).reduce(
+                  (acc: Record<string, string>, t: any) => {
+                    acc[t.Key] = t.Value;
+                    return acc;
+                  },
+                  {}
+                ),
               },
             };
           }
 
           case "list_policies": {
             const args = ["iam", "list-policies", "--scope", scope || "All"];
-            if (pathPrefix) args.push("--path-prefix", pathPrefix);
+            if (pathPrefix) {
+              args.push("--path-prefix", pathPrefix);
+            }
             const data = await runAwsCli(args, region);
             return {
               success: true,
@@ -1150,15 +1689,26 @@ export const awsIAM = ({ userId }: { userId: string }) =>
           }
 
           case "get_policy": {
-            if (!policyArn) return { success: false, error: "policyArn required" };
-            const data = await runAwsCli(["iam", "get-policy", "--policy-arn", policyArn], region);
+            if (!policyArn) {
+              return { success: false, error: "policyArn required" };
+            }
+            const data = await runAwsCli(
+              ["iam", "get-policy", "--policy-arn", policyArn],
+              region
+            );
             const p = data.Policy;
             // Also get the default version
-            const versionData = await runAwsCli([
-              "iam", "get-policy-version",
-              "--policy-arn", policyArn,
-              "--version-id", p.DefaultVersionId,
-            ], region);
+            const versionData = await runAwsCli(
+              [
+                "iam",
+                "get-policy-version",
+                "--policy-arn",
+                policyArn,
+                "--version-id",
+                p.DefaultVersionId,
+              ],
+              region
+            );
             return {
               success: true,
               policy: {
@@ -1171,9 +1721,11 @@ export const awsIAM = ({ userId }: { userId: string }) =>
                 attachmentCount: p.AttachmentCount,
                 defaultVersionId: p.DefaultVersionId,
                 document: versionData.PolicyVersion?.Document
-                  ? (typeof versionData.PolicyVersion.Document === "string"
-                    ? JSON.parse(decodeURIComponent(versionData.PolicyVersion.Document))
-                    : versionData.PolicyVersion.Document)
+                  ? typeof versionData.PolicyVersion.Document === "string"
+                    ? JSON.parse(
+                        decodeURIComponent(versionData.PolicyVersion.Document)
+                      )
+                    : versionData.PolicyVersion.Document
                   : null,
               },
             };
@@ -1181,13 +1733,22 @@ export const awsIAM = ({ userId }: { userId: string }) =>
 
           case "create_policy": {
             if (!policyName || !policyDocument) {
-              return { success: false, error: "policyName and policyDocument required" };
+              return {
+                success: false,
+                error: "policyName and policyDocument required",
+              };
             }
-            const data = await runAwsCli([
-              "iam", "create-policy",
-              "--policy-name", policyName,
-              "--policy-document", policyDocument,
-            ], region);
+            const data = await runAwsCli(
+              [
+                "iam",
+                "create-policy",
+                "--policy-name",
+                policyName,
+                "--policy-document",
+                policyDocument,
+              ],
+              region
+            );
             return {
               success: true,
               policy: {
@@ -1199,58 +1760,116 @@ export const awsIAM = ({ userId }: { userId: string }) =>
 
           case "attach_user_policy": {
             if (!userName || !policyArn) {
-              return { success: false, error: "userName and policyArn required" };
+              return {
+                success: false,
+                error: "userName and policyArn required",
+              };
             }
-            await runAwsCli([
-              "iam", "attach-user-policy",
-              "--user-name", userName,
-              "--policy-arn", policyArn,
-            ], region);
-            return { success: true, userName, policyArn, message: "Policy attached to user" };
+            await runAwsCli(
+              [
+                "iam",
+                "attach-user-policy",
+                "--user-name",
+                userName,
+                "--policy-arn",
+                policyArn,
+              ],
+              region
+            );
+            return {
+              success: true,
+              userName,
+              policyArn,
+              message: "Policy attached to user",
+            };
           }
 
           case "detach_user_policy": {
             if (!userName || !policyArn) {
-              return { success: false, error: "userName and policyArn required" };
+              return {
+                success: false,
+                error: "userName and policyArn required",
+              };
             }
-            await runAwsCli([
-              "iam", "detach-user-policy",
-              "--user-name", userName,
-              "--policy-arn", policyArn,
-            ], region);
-            return { success: true, userName, policyArn, message: "Policy detached from user" };
+            await runAwsCli(
+              [
+                "iam",
+                "detach-user-policy",
+                "--user-name",
+                userName,
+                "--policy-arn",
+                policyArn,
+              ],
+              region
+            );
+            return {
+              success: true,
+              userName,
+              policyArn,
+              message: "Policy detached from user",
+            };
           }
 
           case "attach_role_policy": {
             if (!roleName || !policyArn) {
-              return { success: false, error: "roleName and policyArn required" };
+              return {
+                success: false,
+                error: "roleName and policyArn required",
+              };
             }
-            await runAwsCli([
-              "iam", "attach-role-policy",
-              "--role-name", roleName,
-              "--policy-arn", policyArn,
-            ], region);
-            return { success: true, roleName, policyArn, message: "Policy attached to role" };
+            await runAwsCli(
+              [
+                "iam",
+                "attach-role-policy",
+                "--role-name",
+                roleName,
+                "--policy-arn",
+                policyArn,
+              ],
+              region
+            );
+            return {
+              success: true,
+              roleName,
+              policyArn,
+              message: "Policy attached to role",
+            };
           }
 
           case "detach_role_policy": {
             if (!roleName || !policyArn) {
-              return { success: false, error: "roleName and policyArn required" };
+              return {
+                success: false,
+                error: "roleName and policyArn required",
+              };
             }
-            await runAwsCli([
-              "iam", "detach-role-policy",
-              "--role-name", roleName,
-              "--policy-arn", policyArn,
-            ], region);
-            return { success: true, roleName, policyArn, message: "Policy detached from role" };
+            await runAwsCli(
+              [
+                "iam",
+                "detach-role-policy",
+                "--role-name",
+                roleName,
+                "--policy-arn",
+                policyArn,
+              ],
+              region
+            );
+            return {
+              success: true,
+              roleName,
+              policyArn,
+              message: "Policy detached from role",
+            };
           }
 
           case "list_attached_user_policies": {
-            if (!userName) return { success: false, error: "userName required" };
-            const data = await runAwsCli([
-              "iam", "list-attached-user-policies",
-              "--user-name", userName,
-            ], region);
+            if (!userName) {
+              return { success: false, error: "userName required" };
+            }
+            const data = await runAwsCli(
+              ["iam", "list-attached-user-policies", "--user-name", userName],
+              region
+            );
             return {
               success: true,
               userName,
@@ -1262,11 +1881,13 @@ export const awsIAM = ({ userId }: { userId: string }) =>
           }
 
           case "list_attached_role_policies": {
-            if (!roleName) return { success: false, error: "roleName required" };
-            const data = await runAwsCli([
-              "iam", "list-attached-role-policies",
-              "--role-name", roleName,
-            ], region);
+            if (!roleName) {
+              return { success: false, error: "roleName required" };
+            }
+            const data = await runAwsCli(
+              ["iam", "list-attached-role-policies", "--role-name", roleName],
+              region
+            );
             return {
               success: true,
               roleName,
@@ -1278,11 +1899,13 @@ export const awsIAM = ({ userId }: { userId: string }) =>
           }
 
           case "list_access_keys": {
-            if (!userName) return { success: false, error: "userName required" };
-            const data = await runAwsCli([
-              "iam", "list-access-keys",
-              "--user-name", userName,
-            ], region);
+            if (!userName) {
+              return { success: false, error: "userName required" };
+            }
+            const data = await runAwsCli(
+              ["iam", "list-access-keys", "--user-name", userName],
+              region
+            );
             return {
               success: true,
               userName,
@@ -1295,11 +1918,13 @@ export const awsIAM = ({ userId }: { userId: string }) =>
           }
 
           case "create_access_key": {
-            if (!userName) return { success: false, error: "userName required" };
-            const data = await runAwsCli([
-              "iam", "create-access-key",
-              "--user-name", userName,
-            ], region);
+            if (!userName) {
+              return { success: false, error: "userName required" };
+            }
+            const data = await runAwsCli(
+              ["iam", "create-access-key", "--user-name", userName],
+              region
+            );
             return {
               success: true,
               accessKey: {
@@ -1308,45 +1933,81 @@ export const awsIAM = ({ userId }: { userId: string }) =>
                 status: data.AccessKey?.Status,
                 createDate: data.AccessKey?.CreateDate,
               },
-              message: "Save the secret access key — it cannot be retrieved later",
+              message:
+                "Save the secret access key — it cannot be retrieved later",
             };
           }
 
           case "update_access_key": {
             if (!userName || !accessKeyId || !status) {
-              return { success: false, error: "userName, accessKeyId, and status required" };
+              return {
+                success: false,
+                error: "userName, accessKeyId, and status required",
+              };
             }
-            await runAwsCli([
-              "iam", "update-access-key",
-              "--user-name", userName,
-              "--access-key-id", accessKeyId,
-              "--status", status,
-            ], region);
+            await runAwsCli(
+              [
+                "iam",
+                "update-access-key",
+                "--user-name",
+                userName,
+                "--access-key-id",
+                accessKeyId,
+                "--status",
+                status,
+              ],
+              region
+            );
             return { success: true, userName, accessKeyId, status };
           }
 
           case "delete_access_key": {
             if (!userName || !accessKeyId) {
-              return { success: false, error: "userName and accessKeyId required" };
+              return {
+                success: false,
+                error: "userName and accessKeyId required",
+              };
             }
-            await runAwsCli([
-              "iam", "delete-access-key",
-              "--user-name", userName,
-              "--access-key-id", accessKeyId,
-            ], region);
-            return { success: true, userName, accessKeyId, message: "Access key deleted" };
+            await runAwsCli(
+              [
+                "iam",
+                "delete-access-key",
+                "--user-name",
+                userName,
+                "--access-key-id",
+                accessKeyId,
+              ],
+              region
+            );
+            return {
+              success: true,
+              userName,
+              accessKeyId,
+              message: "Access key deleted",
+            };
           }
 
           case "simulate_principal_policy": {
             if (!policySourceArn || !actionNames?.length) {
-              return { success: false, error: "policySourceArn and actionNames required" };
+              return {
+                success: false,
+                error: "policySourceArn and actionNames required",
+              };
             }
-            const data = await runAwsCli([
-              "iam", "simulate-principal-policy",
-              "--policy-source-arn", policySourceArn,
-              "--action-names", ...actionNames,
-              ...(resourceArns?.length ? ["--resource-arns", ...resourceArns] : []),
-            ], region);
+            const data = await runAwsCli(
+              [
+                "iam",
+                "simulate-principal-policy",
+                "--policy-source-arn",
+                policySourceArn,
+                "--action-names",
+                ...actionNames,
+                ...(resourceArns?.length
+                  ? ["--resource-arns", ...resourceArns]
+                  : []),
+              ],
+              region
+            );
             return {
               success: true,
               results: (data.EvaluationResults || []).map((r: any) => ({
@@ -1359,7 +2020,10 @@ export const awsIAM = ({ userId }: { userId: string }) =>
           }
 
           case "get_account_summary": {
-            const data = await runAwsCli(["iam", "get-account-summary"], region);
+            const data = await runAwsCli(
+              ["iam", "get-account-summary"],
+              region
+            );
             return { success: true, summary: data.SummaryMap };
           }
 
@@ -1408,39 +2072,102 @@ export const awsDynamoDB = ({ userId }: { userId: string }) =>
         "delete_table",
       ]),
       tableName: z.string().optional().describe("DynamoDB table name"),
-      key: z.record(z.any()).optional().describe("Primary key for get/update/delete"),
+      key: z
+        .record(z.any())
+        .optional()
+        .describe("Primary key for get/update/delete"),
       item: z.record(z.any()).optional().describe("Item to put"),
       updateExpression: z.string().optional().describe("Update expression"),
-      expressionAttributeValues: z.record(z.any()).optional().describe("Expression attribute values"),
-      expressionAttributeNames: z.record(z.string()).optional().describe("Expression attribute names"),
-      keyConditionExpression: z.string().optional().describe("Key condition for query"),
+      expressionAttributeValues: z
+        .record(z.any())
+        .optional()
+        .describe("Expression attribute values"),
+      expressionAttributeNames: z
+        .record(z.string())
+        .optional()
+        .describe("Expression attribute names"),
+      keyConditionExpression: z
+        .string()
+        .optional()
+        .describe("Key condition for query"),
       filterExpression: z.string().optional().describe("Filter expression"),
       indexName: z.string().optional().describe("Secondary index name"),
-      limit: z.number().int().optional().default(100).describe("Max items to return"),
-      select: z.enum(["ALL_ATTRIBUTES", "ALL_PROJECTED_ATTRIBUTES", "COUNT", "SPECIFIC_ATTRIBUTES"]).optional(),
-      attributesToGet: z.array(z.string()).optional().describe("Attributes to get"),
+      limit: z
+        .number()
+        .int()
+        .optional()
+        .default(100)
+        .describe("Max items to return"),
+      select: z
+        .enum([
+          "ALL_ATTRIBUTES",
+          "ALL_PROJECTED_ATTRIBUTES",
+          "COUNT",
+          "SPECIFIC_ATTRIBUTES",
+        ])
+        .optional(),
+      attributesToGet: z
+        .array(z.string())
+        .optional()
+        .describe("Attributes to get"),
       consistentRead: z.boolean().optional().default(false),
       scanIndexForward: z.boolean().optional().describe("Sort order for query"),
       // Create table params
-      attributeDefinitions: z.array(z.object({
-        attributeName: z.string(),
-        attributeType: z.enum(["S", "N", "B"]),
-      })).optional().describe("Attribute definitions"),
-      keySchema: z.array(z.object({
-        attributeName: z.string(),
-        keyType: z.enum(["HASH", "RANGE"]),
-      })).optional().describe("Key schema"),
-      billingMode: z.enum(["PROVISIONED", "PAY_PER_REQUEST"]).optional().default("PAY_PER_REQUEST"),
-      readCapacity: z.number().int().optional().describe("Read capacity units (provisioned mode)"),
-      writeCapacity: z.number().int().optional().describe("Write capacity units (provisioned mode)"),
+      attributeDefinitions: z
+        .array(
+          z.object({
+            attributeName: z.string(),
+            attributeType: z.enum(["S", "N", "B"]),
+          })
+        )
+        .optional()
+        .describe("Attribute definitions"),
+      keySchema: z
+        .array(
+          z.object({
+            attributeName: z.string(),
+            keyType: z.enum(["HASH", "RANGE"]),
+          })
+        )
+        .optional()
+        .describe("Key schema"),
+      billingMode: z
+        .enum(["PROVISIONED", "PAY_PER_REQUEST"])
+        .optional()
+        .default("PAY_PER_REQUEST"),
+      readCapacity: z
+        .number()
+        .int()
+        .optional()
+        .describe("Read capacity units (provisioned mode)"),
+      writeCapacity: z
+        .number()
+        .int()
+        .optional()
+        .describe("Write capacity units (provisioned mode)"),
       region: z.string().optional(),
     }),
     execute: async ({
-      action, tableName, key, item, updateExpression,
-      expressionAttributeValues, expressionAttributeNames,
-      keyConditionExpression, filterExpression, indexName, limit,
-      select, attributesToGet, consistentRead, scanIndexForward,
-      attributeDefinitions, keySchema, billingMode, readCapacity, writeCapacity,
+      action,
+      tableName,
+      key,
+      item,
+      updateExpression,
+      expressionAttributeValues,
+      expressionAttributeNames,
+      keyConditionExpression,
+      filterExpression,
+      indexName,
+      limit,
+      select,
+      attributesToGet,
+      consistentRead,
+      scanIndexForward,
+      attributeDefinitions,
+      keySchema,
+      billingMode,
+      readCapacity,
+      writeCapacity,
       region,
     }) => {
       try {
@@ -1451,19 +2178,31 @@ export const awsDynamoDB = ({ userId }: { userId: string }) =>
           }
 
           case "describe_table": {
-            if (!tableName) return { success: false, error: "tableName required" };
-            const data = await runAwsCli(["dynamodb", "describe-table", "--table-name", tableName], region);
+            if (!tableName) {
+              return { success: false, error: "tableName required" };
+            }
+            const data = await runAwsCli(
+              ["dynamodb", "describe-table", "--table-name", tableName],
+              region
+            );
             return { success: true, table: data.Table };
           }
 
           case "get_item": {
-            if (!tableName || !key) return { success: false, error: "tableName and key required" };
+            if (!tableName || !key) {
+              return { success: false, error: "tableName and key required" };
+            }
             const args = [
-              "dynamodb", "get-item",
-              "--table-name", tableName,
-              "--key", JSON.stringify(key),
+              "dynamodb",
+              "get-item",
+              "--table-name",
+              tableName,
+              "--key",
+              JSON.stringify(key),
             ];
-            if (consistentRead) args.push("--consistent-read");
+            if (consistentRead) {
+              args.push("--consistent-read");
+            }
             if (attributesToGet?.length) {
               args.push("--attributes-to-get", ...attributesToGet);
             }
@@ -1472,66 +2211,119 @@ export const awsDynamoDB = ({ userId }: { userId: string }) =>
           }
 
           case "put_item": {
-            if (!tableName || !item) return { success: false, error: "tableName and item required" };
-            await runAwsCli([
-              "dynamodb", "put-item",
-              "--table-name", tableName,
-              "--item", JSON.stringify(item),
-            ], region);
+            if (!tableName || !item) {
+              return { success: false, error: "tableName and item required" };
+            }
+            await runAwsCli(
+              [
+                "dynamodb",
+                "put-item",
+                "--table-name",
+                tableName,
+                "--item",
+                JSON.stringify(item),
+              ],
+              region
+            );
             return { success: true, tableName, message: "Item inserted" };
           }
 
           case "update_item": {
             if (!tableName || !key || !updateExpression) {
-              return { success: false, error: "tableName, key, and updateExpression required" };
+              return {
+                success: false,
+                error: "tableName, key, and updateExpression required",
+              };
             }
             const args = [
-              "dynamodb", "update-item",
-              "--table-name", tableName,
-              "--key", JSON.stringify(key),
-              "--update-expression", updateExpression,
+              "dynamodb",
+              "update-item",
+              "--table-name",
+              tableName,
+              "--key",
+              JSON.stringify(key),
+              "--update-expression",
+              updateExpression,
             ];
             if (expressionAttributeValues) {
-              args.push("--expression-attribute-values", JSON.stringify(expressionAttributeValues));
+              args.push(
+                "--expression-attribute-values",
+                JSON.stringify(expressionAttributeValues)
+              );
             }
             if (expressionAttributeNames) {
-              args.push("--expression-attribute-names", JSON.stringify(expressionAttributeNames));
+              args.push(
+                "--expression-attribute-names",
+                JSON.stringify(expressionAttributeNames)
+              );
             }
             const data = await runAwsCli(args, region);
             return { success: true, attributes: data.Attributes || null };
           }
 
           case "delete_item": {
-            if (!tableName || !key) return { success: false, error: "tableName and key required" };
-            await runAwsCli([
-              "dynamodb", "delete-item",
-              "--table-name", tableName,
-              "--key", JSON.stringify(key),
-            ], region);
+            if (!tableName || !key) {
+              return { success: false, error: "tableName and key required" };
+            }
+            await runAwsCli(
+              [
+                "dynamodb",
+                "delete-item",
+                "--table-name",
+                tableName,
+                "--key",
+                JSON.stringify(key),
+              ],
+              region
+            );
             return { success: true, tableName, message: "Item deleted" };
           }
 
           case "query": {
             if (!tableName || !keyConditionExpression) {
-              return { success: false, error: "tableName and keyConditionExpression required" };
+              return {
+                success: false,
+                error: "tableName and keyConditionExpression required",
+              };
             }
             const args = [
-              "dynamodb", "query",
-              "--table-name", tableName,
-              "--key-condition-expression", keyConditionExpression,
+              "dynamodb",
+              "query",
+              "--table-name",
+              tableName,
+              "--key-condition-expression",
+              keyConditionExpression,
             ];
-            if (indexName) args.push("--index-name", indexName);
-            if (filterExpression) args.push("--filter-expression", filterExpression);
+            if (indexName) {
+              args.push("--index-name", indexName);
+            }
+            if (filterExpression) {
+              args.push("--filter-expression", filterExpression);
+            }
             if (expressionAttributeValues) {
-              args.push("--expression-attribute-values", JSON.stringify(expressionAttributeValues));
+              args.push(
+                "--expression-attribute-values",
+                JSON.stringify(expressionAttributeValues)
+              );
             }
             if (expressionAttributeNames) {
-              args.push("--expression-attribute-names", JSON.stringify(expressionAttributeNames));
+              args.push(
+                "--expression-attribute-names",
+                JSON.stringify(expressionAttributeNames)
+              );
             }
-            if (limit) args.push("--limit", String(limit));
-            if (select) args.push("--select", select);
-            if (consistentRead) args.push("--consistent-read");
-            if (scanIndexForward !== undefined) args.push("--scan-index-forward", String(scanIndexForward));
+            if (limit) {
+              args.push("--limit", String(limit));
+            }
+            if (select) {
+              args.push("--select", select);
+            }
+            if (consistentRead) {
+              args.push("--consistent-read");
+            }
+            if (scanIndexForward !== undefined) {
+              args.push("--scan-index-forward", String(scanIndexForward));
+            }
             const data = await runAwsCli(args, region);
             return {
               success: true,
@@ -1543,19 +2335,37 @@ export const awsDynamoDB = ({ userId }: { userId: string }) =>
           }
 
           case "scan": {
-            if (!tableName) return { success: false, error: "tableName required" };
+            if (!tableName) {
+              return { success: false, error: "tableName required" };
+            }
             const args = ["dynamodb", "scan", "--table-name", tableName];
-            if (indexName) args.push("--index-name", indexName);
-            if (filterExpression) args.push("--filter-expression", filterExpression);
+            if (indexName) {
+              args.push("--index-name", indexName);
+            }
+            if (filterExpression) {
+              args.push("--filter-expression", filterExpression);
+            }
             if (expressionAttributeValues) {
-              args.push("--expression-attribute-values", JSON.stringify(expressionAttributeValues));
+              args.push(
+                "--expression-attribute-values",
+                JSON.stringify(expressionAttributeValues)
+              );
             }
             if (expressionAttributeNames) {
-              args.push("--expression-attribute-names", JSON.stringify(expressionAttributeNames));
+              args.push(
+                "--expression-attribute-names",
+                JSON.stringify(expressionAttributeNames)
+              );
             }
-            if (limit) args.push("--limit", String(limit));
-            if (select) args.push("--select", select);
-            if (consistentRead) args.push("--consistent-read");
+            if (limit) {
+              args.push("--limit", String(limit));
+            }
+            if (select) {
+              args.push("--select", select);
+            }
+            if (consistentRead) {
+              args.push("--consistent-read");
+            }
             if (attributesToGet?.length) {
               args.push("--attributes-to-get", ...attributesToGet);
             }
@@ -1571,27 +2381,54 @@ export const awsDynamoDB = ({ userId }: { userId: string }) =>
 
           case "create_table": {
             if (!tableName || !attributeDefinitions || !keySchema) {
-              return { success: false, error: "tableName, attributeDefinitions, and keySchema required" };
+              return {
+                success: false,
+                error:
+                  "tableName, attributeDefinitions, and keySchema required",
+              };
             }
             const args = [
-              "dynamodb", "create-table",
-              "--table-name", tableName,
-              "--attribute-definitions", JSON.stringify(attributeDefinitions),
-              "--key-schema", JSON.stringify(keySchema),
-              "--billing-mode", billingMode || "PAY_PER_REQUEST",
+              "dynamodb",
+              "create-table",
+              "--table-name",
+              tableName,
+              "--attribute-definitions",
+              JSON.stringify(attributeDefinitions),
+              "--key-schema",
+              JSON.stringify(keySchema),
+              "--billing-mode",
+              billingMode || "PAY_PER_REQUEST",
             ];
-            if (billingMode === "PROVISIONED" && readCapacity && writeCapacity) {
-              args.push("--provisioned-throughput",
-                JSON.stringify({ ReadCapacityUnits: readCapacity, WriteCapacityUnits: writeCapacity }));
+            if (
+              billingMode === "PROVISIONED" &&
+              readCapacity &&
+              writeCapacity
+            ) {
+              args.push(
+                "--provisioned-throughput",
+                JSON.stringify({
+                  ReadCapacityUnits: readCapacity,
+                  WriteCapacityUnits: writeCapacity,
+                })
+              );
             }
             const data = await runAwsCli(args, region);
             return { success: true, tableDescription: data.TableDescription };
           }
 
           case "delete_table": {
-            if (!tableName) return { success: false, error: "tableName required" };
-            await runAwsCli(["dynamodb", "delete-table", "--table-name", tableName], region);
-            return { success: true, tableName, message: `Table '${tableName}' deleted` };
+            if (!tableName) {
+              return { success: false, error: "tableName required" };
+            }
+            await runAwsCli(
+              ["dynamodb", "delete-table", "--table-name", tableName],
+              region
+            );
+            return {
+              success: true,
+              tableName,
+              message: `Table '${tableName}' deleted`,
+            };
           }
 
           default:
@@ -1626,20 +2463,41 @@ export const awsRDS = ({ userId }: { userId: string }) =>
         "delete_snapshot",
         "describe_engine_versions",
       ]),
-      dbInstanceIdentifier: z.string().optional().describe("RDS instance identifier"),
+      dbInstanceIdentifier: z
+        .string()
+        .optional()
+        .describe("RDS instance identifier"),
       region: z.string().optional(),
       // Create params
-      engine: z.string().optional().describe("Engine: mysql, postgres, mariadb, oracle-se2, sqlserver-ex"),
+      engine: z
+        .string()
+        .optional()
+        .describe("Engine: mysql, postgres, mariadb, oracle-se2, sqlserver-ex"),
       engineVersion: z.string().optional().describe("Engine version"),
-      dbInstanceClass: z.string().optional().default("db.t3.micro").describe("Instance class"),
-      allocatedStorage: z.number().int().optional().default(20).describe("Storage in GB"),
+      dbInstanceClass: z
+        .string()
+        .optional()
+        .default("db.t3.micro")
+        .describe("Instance class"),
+      allocatedStorage: z
+        .number()
+        .int()
+        .optional()
+        .default(20)
+        .describe("Storage in GB"),
       masterUsername: z.string().optional().describe("Master username"),
       masterPassword: z.string().optional().describe("Master password"),
       dbName: z.string().optional().describe("Database name"),
-      vpcSecurityGroupIds: z.array(z.string()).optional().describe("VPC security group IDs"),
+      vpcSecurityGroupIds: z
+        .array(z.string())
+        .optional()
+        .describe("VPC security group IDs"),
       publiclyAccessible: z.boolean().optional().default(false),
       multiAZ: z.boolean().optional().default(false),
-      storageType: z.enum(["gp2", "gp3", "io1", "io2", "standard"]).optional().default("gp3"),
+      storageType: z
+        .enum(["gp2", "gp3", "io1", "io2", "standard"])
+        .optional()
+        .default("gp3"),
       autoMinorVersionUpgrade: z.boolean().optional().default(true),
       backupRetentionPeriod: z.number().int().optional().default(7),
       // Snapshot params
@@ -1648,17 +2506,32 @@ export const awsRDS = ({ userId }: { userId: string }) =>
       filters: z.string().optional().describe("JSON filter string"),
     }),
     execute: async ({
-      action, dbInstanceIdentifier, region,
-      engine, engineVersion, dbInstanceClass, allocatedStorage,
-      masterUsername, masterPassword, dbName, vpcSecurityGroupIds,
-      publiclyAccessible, multiAZ, storageType, autoMinorVersionUpgrade,
-      backupRetentionPeriod, snapshotIdentifier, filters,
+      action,
+      dbInstanceIdentifier,
+      region,
+      engine,
+      engineVersion,
+      dbInstanceClass,
+      allocatedStorage,
+      masterUsername,
+      masterPassword,
+      dbName,
+      vpcSecurityGroupIds,
+      publiclyAccessible,
+      multiAZ,
+      storageType,
+      autoMinorVersionUpgrade,
+      backupRetentionPeriod,
+      snapshotIdentifier,
+      filters,
     }) => {
       try {
         switch (action) {
           case "list_instances": {
             const args = ["rds", "describe-db-instances"];
-            if (filters) args.push("--filters", filters);
+            if (filters) {
+              args.push("--filters", filters);
+            }
             const data = await runAwsCli(args, region);
             return {
               success: true,
@@ -1675,7 +2548,9 @@ export const awsRDS = ({ userId }: { userId: string }) =>
                 multiAZ: i.MultiAZ,
                 storageType: i.StorageType,
                 vpcId: i.DBSubnetGroup?.VpcId,
-                securityGroups: i.VpcSecurityGroups?.map((sg: any) => sg.VpcSecurityGroupId),
+                securityGroups: i.VpcSecurityGroups?.map(
+                  (sg: any) => sg.VpcSecurityGroupId
+                ),
                 publiclyAccessible: i.PubliclyAccessible,
                 autoMinorVersionUpgrade: i.AutoMinorVersionUpgrade,
                 backupRetentionPeriod: i.BackupRetentionPeriod,
@@ -1684,95 +2559,173 @@ export const awsRDS = ({ userId }: { userId: string }) =>
                 latestRestorableTime: i.LatestRestorableTime,
                 dbName: i.DBName,
                 masterUsername: i.MasterUsername,
-                tags: (i.TagList || []).reduce((acc: Record<string, string>, t: any) => {
-                  acc[t.Key] = t.Value;
-                  return acc;
-                }, {}),
+                tags: (i.TagList || []).reduce(
+                  (acc: Record<string, string>, t: any) => {
+                    acc[t.Key] = t.Value;
+                    return acc;
+                  },
+                  {}
+                ),
               })),
             };
           }
 
           case "describe_instance": {
-            if (!dbInstanceIdentifier) return { success: false, error: "dbInstanceIdentifier required" };
-            const data = await runAwsCli([
-              "rds", "describe-db-instances",
-              "--db-instance-identifier", dbInstanceIdentifier,
-            ], region);
+            if (!dbInstanceIdentifier) {
+              return { success: false, error: "dbInstanceIdentifier required" };
+            }
+            const data = await runAwsCli(
+              [
+                "rds",
+                "describe-db-instances",
+                "--db-instance-identifier",
+                dbInstanceIdentifier,
+              ],
+              region
+            );
             return { success: true, instance: data.DBInstances?.[0] || null };
           }
 
           case "create_instance": {
-            if (!dbInstanceIdentifier || !engine || !masterUsername || !masterPassword) {
-              return { success: false, error: "dbInstanceIdentifier, engine, masterUsername, masterPassword required" };
+            if (
+              !dbInstanceIdentifier ||
+              !engine ||
+              !masterUsername ||
+              !masterPassword
+            ) {
+              return {
+                success: false,
+                error:
+                  "dbInstanceIdentifier, engine, masterUsername, masterPassword required",
+              };
             }
             const args = [
-              "rds", "create-db-instance",
-              "--db-instance-identifier", dbInstanceIdentifier,
-              "--engine", engine,
-              "--db-instance-class", dbInstanceClass || "db.t3.micro",
-              "--allocated-storage", String(allocatedStorage || 20),
-              "--master-username", masterUsername,
-              "--master-user-password", masterPassword,
+              "rds",
+              "create-db-instance",
+              "--db-instance-identifier",
+              dbInstanceIdentifier,
+              "--engine",
+              engine,
+              "--db-instance-class",
+              dbInstanceClass || "db.t3.micro",
+              "--allocated-storage",
+              String(allocatedStorage || 20),
+              "--master-username",
+              masterUsername,
+              "--master-user-password",
+              masterPassword,
             ];
-            if (dbName) args.push("--db-name", dbName);
-            if (engineVersion) args.push("--engine-version", engineVersion);
+            if (dbName) {
+              args.push("--db-name", dbName);
+            }
+            if (engineVersion) {
+              args.push("--engine-version", engineVersion);
+            }
             if (vpcSecurityGroupIds?.length) {
               args.push("--vpc-security-group-ids", ...vpcSecurityGroupIds);
             }
-            if (publiclyAccessible) args.push("--publicly-accessible");
-            if (multiAZ) args.push("--multi-az");
-            if (storageType) args.push("--storage-type", storageType);
+            if (publiclyAccessible) {
+              args.push("--publicly-accessible");
+            }
+            if (multiAZ) {
+              args.push("--multi-az");
+            }
+            if (storageType) {
+              args.push("--storage-type", storageType);
+            }
             if (autoMinorVersionUpgrade !== undefined) {
-              args.push("--auto-minor-version-upgrade", String(autoMinorVersionUpgrade));
+              args.push(
+                "--auto-minor-version-upgrade",
+                String(autoMinorVersionUpgrade)
+              );
             }
             if (backupRetentionPeriod !== undefined) {
-              args.push("--backup-retention-period", String(backupRetentionPeriod));
+              args.push(
+                "--backup-retention-period",
+                String(backupRetentionPeriod)
+              );
             }
             const data = await runAwsCli(args, region);
             return { success: true, instance: data.DBInstance };
           }
 
           case "delete_instance": {
-            if (!dbInstanceIdentifier) return { success: false, error: "dbInstanceIdentifier required" };
-            const data = await runAwsCli([
-              "rds", "delete-db-instance",
-              "--db-instance-identifier", dbInstanceIdentifier,
-              "--skip-final-snapshot",
-            ], region);
-            return { success: true, instance: data.DBInstance, message: "Deletion initiated" };
+            if (!dbInstanceIdentifier) {
+              return { success: false, error: "dbInstanceIdentifier required" };
+            }
+            const data = await runAwsCli(
+              [
+                "rds",
+                "delete-db-instance",
+                "--db-instance-identifier",
+                dbInstanceIdentifier,
+                "--skip-final-snapshot",
+              ],
+              region
+            );
+            return {
+              success: true,
+              instance: data.DBInstance,
+              message: "Deletion initiated",
+            };
           }
 
           case "start_instance": {
-            if (!dbInstanceIdentifier) return { success: false, error: "dbInstanceIdentifier required" };
-            const data = await runAwsCli([
-              "rds", "start-db-instance",
-              "--db-instance-identifier", dbInstanceIdentifier,
-            ], region);
+            if (!dbInstanceIdentifier) {
+              return { success: false, error: "dbInstanceIdentifier required" };
+            }
+            const data = await runAwsCli(
+              [
+                "rds",
+                "start-db-instance",
+                "--db-instance-identifier",
+                dbInstanceIdentifier,
+              ],
+              region
+            );
             return { success: true, status: data.DBInstance?.DBInstanceStatus };
           }
 
           case "stop_instance": {
-            if (!dbInstanceIdentifier) return { success: false, error: "dbInstanceIdentifier required" };
-            const data = await runAwsCli([
-              "rds", "stop-db-instance",
-              "--db-instance-identifier", dbInstanceIdentifier,
-            ], region);
+            if (!dbInstanceIdentifier) {
+              return { success: false, error: "dbInstanceIdentifier required" };
+            }
+            const data = await runAwsCli(
+              [
+                "rds",
+                "stop-db-instance",
+                "--db-instance-identifier",
+                dbInstanceIdentifier,
+              ],
+              region
+            );
             return { success: true, status: data.DBInstance?.DBInstanceStatus };
           }
 
           case "reboot_instance": {
-            if (!dbInstanceIdentifier) return { success: false, error: "dbInstanceIdentifier required" };
-            const data = await runAwsCli([
-              "rds", "reboot-db-instance",
-              "--db-instance-identifier", dbInstanceIdentifier,
-            ], region);
+            if (!dbInstanceIdentifier) {
+              return { success: false, error: "dbInstanceIdentifier required" };
+            }
+            const data = await runAwsCli(
+              [
+                "rds",
+                "reboot-db-instance",
+                "--db-instance-identifier",
+                dbInstanceIdentifier,
+              ],
+              region
+            );
             return { success: true, status: data.DBInstance?.DBInstanceStatus };
           }
 
           case "list_snapshots": {
             const args = ["rds", "describe-db-snapshots"];
-            if (dbInstanceIdentifier) args.push("--db-instance-identifier", dbInstanceIdentifier);
-            if (snapshotIdentifier) args.push("--db-snapshot-identifier", snapshotIdentifier);
+            if (dbInstanceIdentifier) {
+              args.push("--db-instance-identifier", dbInstanceIdentifier);
+            }
+            if (snapshotIdentifier) {
+              args.push("--db-snapshot-identifier", snapshotIdentifier);
+            }
             const data = await runAwsCli(args, region);
             return {
               success: true,
@@ -1793,29 +2746,49 @@ export const awsRDS = ({ userId }: { userId: string }) =>
 
           case "create_snapshot": {
             if (!dbInstanceIdentifier || !snapshotIdentifier) {
-              return { success: false, error: "dbInstanceIdentifier and snapshotIdentifier required" };
+              return {
+                success: false,
+                error: "dbInstanceIdentifier and snapshotIdentifier required",
+              };
             }
-            const data = await runAwsCli([
-              "rds", "create-db-snapshot",
-              "--db-instance-identifier", dbInstanceIdentifier,
-              "--db-snapshot-identifier", snapshotIdentifier,
-            ], region);
+            const data = await runAwsCli(
+              [
+                "rds",
+                "create-db-snapshot",
+                "--db-instance-identifier",
+                dbInstanceIdentifier,
+                "--db-snapshot-identifier",
+                snapshotIdentifier,
+              ],
+              region
+            );
             return { success: true, snapshot: data.DBSnapshot };
           }
 
           case "delete_snapshot": {
-            if (!snapshotIdentifier) return { success: false, error: "snapshotIdentifier required" };
-            const data = await runAwsCli([
-              "rds", "delete-db-snapshot",
-              "--db-snapshot-identifier", snapshotIdentifier,
-            ], region);
+            if (!snapshotIdentifier) {
+              return { success: false, error: "snapshotIdentifier required" };
+            }
+            const data = await runAwsCli(
+              [
+                "rds",
+                "delete-db-snapshot",
+                "--db-snapshot-identifier",
+                snapshotIdentifier,
+              ],
+              region
+            );
             return { success: true, snapshot: data.DBSnapshot };
           }
 
           case "describe_engine_versions": {
             const args = ["rds", "describe-db-engine-versions"];
-            if (engine) args.push("--engine", engine);
-            if (engineVersion) args.push("--engine-version", engineVersion);
+            if (engine) {
+              args.push("--engine", engine);
+            }
+            if (engineVersion) {
+              args.push("--engine-version", engineVersion);
+            }
             const data = await runAwsCli(args, region);
             return {
               success: true,
@@ -1857,66 +2830,117 @@ export const awsSES = ({ userId }: { userId: string }) =>
         "get_send_statistics",
       ]),
       source: z.string().optional().describe("From email address"),
-      toAddresses: z.array(z.string()).optional().describe("Recipient email addresses"),
+      toAddresses: z
+        .array(z.string())
+        .optional()
+        .describe("Recipient email addresses"),
       ccAddresses: z.array(z.string()).optional().describe("CC recipients"),
       bccAddresses: z.array(z.string()).optional().describe("BCC recipients"),
       subject: z.string().optional().describe("Email subject"),
       bodyText: z.string().optional().describe("Plain text body"),
       bodyHtml: z.string().optional().describe("HTML body"),
-      replyToAddresses: z.array(z.string()).optional().describe("Reply-to addresses"),
-      returnPath: z.string().optional().describe("Return path / bounce address"),
-      configurationSetName: z.string().optional().describe("SES configuration set"),
+      replyToAddresses: z
+        .array(z.string())
+        .optional()
+        .describe("Reply-to addresses"),
+      returnPath: z
+        .string()
+        .optional()
+        .describe("Return path / bounce address"),
+      configurationSetName: z
+        .string()
+        .optional()
+        .describe("SES configuration set"),
       identity: z.string().optional().describe("Email or domain identity"),
       region: z.string().optional(),
     }),
     execute: async ({
-      action, source, toAddresses, ccAddresses, bccAddresses,
-      subject, bodyText, bodyHtml, replyToAddresses, returnPath,
-      configurationSetName, identity, region,
+      action,
+      source,
+      toAddresses,
+      ccAddresses,
+      bccAddresses,
+      subject,
+      bodyText,
+      bodyHtml,
+      replyToAddresses,
+      returnPath,
+      configurationSetName,
+      identity,
+      region,
     }) => {
       try {
         switch (action) {
           case "send_email": {
             if (!source || !toAddresses?.length || !subject) {
-              return { success: false, error: "source, toAddresses, and subject required" };
+              return {
+                success: false,
+                error: "source, toAddresses, and subject required",
+              };
             }
             const message: any = {
               Subject: { Data: subject },
             };
-            if (bodyText) message.Body = { ...message.Body, Text: { Data: bodyText } };
-            if (bodyHtml) message.Body = { ...message.Body, Html: { Data: bodyHtml } };
+            if (bodyText) {
+              message.Body = { ...message.Body, Text: { Data: bodyText } };
+            }
+            if (bodyHtml) {
+              message.Body = { ...message.Body, Html: { Data: bodyHtml } };
+            }
             if (!bodyText && !bodyHtml) {
               message.Body = { Text: { Data: subject } };
             }
 
             const args = [
-              "ses", "send-email",
-              "--source", source,
-              "--destination", JSON.stringify({
+              "ses",
+              "send-email",
+              "--source",
+              source,
+              "--destination",
+              JSON.stringify({
                 ToAddresses: toAddresses,
                 ...(ccAddresses?.length ? { CcAddresses: ccAddresses } : {}),
                 ...(bccAddresses?.length ? { BccAddresses: bccAddresses } : {}),
               }),
-              "--message", JSON.stringify(message),
+              "--message",
+              JSON.stringify(message),
             ];
             if (replyToAddresses?.length) {
               args.push("--reply-to-addresses", ...replyToAddresses);
             }
-            if (returnPath) args.push("--return-path", returnPath);
-            if (configurationSetName) args.push("--configuration-set-name", configurationSetName);
+            if (returnPath) {
+              args.push("--return-path", returnPath);
+            }
+            if (configurationSetName) {
+              args.push("--configuration-set-name", configurationSetName);
+            }
             const data = await runAwsCli(args, region);
             return { success: true, messageId: data.MessageId };
           }
 
           case "verify_email": {
-            if (!identity) return { success: false, error: "identity (email) required" };
-            await runAwsCli(["ses", "verify-email-identity", "--email-address", identity], region);
-            return { success: true, email: identity, message: "Verification email sent" };
+            if (!identity) {
+              return { success: false, error: "identity (email) required" };
+            }
+            await runAwsCli(
+              ["ses", "verify-email-identity", "--email-address", identity],
+              region
+            );
+            return {
+              success: true,
+              email: identity,
+              message: "Verification email sent",
+            };
           }
 
           case "verify_domain": {
-            if (!identity) return { success: false, error: "identity (domain) required" };
-            const data = await runAwsCli(["ses", "verify-domain-identity", "--domain", identity], region);
+            if (!identity) {
+              return { success: false, error: "identity (domain) required" };
+            }
+            const data = await runAwsCli(
+              ["ses", "verify-domain-identity", "--domain", identity],
+              region
+            );
             return {
               success: true,
               domain: identity,
@@ -1931,8 +2955,13 @@ export const awsSES = ({ userId }: { userId: string }) =>
           }
 
           case "delete_identity": {
-            if (!identity) return { success: false, error: "identity required" };
-            await runAwsCli(["ses", "delete-identity", "--identity", identity], region);
+            if (!identity) {
+              return { success: false, error: "identity required" };
+            }
+            await runAwsCli(
+              ["ses", "delete-identity", "--identity", identity],
+              region
+            );
             return { success: true, identity, message: "Identity deleted" };
           }
 
@@ -1947,7 +2976,10 @@ export const awsSES = ({ userId }: { userId: string }) =>
           }
 
           case "get_send_statistics": {
-            const data = await runAwsCli(["ses", "get-send-statistics"], region);
+            const data = await runAwsCli(
+              ["ses", "get-send-statistics"],
+              region
+            );
             return {
               success: true,
               statistics: (data.SendDataPoints || []).map((p: any) => ({
@@ -1992,21 +3024,52 @@ export const awsCloudFormation = ({ userId }: { userId: string }) =>
       ]),
       stackName: z.string().optional().describe("CloudFormation stack name"),
       region: z.string().optional(),
-      templateBody: z.string().optional().describe("CloudFormation template JSON/YAML"),
+      templateBody: z
+        .string()
+        .optional()
+        .describe("CloudFormation template JSON/YAML"),
       templateURL: z.string().optional().describe("S3 URL to template"),
-      parameters: z.array(z.object({
-        parameterKey: z.string(),
-        parameterValue: z.string(),
-      })).optional().describe("Stack parameters"),
-      capabilities: z.array(z.enum(["CAPABILITY_IAM", "CAPABILITY_NAMED_IAM", "CAPABILITY_AUTO_EXPAND"])).optional(),
-      roleARN: z.string().optional().describe("IAM role ARN for stack operations"),
+      parameters: z
+        .array(
+          z.object({
+            parameterKey: z.string(),
+            parameterValue: z.string(),
+          })
+        )
+        .optional()
+        .describe("Stack parameters"),
+      capabilities: z
+        .array(
+          z.enum([
+            "CAPABILITY_IAM",
+            "CAPABILITY_NAMED_IAM",
+            "CAPABILITY_AUTO_EXPAND",
+          ])
+        )
+        .optional(),
+      roleARN: z
+        .string()
+        .optional()
+        .describe("IAM role ARN for stack operations"),
       tags: z.record(z.string(), z.string()).optional().describe("Stack tags"),
       changeSetName: z.string().optional().describe("Change set name"),
-      stackStatusFilter: z.array(z.string()).optional().describe("Filter by status"),
+      stackStatusFilter: z
+        .array(z.string())
+        .optional()
+        .describe("Filter by status"),
     }),
     execute: async ({
-      action, stackName, region, templateBody, templateURL,
-      parameters, capabilities, roleARN, tags, changeSetName, stackStatusFilter,
+      action,
+      stackName,
+      region,
+      templateBody,
+      templateURL,
+      parameters,
+      capabilities,
+      roleARN,
+      tags,
+      changeSetName,
+      stackStatusFilter,
     }) => {
       try {
         switch (action) {
@@ -2033,73 +3096,138 @@ export const awsCloudFormation = ({ userId }: { userId: string }) =>
           }
 
           case "describe_stack": {
-            if (!stackName) return { success: false, error: "stackName required" };
-            const data = await runAwsCli([
-              "cloudformation", "describe-stacks",
-              "--stack-name", stackName,
-            ], region);
+            if (!stackName) {
+              return { success: false, error: "stackName required" };
+            }
+            const data = await runAwsCli(
+              ["cloudformation", "describe-stacks", "--stack-name", stackName],
+              region
+            );
             return { success: true, stack: data.Stacks?.[0] || null };
           }
 
           case "create_stack": {
-            if (!stackName) return { success: false, error: "stackName required" };
+            if (!stackName) {
+              return { success: false, error: "stackName required" };
+            }
             if (!templateBody && !templateURL) {
-              return { success: false, error: "templateBody or templateURL required" };
+              return {
+                success: false,
+                error: "templateBody or templateURL required",
+              };
             }
             const args = [
-              "cloudformation", "create-stack",
-              "--stack-name", stackName,
+              "cloudformation",
+              "create-stack",
+              "--stack-name",
+              stackName,
             ];
-            if (templateBody) args.push("--template-body", templateBody);
-            if (templateURL) args.push("--template-url", templateURL);
-            if (parameters?.length) {
-              args.push("--parameters", ...parameters.flatMap((p) => [
-                `ParameterKey=${p.parameterKey},ParameterValue=${p.parameterValue}`,
-              ]));
+            if (templateBody) {
+              args.push("--template-body", templateBody);
             }
-            if (capabilities?.length) args.push("--capabilities", ...capabilities);
-            if (roleARN) args.push("--role-arn", roleARN);
+            if (templateURL) {
+              args.push("--template-url", templateURL);
+            }
+            if (parameters?.length) {
+              args.push(
+                "--parameters",
+                ...parameters.flatMap((p) => [
+                  `ParameterKey=${p.parameterKey},ParameterValue=${p.parameterValue}`,
+                ])
+              );
+            }
+            if (capabilities?.length) {
+              args.push("--capabilities", ...capabilities);
+            }
+            if (roleARN) {
+              args.push("--role-arn", roleARN);
+            }
             if (tags) {
-              args.push("--tags", ...Object.entries(tags).map(([k, v]) => `Key=${k},Value=${v}`));
+              args.push(
+                "--tags",
+                ...Object.entries(tags).map(([k, v]) => `Key=${k},Value=${v}`)
+              );
             }
             const data = await runAwsCli(args, region);
-            return { success: true, stackId: data.StackId, message: "Stack creation initiated" };
+            return {
+              success: true,
+              stackId: data.StackId,
+              message: "Stack creation initiated",
+            };
           }
 
           case "update_stack": {
-            if (!stackName) return { success: false, error: "stackName required" };
-            const args = [
-              "cloudformation", "update-stack",
-              "--stack-name", stackName,
-            ];
-            if (templateBody) args.push("--template-body", templateBody);
-            if (templateURL) args.push("--template-url", templateURL);
-            if (parameters?.length) {
-              args.push("--parameters", ...parameters.flatMap((p) => [
-                `ParameterKey=${p.parameterKey},ParameterValue=${p.parameterValue}`,
-              ]));
+            if (!stackName) {
+              return { success: false, error: "stackName required" };
             }
-            if (capabilities?.length) args.push("--capabilities", ...capabilities);
-            if (roleARN) args.push("--role-arn", roleARN);
+            const args = [
+              "cloudformation",
+              "update-stack",
+              "--stack-name",
+              stackName,
+            ];
+            if (templateBody) {
+              args.push("--template-body", templateBody);
+            }
+            if (templateURL) {
+              args.push("--template-url", templateURL);
+            }
+            if (parameters?.length) {
+              args.push(
+                "--parameters",
+                ...parameters.flatMap((p) => [
+                  `ParameterKey=${p.parameterKey},ParameterValue=${p.parameterValue}`,
+                ])
+              );
+            }
+            if (capabilities?.length) {
+              args.push("--capabilities", ...capabilities);
+            }
+            if (roleARN) {
+              args.push("--role-arn", roleARN);
+            }
             if (tags) {
-              args.push("--tags", ...Object.entries(tags).map(([k, v]) => `Key=${k},Value=${v}`));
+              args.push(
+                "--tags",
+                ...Object.entries(tags).map(([k, v]) => `Key=${k},Value=${v}`)
+              );
             }
             const data = await runAwsCli(args, region);
-            return { success: true, stackId: data.StackId, message: "Stack update initiated" };
+            return {
+              success: true,
+              stackId: data.StackId,
+              message: "Stack update initiated",
+            };
           }
 
           case "delete_stack": {
-            if (!stackName) return { success: false, error: "stackName required" };
-            await runAwsCli(["cloudformation", "delete-stack", "--stack-name", stackName], region);
-            return { success: true, stackName, message: "Stack deletion initiated" };
+            if (!stackName) {
+              return { success: false, error: "stackName required" };
+            }
+            await runAwsCli(
+              ["cloudformation", "delete-stack", "--stack-name", stackName],
+              region
+            );
+            return {
+              success: true,
+              stackName,
+              message: "Stack deletion initiated",
+            };
           }
 
           case "list_stack_resources": {
-            if (!stackName) return { success: false, error: "stackName required" };
-            const data = await runAwsCli([
-              "cloudformation", "describe-stack-resources",
-              "--stack-name", stackName,
-            ], region);
+            if (!stackName) {
+              return { success: false, error: "stackName required" };
+            }
+            const data = await runAwsCli(
+              [
+                "cloudformation",
+                "describe-stack-resources",
+                "--stack-name",
+                stackName,
+              ],
+              region
+            );
             return {
               success: true,
               resources: (data.StackResources || []).map((r: any) => ({
@@ -2114,11 +3242,18 @@ export const awsCloudFormation = ({ userId }: { userId: string }) =>
           }
 
           case "list_stack_events": {
-            if (!stackName) return { success: false, error: "stackName required" };
-            const data = await runAwsCli([
-              "cloudformation", "describe-stack-events",
-              "--stack-name", stackName,
-            ], region);
+            if (!stackName) {
+              return { success: false, error: "stackName required" };
+            }
+            const data = await runAwsCli(
+              [
+                "cloudformation",
+                "describe-stack-events",
+                "--stack-name",
+                stackName,
+              ],
+              region
+            );
             return {
               success: true,
               events: (data.StackEvents || []).map((e: any) => ({
@@ -2136,18 +3271,30 @@ export const awsCloudFormation = ({ userId }: { userId: string }) =>
 
           case "describe_change_set": {
             if (!changeSetName || !stackName) {
-              return { success: false, error: "changeSetName and stackName required" };
+              return {
+                success: false,
+                error: "changeSetName and stackName required",
+              };
             }
-            const data = await runAwsCli([
-              "cloudformation", "describe-change-set",
-              "--change-set-name", changeSetName,
-              "--stack-name", stackName,
-            ], region);
+            const data = await runAwsCli(
+              [
+                "cloudformation",
+                "describe-change-set",
+                "--change-set-name",
+                changeSetName,
+                "--stack-name",
+                stackName,
+              ],
+              region
+            );
             return { success: true, changeSet: data };
           }
 
           case "list_exports": {
-            const data = await runAwsCli(["cloudformation", "list-exports"], region);
+            const data = await runAwsCli(
+              ["cloudformation", "list-exports"],
+              region
+            );
             return {
               success: true,
               exports: (data.Exports || []).map((e: any) => ({
@@ -2193,19 +3340,51 @@ export const awsSQS = ({ userId }: { userId: string }) =>
       queueUrl: z.string().optional().describe("Queue URL"),
       messageBody: z.string().optional().describe("Message body"),
       messageGroupId: z.string().optional().describe("Message group ID (FIFO)"),
-      messageDeduplicationId: z.string().optional().describe("Message deduplication ID (FIFO)"),
+      messageDeduplicationId: z
+        .string()
+        .optional()
+        .describe("Message deduplication ID (FIFO)"),
       delaySeconds: z.number().int().optional().describe("Delay in seconds"),
-      visibilityTimeout: z.number().int().optional().describe("Visibility timeout in seconds"),
-      maxNumberOfMessages: z.number().int().optional().default(1).describe("Max messages to receive (1-10)"),
-      waitTimeSeconds: z.number().int().optional().describe("Wait time for long polling"),
-      receiptHandle: z.string().optional().describe("Receipt handle for delete"),
-      attributes: z.record(z.string(), z.string()).optional().describe("Queue attributes"),
+      visibilityTimeout: z
+        .number()
+        .int()
+        .optional()
+        .describe("Visibility timeout in seconds"),
+      maxNumberOfMessages: z
+        .number()
+        .int()
+        .optional()
+        .default(1)
+        .describe("Max messages to receive (1-10)"),
+      waitTimeSeconds: z
+        .number()
+        .int()
+        .optional()
+        .describe("Wait time for long polling"),
+      receiptHandle: z
+        .string()
+        .optional()
+        .describe("Receipt handle for delete"),
+      attributes: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("Queue attributes"),
       region: z.string().optional(),
     }),
     execute: async ({
-      action, queueName, queueUrl, messageBody, messageGroupId,
-      messageDeduplicationId, delaySeconds, visibilityTimeout,
-      maxNumberOfMessages, waitTimeSeconds, receiptHandle, attributes, region,
+      action,
+      queueName,
+      queueUrl,
+      messageBody,
+      messageGroupId,
+      messageDeduplicationId,
+      delaySeconds,
+      visibilityTimeout,
+      maxNumberOfMessages,
+      waitTimeSeconds,
+      receiptHandle,
+      attributes,
+      region,
     }) => {
       try {
         switch (action) {
@@ -2215,7 +3394,9 @@ export const awsSQS = ({ userId }: { userId: string }) =>
           }
 
           case "create_queue": {
-            if (!queueName) return { success: false, error: "queueName required" };
+            if (!queueName) {
+              return { success: false, error: "queueName required" };
+            }
             const args = ["sqs", "create-queue", "--queue-name", queueName];
             if (attributes) {
               args.push("--attributes", JSON.stringify(attributes));
@@ -2225,23 +3406,40 @@ export const awsSQS = ({ userId }: { userId: string }) =>
           }
 
           case "delete_queue": {
-            if (!queueUrl) return { success: false, error: "queueUrl required" };
-            await runAwsCli(["sqs", "delete-queue", "--queue-url", queueUrl], region);
+            if (!queueUrl) {
+              return { success: false, error: "queueUrl required" };
+            }
+            await runAwsCli(
+              ["sqs", "delete-queue", "--queue-url", queueUrl],
+              region
+            );
             return { success: true, queueUrl, message: "Queue deleted" };
           }
 
           case "send_message": {
             if (!queueUrl || !messageBody) {
-              return { success: false, error: "queueUrl and messageBody required" };
+              return {
+                success: false,
+                error: "queueUrl and messageBody required",
+              };
             }
             const args = [
-              "sqs", "send-message",
-              "--queue-url", queueUrl,
-              "--message-body", messageBody,
+              "sqs",
+              "send-message",
+              "--queue-url",
+              queueUrl,
+              "--message-body",
+              messageBody,
             ];
-            if (messageGroupId) args.push("--message-group-id", messageGroupId);
-            if (messageDeduplicationId) args.push("--message-deduplication-id", messageDeduplicationId);
-            if (delaySeconds !== undefined) args.push("--delay-seconds", String(delaySeconds));
+            if (messageGroupId) {
+              args.push("--message-group-id", messageGroupId);
+            }
+            if (messageDeduplicationId) {
+              args.push("--message-deduplication-id", messageDeduplicationId);
+            }
+            if (delaySeconds !== undefined) {
+              args.push("--delay-seconds", String(delaySeconds));
+            }
             const data = await runAwsCli(args, region);
             return {
               success: true,
@@ -2252,11 +3450,16 @@ export const awsSQS = ({ userId }: { userId: string }) =>
           }
 
           case "receive_message": {
-            if (!queueUrl) return { success: false, error: "queueUrl required" };
+            if (!queueUrl) {
+              return { success: false, error: "queueUrl required" };
+            }
             const args = [
-              "sqs", "receive-message",
-              "--queue-url", queueUrl,
-              "--max-number-of-messages", String(maxNumberOfMessages || 1),
+              "sqs",
+              "receive-message",
+              "--queue-url",
+              queueUrl,
+              "--max-number-of-messages",
+              String(maxNumberOfMessages || 1),
             ];
             if (visibilityTimeout !== undefined) {
               args.push("--visibility-timeout", String(visibilityTimeout));
@@ -2280,47 +3483,83 @@ export const awsSQS = ({ userId }: { userId: string }) =>
 
           case "delete_message": {
             if (!queueUrl || !receiptHandle) {
-              return { success: false, error: "queueUrl and receiptHandle required" };
+              return {
+                success: false,
+                error: "queueUrl and receiptHandle required",
+              };
             }
-            await runAwsCli([
-              "sqs", "delete-message",
-              "--queue-url", queueUrl,
-              "--receipt-handle", receiptHandle,
-            ], region);
+            await runAwsCli(
+              [
+                "sqs",
+                "delete-message",
+                "--queue-url",
+                queueUrl,
+                "--receipt-handle",
+                receiptHandle,
+              ],
+              region
+            );
             return { success: true, message: "Message deleted" };
           }
 
           case "purge_queue": {
-            if (!queueUrl) return { success: false, error: "queueUrl required" };
-            await runAwsCli(["sqs", "purge-queue", "--queue-url", queueUrl], region);
+            if (!queueUrl) {
+              return { success: false, error: "queueUrl required" };
+            }
+            await runAwsCli(
+              ["sqs", "purge-queue", "--queue-url", queueUrl],
+              region
+            );
             return { success: true, queueUrl, message: "Queue purged" };
           }
 
           case "get_queue_attributes": {
-            if (!queueUrl) return { success: false, error: "queueUrl required" };
-            const data = await runAwsCli([
-              "sqs", "get-queue-attributes",
-              "--queue-url", queueUrl,
-              "--attribute-names", "All",
-            ], region);
+            if (!queueUrl) {
+              return { success: false, error: "queueUrl required" };
+            }
+            const data = await runAwsCli(
+              [
+                "sqs",
+                "get-queue-attributes",
+                "--queue-url",
+                queueUrl,
+                "--attribute-names",
+                "All",
+              ],
+              region
+            );
             return { success: true, attributes: data.Attributes };
           }
 
           case "set_queue_attributes": {
             if (!queueUrl || !attributes) {
-              return { success: false, error: "queueUrl and attributes required" };
+              return {
+                success: false,
+                error: "queueUrl and attributes required",
+              };
             }
-            await runAwsCli([
-              "sqs", "set-queue-attributes",
-              "--queue-url", queueUrl,
-              "--attributes", JSON.stringify(attributes),
-            ], region);
+            await runAwsCli(
+              [
+                "sqs",
+                "set-queue-attributes",
+                "--queue-url",
+                queueUrl,
+                "--attributes",
+                JSON.stringify(attributes),
+              ],
+              region
+            );
             return { success: true, queueUrl, message: "Attributes updated" };
           }
 
           case "get_queue_url": {
-            if (!queueName) return { success: false, error: "queueName required" };
-            const data = await runAwsCli(["sqs", "get-queue-url", "--queue-name", queueName], region);
+            if (!queueName) {
+              return { success: false, error: "queueName required" };
+            }
+            const data = await runAwsCli(
+              ["sqs", "get-queue-url", "--queue-name", queueName],
+              region
+            );
             return { success: true, queueUrl: data.QueueUrl };
           }
 
@@ -2353,37 +3592,82 @@ export const awsCloudWatch = ({ userId }: { userId: string }) =>
         "list_dashboards",
         "get_dashboard",
       ]),
-      namespace: z.string().optional().describe("Metric namespace (e.g. AWS/EC2, Custom/App)"),
+      namespace: z
+        .string()
+        .optional()
+        .describe("Metric namespace (e.g. AWS/EC2, Custom/App)"),
       metricName: z.string().optional().describe("Metric name"),
-      dimensions: z.array(z.object({
-        name: z.string(),
-        value: z.string(),
-      })).optional().describe("Metric dimensions"),
+      dimensions: z
+        .array(
+          z.object({
+            name: z.string(),
+            value: z.string(),
+          })
+        )
+        .optional()
+        .describe("Metric dimensions"),
       startTime: z.string().optional().describe("Start time (ISO 8601)"),
       endTime: z.string().optional().describe("End time (ISO 8601)"),
-      period: z.number().int().optional().default(300).describe("Period in seconds"),
-      stat: z.string().optional().default("Average").describe("Statistic: Average, Sum, Maximum, Minimum, SampleCount"),
+      period: z
+        .number()
+        .int()
+        .optional()
+        .default(300)
+        .describe("Period in seconds"),
+      stat: z
+        .string()
+        .optional()
+        .default("Average")
+        .describe("Statistic: Average, Sum, Maximum, Minimum, SampleCount"),
       value: z.number().optional().describe("Metric value for put_metric_data"),
-      unit: z.string().optional().describe("Metric unit (e.g. Count, Bytes, Seconds, Percent)"),
+      unit: z
+        .string()
+        .optional()
+        .describe("Metric unit (e.g. Count, Bytes, Seconds, Percent)"),
       alarmName: z.string().optional().describe("Alarm name"),
-      alarmState: z.enum(["OK", "ALARM", "INSUFFICIENT_DATA"]).optional().describe("New alarm state"),
+      alarmState: z
+        .enum(["OK", "ALARM", "INSUFFICIENT_DATA"])
+        .optional()
+        .describe("New alarm state"),
       stateReason: z.string().optional().describe("Reason for state change"),
-      dashboardName: z.string().optional().describe("CloudWatch dashboard name"),
+      dashboardName: z
+        .string()
+        .optional()
+        .describe("CloudWatch dashboard name"),
       region: z.string().optional(),
     }),
     execute: async ({
-      action, namespace, metricName, dimensions, startTime, endTime,
-      period, stat, value, unit, alarmName, alarmState, stateReason,
-      dashboardName, region,
+      action,
+      namespace,
+      metricName,
+      dimensions,
+      startTime,
+      endTime,
+      period,
+      stat,
+      value,
+      unit,
+      alarmName,
+      alarmState,
+      stateReason,
+      dashboardName,
+      region,
     }) => {
       try {
         switch (action) {
           case "list_metrics": {
             const args = ["cloudwatch", "list-metrics"];
-            if (namespace) args.push("--namespace", namespace);
-            if (metricName) args.push("--metric-name", metricName);
+            if (namespace) {
+              args.push("--namespace", namespace);
+            }
+            if (metricName) {
+              args.push("--metric-name", metricName);
+            }
             if (dimensions?.length) {
-              args.push("--dimensions", ...dimensions.map((d) => `Name=${d.name},Value=${d.value}`));
+              args.push(
+                "--dimensions",
+                ...dimensions.map((d) => `Name=${d.name},Value=${d.value}`)
+              );
             }
             const data = await runAwsCli(args, region);
             return {
@@ -2391,36 +3675,52 @@ export const awsCloudWatch = ({ userId }: { userId: string }) =>
               metrics: (data.Metrics || []).map((m: any) => ({
                 namespace: m.Namespace,
                 metricName: m.MetricName,
-                dimensions: m.Dimensions?.map((d: any) => ({ name: d.Name, value: d.Value })),
+                dimensions: m.Dimensions?.map((d: any) => ({
+                  name: d.Name,
+                  value: d.Value,
+                })),
               })),
             };
           }
 
           case "get_metric_data": {
             if (!namespace || !metricName) {
-              return { success: false, error: "namespace and metricName required" };
+              return {
+                success: false,
+                error: "namespace and metricName required",
+              };
             }
             const now = new Date();
             const end = endTime || now.toISOString();
-            const start = startTime || new Date(now.getTime() - 3600000).toISOString();
+            const start =
+              startTime || new Date(now.getTime() - 3_600_000).toISOString();
             const queryId = "m1";
             const args = [
-              "cloudwatch", "get-metric-data",
-              "--metric-data-queries", JSON.stringify([{
-                Id: queryId,
-                MetricStat: {
-                  Metric: {
-                    Namespace: namespace,
-                    MetricName: metricName,
-                    Dimensions: dimensions?.map((d) => ({ Name: d.name, Value: d.value })),
+              "cloudwatch",
+              "get-metric-data",
+              "--metric-data-queries",
+              JSON.stringify([
+                {
+                  Id: queryId,
+                  MetricStat: {
+                    Metric: {
+                      Namespace: namespace,
+                      MetricName: metricName,
+                      Dimensions: dimensions?.map((d) => ({
+                        Name: d.name,
+                        Value: d.value,
+                      })),
+                    },
+                    Period: period || 300,
+                    Stat: stat || "Average",
                   },
-                  Period: period || 300,
-                  Stat: stat || "Average",
+                  ReturnData: true,
                 },
-                ReturnData: true,
-              }]),
-              "--start-time", start,
-              "--end-time", end,
+              ]),
+              "--start-time",
+              start,
+              "--end-time",
+              end,
             ];
             const data = await runAwsCli(args, region);
             return {
@@ -2434,26 +3734,48 @@ export const awsCloudWatch = ({ userId }: { userId: string }) =>
 
           case "put_metric_data": {
             if (!namespace || !metricName || value === undefined) {
-              return { success: false, error: "namespace, metricName, and value required" };
+              return {
+                success: false,
+                error: "namespace, metricName, and value required",
+              };
             }
-            const metricData = [{
-              MetricName: metricName,
-              Value: value,
-              Unit: unit || "Count",
-              Dimensions: dimensions?.map((d) => ({ Name: d.name, Value: d.value })),
-              Timestamp: new Date().toISOString(),
-            }];
-            await runAwsCli([
-              "cloudwatch", "put-metric-data",
-              "--namespace", namespace,
-              "--metric-data", JSON.stringify(metricData),
-            ], region);
-            return { success: true, namespace, metricName, value, unit: unit || "Count" };
+            const metricData = [
+              {
+                MetricName: metricName,
+                Value: value,
+                Unit: unit || "Count",
+                Dimensions: dimensions?.map((d) => ({
+                  Name: d.name,
+                  Value: d.value,
+                })),
+                Timestamp: new Date().toISOString(),
+              },
+            ];
+            await runAwsCli(
+              [
+                "cloudwatch",
+                "put-metric-data",
+                "--namespace",
+                namespace,
+                "--metric-data",
+                JSON.stringify(metricData),
+              ],
+              region
+            );
+            return {
+              success: true,
+              namespace,
+              metricName,
+              value,
+              unit: unit || "Count",
+            };
           }
 
           case "list_alarms": {
             const args = ["cloudwatch", "describe-alarms"];
-            if (alarmName) args.push("--alarm-names", alarmName);
+            if (alarmName) {
+              args.push("--alarm-names", alarmName);
+            }
             const data = await runAwsCli(args, region);
             return {
               success: true,
@@ -2486,29 +3808,48 @@ export const awsCloudWatch = ({ userId }: { userId: string }) =>
           }
 
           case "describe_alarm": {
-            if (!alarmName) return { success: false, error: "alarmName required" };
-            const data = await runAwsCli([
-              "cloudwatch", "describe-alarms",
-              "--alarm-names", alarmName,
-            ], region);
-            return { success: true, alarm: data.MetricAlarms?.[0] || data.CompositeAlarms?.[0] || null };
+            if (!alarmName) {
+              return { success: false, error: "alarmName required" };
+            }
+            const data = await runAwsCli(
+              ["cloudwatch", "describe-alarms", "--alarm-names", alarmName],
+              region
+            );
+            return {
+              success: true,
+              alarm:
+                data.MetricAlarms?.[0] || data.CompositeAlarms?.[0] || null,
+            };
           }
 
           case "set_alarm_state": {
             if (!alarmName || !alarmState) {
-              return { success: false, error: "alarmName and alarmState required" };
+              return {
+                success: false,
+                error: "alarmName and alarmState required",
+              };
             }
-            await runAwsCli([
-              "cloudwatch", "set-alarm-state",
-              "--alarm-name", alarmName,
-              "--state-value", alarmState,
-              "--state-reason", stateReason || "Updated by Etles agent",
-            ], region);
+            await runAwsCli(
+              [
+                "cloudwatch",
+                "set-alarm-state",
+                "--alarm-name",
+                alarmName,
+                "--state-value",
+                alarmState,
+                "--state-reason",
+                stateReason || "Updated by Etles agent",
+              ],
+              region
+            );
             return { success: true, alarmName, newState: alarmState };
           }
 
           case "list_dashboards": {
-            const data = await runAwsCli(["cloudwatch", "list-dashboards"], region);
+            const data = await runAwsCli(
+              ["cloudwatch", "list-dashboards"],
+              region
+            );
             return {
               success: true,
               dashboards: (data.DashboardEntries || []).map((d: any) => ({
@@ -2521,11 +3862,18 @@ export const awsCloudWatch = ({ userId }: { userId: string }) =>
           }
 
           case "get_dashboard": {
-            if (!dashboardName) return { success: false, error: "dashboardName required" };
-            const data = await runAwsCli([
-              "cloudwatch", "get-dashboard",
-              "--dashboard-name", dashboardName,
-            ], region);
+            if (!dashboardName) {
+              return { success: false, error: "dashboardName required" };
+            }
+            const data = await runAwsCli(
+              [
+                "cloudwatch",
+                "get-dashboard",
+                "--dashboard-name",
+                dashboardName,
+              ],
+              region
+            );
             return {
               success: true,
               name: data.DashboardName,

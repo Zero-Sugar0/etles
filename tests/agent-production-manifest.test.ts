@@ -64,8 +64,5 @@ test("internal tool scoping keeps browser tools out of finance agents", () => {
     manifest
   );
 
-  assert.deepEqual(Object.keys(scoped).sort(), [
-    "listGoals",
-    "readScratchpad",
-  ]);
+  assert.deepEqual(Object.keys(scoped).sort(), ["listGoals", "readScratchpad"]);
 });

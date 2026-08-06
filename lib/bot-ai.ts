@@ -4,17 +4,11 @@
 
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
-import { getWeather } from "@/lib/ai/tools/get-weather";
-import {
-  recallMemory,
-  saveMemory,
-} from "@/lib/ai/tools/memory";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
+import { getWeather } from "@/lib/ai/tools/get-weather";
+import { recallMemory, saveMemory } from "@/lib/ai/tools/memory";
+import { readScratchpad, writeScratchpad } from "@/lib/ai/tools/scratchpad";
 import { wikiQuery } from "@/lib/ai/tools/wiki";
-import {
-  readScratchpad,
-  writeScratchpad,
-} from "@/lib/ai/tools/scratchpad";
 
 const composio = new Composio({ provider: new VercelProvider() });
 
@@ -27,8 +21,10 @@ export async function buildPlatformAgentTools({
 }) {
   let composioTools: Record<string, unknown> = {};
   try {
-    const session = await composio.create(userId, { manageConnections: true,
-          multiAccount: { enable: true, maxAccountsPerToolkit: 5 } });
+    const session = await composio.create(userId, {
+      manageConnections: true,
+      multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
+    });
     composioTools = await session.tools();
   } catch {
     /* Composio optional */

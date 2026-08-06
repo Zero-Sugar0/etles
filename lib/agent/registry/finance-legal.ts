@@ -2,10 +2,11 @@ import type { SubAgentDefinition } from "../subagent-definitions";
 
 export const registryAgents: SubAgentDefinition[] = [
   {
-    "slug": "finance",
-    "name": "Finance and Vendor Admin",
-    "description": "Monitors transactions, chases payments, negotiates renewals, reconciles expenses, keeps books.",
-    "toolkits": [
+    slug: "finance",
+    name: "Finance and Vendor Admin",
+    description:
+      "Monitors transactions, chases payments, negotiates renewals, reconciles expenses, keeps books.",
+    toolkits: [
       "stripe",
       "wise",
       "paypal",
@@ -34,15 +35,17 @@ export const registryAgents: SubAgentDefinition[] = [
       "ramp",
       "expensify",
       "netsuite",
-      "freshbooks"
+      "freshbooks",
     ],
-    "systemPrompt": "You are Etles's Finance and Vendor Admin Operator — a meticulous, assertive, and commercially sharp financial operator. You ensure that money coming in arrives on time, money going out is justified and optimised, and the books are always accurate."
+    systemPrompt:
+      "You are Etles's Finance and Vendor Admin Operator — a meticulous, assertive, and commercially sharp financial operator. You ensure that money coming in arrives on time, money going out is justified and optimised, and the books are always accurate.",
   },
   {
-    "slug": "stripe_churn",
-    "name": "Stripe Churn Defense",
-    "description": "Intercepts failed payments, cancellations; orchestrates personalized recovery sequences.",
-    "toolkits": [
+    slug: "stripe_churn",
+    name: "Stripe Churn Defense",
+    description:
+      "Intercepts failed payments, cancellations; orchestrates personalized recovery sequences.",
+    toolkits: [
       "stripe",
       "salesforce",
       "hubspot",
@@ -58,15 +61,17 @@ export const registryAgents: SubAgentDefinition[] = [
       "notion",
       "airtable",
       "github",
-      "jira"
+      "jira",
     ],
-    "systemPrompt": "You are Etles's Stripe Churn Defense Operator. You intercept failed dunning charges and recover delinquent subscriptions."
+    systemPrompt:
+      "You are Etles's Stripe Churn Defense Operator. You intercept failed dunning charges and recover delinquent subscriptions.",
   },
   {
-    "slug": "contractor_payment",
-    "name": "Global Contractor Payment Specialist",
-    "description": "Tracks contractor hours, invoices, auto-populates payments via Deel/Wise, manages tax forms.",
-    "toolkits": [
+    slug: "contractor_payment",
+    name: "Global Contractor Payment Specialist",
+    description:
+      "Tracks contractor hours, invoices, auto-populates payments via Deel/Wise, manages tax forms.",
+    toolkits: [
       "deel",
       "wise",
       "quickbooks",
@@ -74,58 +79,66 @@ export const registryAgents: SubAgentDefinition[] = [
       "stripe",
       "notion",
       "slack",
-      "gmail"
+      "gmail",
     ],
-    "systemPrompt": "You are Etles's Contractor Payment Specialist. You audit contractor invoices against contract terms and coordinate Deel/Wise payouts."
+    systemPrompt:
+      "You are Etles's Contractor Payment Specialist. You audit contractor invoices against contract terms and coordinate Deel/Wise payouts.",
   },
   {
-    "slug": "legal_operator",
-    "name": "Corporate Legal Operator",
-    "description": "Reviews contracts (NDAs, MSAs, SOWs) against playbook, flags risk clauses, drafts standard legal docs.",
-    "toolkits": [
+    slug: "legal_operator",
+    name: "Corporate Legal Operator",
+    description:
+      "Reviews contracts (NDAs, MSAs, SOWs) against playbook, flags risk clauses, drafts standard legal docs.",
+    toolkits: [
       "docusign",
       "ironclad",
       "notion",
       "slack",
       "gmail",
-      "googledrive"
+      "googledrive",
     ],
-    "systemPrompt": "You are Etles's Corporate Legal Operator. You review NDAs, MSAs, and vendor contracts against standard playbook guidelines."
+    systemPrompt:
+      "You are Etles's Corporate Legal Operator. You review NDAs, MSAs, and vendor contracts against standard playbook guidelines.",
   },
   {
-    "slug": "revenue_forecasting",
-    "name": "Revenue Forecasting Analyst",
-    "description": "Pulls data from Stripe/HubSpot, builds revenue models, predicts MRR/ARR growth, flags risks.",
-    "toolkits": [
+    slug: "revenue_forecasting",
+    name: "Revenue Forecasting Analyst",
+    description:
+      "Pulls data from Stripe/HubSpot, builds revenue models, predicts MRR/ARR growth, flags risks.",
+    toolkits: [
       "stripe",
       "hubspot",
       "salesforce",
       "googlesheets",
       "notion",
-      "slack"
+      "slack",
     ],
-    "systemPrompt": "You are Etles's Revenue Forecasting Analyst. You analyze sales velocity and subscription renewals to project MRR/ARR trajectories."
+    systemPrompt:
+      "You are Etles's Revenue Forecasting Analyst. You analyze sales velocity and subscription renewals to project MRR/ARR trajectories.",
   },
   {
-    "slug": "investor_relations",
-    "name": "Board & Investor Relations Operator",
-    "description": "Drafts monthly investor updates, prepares board decks, compiles KPI reports.",
-    "toolkits": [
+    slug: "investor_relations",
+    name: "Board & Investor Relations Operator",
+    description:
+      "Drafts monthly investor updates, prepares board decks, compiles KPI reports.",
+    toolkits: [
       "notion",
       "googledrive",
       "googlesheets",
       "gmail",
       "slack",
       "stripe",
-      "hubspot"
+      "hubspot",
     ],
-    "systemPrompt": "You are Etles's Board & Investor Relations Operator. You compile monthly metrics and draft professional stakeholder briefs."
+    systemPrompt:
+      "You are Etles's Board & Investor Relations Operator. You compile monthly metrics and draft professional stakeholder briefs.",
   },
   {
-    "slug": "procurement_operator",
-    "name": "Procurement Operator",
-    "description": "Compares vendors, manages renewal calendars, drafts purchase approvals, tracks invoices, and flags spend or contract risk.",
-    "toolkits": [
+    slug: "procurement_operator",
+    name: "Procurement Operator",
+    description:
+      "Compares vendors, manages renewal calendars, drafts purchase approvals, tracks invoices, and flags spend or contract risk.",
+    toolkits: [
       "quickbooks",
       "xero",
       "netsuite",
@@ -133,15 +146,17 @@ export const registryAgents: SubAgentDefinition[] = [
       "brex",
       "docusign",
       "notion",
-      "slack"
+      "slack",
     ],
-    "systemPrompt": "You are Etles's Procurement Operator. You compare SaaS vendor quotes, track contract renewal deadlines, and optimize spend."
+    systemPrompt:
+      "You are Etles's Procurement Operator. You compare SaaS vendor quotes, track contract renewal deadlines, and optimize spend.",
   },
   {
-    "slug": "tax_treasury",
-    "name": "Autonomous Tax & Treasury Operator",
-    "description": "Monitors VAT and sales tax liabilities, conducts cash runway audits, and pre-drafts corporate tax filings.",
-    "toolkits": [
+    slug: "tax_treasury",
+    name: "Autonomous Tax & Treasury Operator",
+    description:
+      "Monitors VAT and sales tax liabilities, conducts cash runway audits, and pre-drafts corporate tax filings.",
+    toolkits: [
       "quickbooks",
       "xero",
       "netsuite",
@@ -150,14 +165,16 @@ export const registryAgents: SubAgentDefinition[] = [
       "ramp",
       "brex",
       "googlesheets",
-      "slack"
+      "slack",
     ],
-    "systemPrompt": "You are Etles's Tax & Treasury Operator. You audit tax liabilities and monitor cash reserves across accounts."
+    systemPrompt:
+      "You are Etles's Tax & Treasury Operator. You audit tax liabilities and monitor cash reserves across accounts.",
   },
   {
     slug: "fpa_analyst",
     name: "Financial Planning & Analysis (FP&A) Analyst",
-    description: "Builds financial scenario models, budget variance reports, cash burn projections, and capital allocation models.",
+    description:
+      "Builds financial scenario models, budget variance reports, cash burn projections, and capital allocation models.",
     toolkits: [
       "googlesheets",
       "excel",
@@ -182,7 +199,8 @@ OPERATIONAL ENGINE:
   {
     slug: "ai_governance_officer",
     name: "AI Governance & Data Privacy Officer",
-    description: "Audits LLM usage for data leaks, enforces AI risk policies, ensures GDPR/CCPA compliance, and conducts AI risk assessments.",
+    description:
+      "Audits LLM usage for data leaks, enforces AI risk policies, ensures GDPR/CCPA compliance, and conducts AI risk assessments.",
     toolkits: [
       "vanta",
       "drata",

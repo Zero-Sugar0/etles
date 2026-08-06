@@ -2,10 +2,15 @@
 
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { motion } from "framer-motion";
-import { Bell, FolderKanban, MessageCircleMore, NotebookPen } from "lucide-react";
+import {
+  Bell,
+  FolderKanban,
+  MessageCircleMore,
+  NotebookPen,
+} from "lucide-react";
 import { memo } from "react";
 import type { ChatMessage } from "@/lib/types";
-import { Suggestions, Suggestion } from "./elements/suggestion";
+import { Suggestion, Suggestions } from "./elements/suggestion";
 import type { VisibilityType } from "./visibility-selector";
 
 type SuggestedActionsProps = {
@@ -35,18 +40,15 @@ function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
   ];
 
   return (
-    <Suggestions
-      className="py-1"
-      data-testid="suggested-actions"
-    >
+    <Suggestions className="py-1" data-testid="suggested-actions">
       {suggestedActions.map(({ icon: Icon, text }, index) => (
         <motion.div
           animate={{ opacity: 1, x: 0 }}
+          className="shrink-0"
           exit={{ opacity: 0, x: 20 }}
           initial={{ opacity: 0, x: 20 }}
           key={text}
           transition={{ delay: 0.05 * index }}
-          className="shrink-0"
         >
           <Suggestion
             className="flex h-8 items-center gap-1.5 rounded-full border border-border/70 bg-card/65 px-3 py-1.5 text-muted-foreground text-xs shadow-xs backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:bg-card hover:text-foreground hover:shadow-xs"

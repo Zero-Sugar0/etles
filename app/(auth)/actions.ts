@@ -77,7 +77,7 @@ export const register = async (
       validatedData.email,
       validatedData.password,
       validatedData.firstName,
-      validatedData.lastName,
+      validatedData.lastName
     );
     await signIn("credentials", {
       email: validatedData.email,

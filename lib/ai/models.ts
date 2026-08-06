@@ -28,7 +28,8 @@ export const imageModels: ImageModel[] = [
     id: "google/gemini-3.1-flash-lite-image",
     name: "Gemini 3.1 Flash Lite Image",
     provider: "google",
-    description: "Fast image generation model for lightweight edits and renders.",
+    description:
+      "Fast image generation model for lightweight edits and renders.",
   },
   {
     id: "openai/gpt-image-2",
@@ -46,7 +47,8 @@ export const imageModels: ImageModel[] = [
     id: "bytedance/seedream-4.5",
     name: "Seedream 4.5",
     provider: "bytedance",
-    description: "ByteDance image generation model for balanced quality and speed.",
+    description:
+      "ByteDance image generation model for balanced quality and speed.",
   },
   {
     id: "xai/grok-imagine-image",
@@ -61,29 +63,36 @@ export const videoModels: VideoModel[] = [
     id: "minimax/minimax-h3",
     name: "MiniMax H3",
     provider: "minimax",
-    description: "Text-to-video and image-to-video generation with multimodal references.",
+    description:
+      "Text-to-video and image-to-video generation with multimodal references.",
   },
   {
     id: "xai/grok-imagine-video-1.5",
     name: "Grok Imagine Video 1.5",
     provider: "xai",
-    description: "Fast video generation with prompt-driven motion and style control.",
+    description:
+      "Fast video generation with prompt-driven motion and style control.",
   },
   {
     id: "bytedance/seedance-2.0",
     name: "Seedance 2.0",
     provider: "bytedance",
-    description: "Advanced video generation with audio-visual and multimodal inputs.",
+    description:
+      "Advanced video generation with audio-visual and multimodal inputs.",
   },
   {
     id: "google/veo-3.1-lite-generate-001",
     name: "Veo 3.1 Lite",
     provider: "google",
-    description: "Fast and cost-effective video generation with Google Veo 3.1 Lite.",
+    description:
+      "Fast and cost-effective video generation with Google Veo 3.1 Lite.",
   },
 ];
 
-export function resolveImageModelId(provider?: string, explicitModelId?: string) {
+export function resolveImageModelId(
+  provider?: string,
+  explicitModelId?: string
+) {
   const normalizedExplicitModelId = explicitModelId?.trim();
   if (normalizedExplicitModelId) {
     return normalizedExplicitModelId;
@@ -101,7 +110,10 @@ export function resolveImageModelId(provider?: string, explicitModelId?: string)
   return matchedModel?.id ?? DEFAULT_IMAGE_MODEL_ID;
 }
 
-export function resolveVideoModelId(provider?: string, explicitModelId?: string) {
+export function resolveVideoModelId(
+  provider?: string,
+  explicitModelId?: string
+) {
   const normalizedExplicitModelId = explicitModelId?.trim();
   if (normalizedExplicitModelId) {
     return normalizedExplicitModelId;

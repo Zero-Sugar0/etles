@@ -21,7 +21,6 @@ build
 
 .vscode/
 .pnpm-store/
-.pnpm-store\
 # debug
 npm-debug.log*
 yarn-debug.log*

@@ -39,7 +39,7 @@ export function SidebarUserNav({ user }: { user: User }) {
     ? "Guest"
     : user?.firstName && user?.lastName
       ? `${user.firstName} ${user.lastName}`
-      : (user?.firstName || user?.lastName || user?.email || "");
+      : user?.firstName || user?.lastName || user?.email || "";
 
   const handleAuthAction = () => {
     if (isGuest) {
@@ -66,7 +66,10 @@ export function SidebarUserNav({ user }: { user: User }) {
                 src={`https://avatar.vercel.sh/${user.email}`}
                 width={24}
               />
-              <span className="truncate font-medium text-sm" data-testid="user-email">
+              <span
+                className="truncate font-medium text-sm"
+                data-testid="user-email"
+              >
                 {displayName}
               </span>
               <ChevronUp className="ml-auto" />

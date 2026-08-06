@@ -1,6 +1,8 @@
-import { google } from "@ai-sdk/google";
 import { generateImage } from "ai";
 import { createDocumentHandler } from "@/lib/artifacts/server";
+import { getImageModel } from "@/lib/ai/providers";
+
+const defaultImageModel = getImageModel();
 
 export const imageDocumentHandler = createDocumentHandler<"image">({
   kind: "image",
@@ -12,7 +14,7 @@ export const imageDocumentHandler = createDocumentHandler<"image">({
     });
 
     const { image } = await generateImage({
-      model: google.image("gemini-2.5-flash-image"),
+      model: defaultImageModel,
       prompt: title,
       aspectRatio: "1:1",
     });
@@ -35,7 +37,7 @@ export const imageDocumentHandler = createDocumentHandler<"image">({
     const sourceImage = Buffer.from(document.content ?? "", "base64");
 
     const { image } = await generateImage({
-      model: google.image("gemini-2.5-flash-image"),
+      model: defaultImageModel,
       prompt: {
         text: description,
         images: [sourceImage],

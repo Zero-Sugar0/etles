@@ -1,7 +1,7 @@
 import {
+  type AgentDepartment,
   getAgentDepartment,
   getDepartmentLeadSlug,
-  type AgentDepartment,
 } from "./departments";
 import type { AgentSlug, SubAgentDefinition } from "./subagent-definitions";
 
@@ -169,14 +169,7 @@ const DEPARTMENT_TOOLKITS: Record<AgentDepartment, string[]> = {
     "notion",
     "googlesheets",
   ],
-  security: [
-    "snyk",
-    "sonarqube",
-    "cloudflare",
-    "sentry",
-    "datadog",
-    "github",
-  ],
+  security: ["snyk", "sonarqube", "cloudflare", "sentry", "datadog", "github"],
   legal_compliance: [
     "docusign",
     "hellosign",
@@ -333,7 +326,8 @@ function defaultToolPacks(department: AgentDepartment): AgentToolPack[] {
 export function buildAgentManifest(
   definition: SubAgentDefinition
 ): AgentManifest {
-  const department = definition.department ?? getAgentDepartment(definition.slug);
+  const department =
+    definition.department ?? getAgentDepartment(definition.slug);
   const override = AGENT_OVERRIDES[definition.slug] ?? {};
   const riskLevel =
     override.riskLevel ?? defaultRiskLevel(department, definition.slug);
@@ -365,13 +359,12 @@ export function buildAgentManifest(
     outputFields: CORE_OUTPUT_FIELDS,
     riskLevel,
     slug: definition.slug,
-    successCriteria:
-      override.successCriteria ?? [
-        "Complete the requested task or state the blocker precisely.",
-        "Use evidence from tools, memory, or cited source material when making factual claims.",
-        "State assumptions, risks, and approval needs before any external side effect.",
-        "Return one synthesized result, not a raw dump of intermediate work.",
-      ],
+    successCriteria: override.successCriteria ?? [
+      "Complete the requested task or state the blocker precisely.",
+      "Use evidence from tools, memory, or cited source material when making factual claims.",
+      "State assumptions, risks, and approval needs before any external side effect.",
+      "Return one synthesized result, not a raw dump of intermediate work.",
+    ],
   };
 }
 
