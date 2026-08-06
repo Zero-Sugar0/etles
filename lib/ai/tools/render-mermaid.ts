@@ -1,6 +1,21 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+export function normalizeMermaidChart(input: string): string {
+  const trimmed = input.trim();
+
+  if (!trimmed) {
+    return "";
+  }
+
+  const withoutFence = trimmed
+    .replace(/^```(?:mermaid)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+
+  return withoutFence;
+}
+
 /**
  * Known mermaid diagram type prefixes. Used to validate that the chart
  * string starts with a recognized diagram type.
@@ -80,13 +95,17 @@ export const renderMermaid = tool({
       };
     }
 
-    const type = detectDiagramType(parsed.data.chart);
+    const normalizedChart = normalizeMermaidChart(parsed.data.chart);
+    const type = detectDiagramType(normalizedChart);
     if (!type) {
       return {
         error: `Could not detect a known mermaid diagram type. The chart must start with one of: ${MERMAID_DIAGRAM_TYPES.join(", ")}.`,
       };
     }
 
-    return parsed.data;
+    return {
+      ...parsed.data,
+      chart: normalizedChart,
+    };
   },
 });

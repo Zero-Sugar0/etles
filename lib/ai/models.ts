@@ -1,7 +1,7 @@
 // Curated list of top models from Vercel AI Gateway
 //lib/ai/models.ts
 
-export const DEFAULT_CHAT_MODEL = "moonshotai/kimi-k2.5";
+export const DEFAULT_CHAT_MODEL = "xai/grok-4.1-fast-reasoning";
 
 export type ImageModelProvider = "google" | "openai" | "bytedance" | "xai";
 export type VideoModelProvider = "google" | "bytedance" | "xai" | "minimax";
@@ -20,7 +20,7 @@ export type VideoModel = {
   description: string;
 };
 
-export const DEFAULT_IMAGE_MODEL_ID = "google/gemini-3.1-flash-lite-image";
+export const DEFAULT_IMAGE_MODEL_ID = "xai/grok-imagine-image";
 export const DEFAULT_VIDEO_MODEL_ID = "google/veo-3.1-lite-generate-001";
 
 export const imageModels: ImageModel[] = [
@@ -478,6 +478,30 @@ export const chatModels: ChatModel[] = [
     gatewayOrder: ["xai"],
   },
   {
+    id: "xai/grok-4.1-fast-reasoning",
+    name: "Grok 4.1 Fast Reasoning",
+    provider: "xai",
+    description: "Fast reasoning-focused Grok model",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["xai"],
+  },
+  {
+    id: "xai/grok-4.20-reasoning",
+    name: "Grok 4.20 Reasoning",
+    provider: "xai",
+    description: "Advanced reasoning Grok model",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["xai"],
+  },
+  {
+    id: "xai/grok-4.5",
+    name: "Grok 4.5",
+    provider: "xai",
+    description: "Latest Grok flagship model",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["xai"],
+  },
+  {
     id: "xai/grok-3",
     name: "Grok 3",
     provider: "xai",
@@ -509,6 +533,14 @@ export const chatModels: ChatModel[] = [
     provider: "alibaba",
     description: "Advanced coding flagship of Qwen 3 series",
     features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["alibaba"],
+  },
+  {
+    id: "alibaba/qwen3.7-plus",
+    name: "Qwen 3.7 Plus",
+    provider: "alibaba",
+    description: "High-capability Qwen 3.7 model with strong reasoning",
+    features: { reasoning: true, vision: true, tools: true },
     gatewayOrder: ["alibaba"],
   },
   {
