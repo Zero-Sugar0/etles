@@ -4,6 +4,7 @@
 export const DEFAULT_CHAT_MODEL = "moonshotai/kimi-k2.5";
 
 export type ImageModelProvider = "google" | "openai" | "bytedance" | "xai";
+export type VideoModelProvider = "google" | "bytedance" | "xai" | "minimax";
 
 export type ImageModel = {
   id: string;
@@ -12,7 +13,15 @@ export type ImageModel = {
   description: string;
 };
 
+export type VideoModel = {
+  id: string;
+  name: string;
+  provider: VideoModelProvider;
+  description: string;
+};
+
 export const DEFAULT_IMAGE_MODEL_ID = "google/gemini-3.1-flash-lite-image";
+export const DEFAULT_VIDEO_MODEL_ID = "google/veo-3.1-lite-generate-001";
 
 export const imageModels: ImageModel[] = [
   {
@@ -47,6 +56,33 @@ export const imageModels: ImageModel[] = [
   },
 ];
 
+export const videoModels: VideoModel[] = [
+  {
+    id: "minimax/minimax-h3",
+    name: "MiniMax H3",
+    provider: "minimax",
+    description: "Text-to-video and image-to-video generation with multimodal references.",
+  },
+  {
+    id: "xai/grok-imagine-video-1.5",
+    name: "Grok Imagine Video 1.5",
+    provider: "xai",
+    description: "Fast video generation with prompt-driven motion and style control.",
+  },
+  {
+    id: "bytedance/seedance-2.0",
+    name: "Seedance 2.0",
+    provider: "bytedance",
+    description: "Advanced video generation with audio-visual and multimodal inputs.",
+  },
+  {
+    id: "google/veo-3.1-lite-generate-001",
+    name: "Veo 3.1 Lite",
+    provider: "google",
+    description: "Fast and cost-effective video generation with Google Veo 3.1 Lite.",
+  },
+];
+
 export function resolveImageModelId(provider?: string, explicitModelId?: string) {
   const normalizedExplicitModelId = explicitModelId?.trim();
   if (normalizedExplicitModelId) {
@@ -63,6 +99,24 @@ export function resolveImageModelId(provider?: string, explicitModelId?: string)
   );
 
   return matchedModel?.id ?? DEFAULT_IMAGE_MODEL_ID;
+}
+
+export function resolveVideoModelId(provider?: string, explicitModelId?: string) {
+  const normalizedExplicitModelId = explicitModelId?.trim();
+  if (normalizedExplicitModelId) {
+    return normalizedExplicitModelId;
+  }
+
+  const normalizedProvider = provider?.trim().toLowerCase();
+  if (!normalizedProvider) {
+    return DEFAULT_VIDEO_MODEL_ID;
+  }
+
+  const matchedModel = videoModels.find(
+    (model) => model.provider === normalizedProvider
+  );
+
+  return matchedModel?.id ?? DEFAULT_VIDEO_MODEL_ID;
 }
 
 export const titleModel = {
