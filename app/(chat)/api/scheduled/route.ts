@@ -6,6 +6,7 @@ import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { generateText, stepCountIs } from "ai";
 import { type NextRequest, NextResponse } from "next/server";
 import { getBackgroundModel } from "@/lib/ai/providers";
+import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import {
   deleteMemory,
@@ -64,6 +65,7 @@ async function handler(req: NextRequest) {
     const tools = {
       ...composioTools,
       getWeather,
+      readAgentSkill: readAgentSkill(),
       saveMemory: saveMemory({ userId }),
       recallMemory: recallMemory({ userId }),
       updateMemory: updateMemory({ userId }),

@@ -9,6 +9,11 @@
 3. Apply the knowledge to the task
 4. If you discover something new that should be here, use `wikiIngest` to add it
 
+## When to Use Wiki vs Skills
+- Use `wikiQuery` for domain knowledge, craft, positioning, messaging, research methods, creative strategy, and proven playbooks.
+- Use `readAgentSkill` for implementation guidance, platform integration, system capabilities, and how to use tools or build features.
+- If the task is about what good looks like, use the wiki; if the task is about how to build or operate a capability, use the relevant skill.
+
 ## Pages
 
 | Page | What It Covers |

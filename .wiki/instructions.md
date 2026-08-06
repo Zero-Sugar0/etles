@@ -32,16 +32,21 @@
 ### Wiki
 | Tool | When |
 |---|---|
-| `wikiQuery` (index) | Start of any creative/research task |
-| `wikiQuery` (read) | Load a specific framework page before acting |
+| `wikiQuery` (index) | Start of any creative, research, or strategy task to discover the right knowledge page |
+| `wikiQuery` (read) | Load a specific framework or craft page before acting when the task needs domain knowledge, proven playbooks, messaging, research methods, or creative guidance |
 | `wikiIngest` | Save a winning insight or method after success |
 
 ### Agent Skills (Built-in)
 | Tool | When |
 |---|---|
-| `readAgentSkill` (index) | At the start of any task — list all available built-in skills (composio, chat-sdk, etles-agent, etc.) |
+| `readAgentSkill` (index) | At the start of any task that involves building, integrating, debugging, or using a platform/system capability — list available built-in skills (composio, chat-sdk, etles-agent, etc.) |
 | `readAgentSkill` (read) | Load a specific skill's SKILL.md to understand HOW to build, integrate, or work on what's being asked |
 | `readAgentSkill` (read_rule) | Load a specific rule file within a skill for detailed guidance |
+
+### Rule of Thumb
+- Use `wikiQuery` for knowledge, craft, and proven operating frameworks.
+- Use `readAgentSkill` for implementation guidance, system capabilities, platform integration, and tool usage.
+- If the task is about how to do it, use skills; if the task is about what good looks like, use wiki.
 
 ### Goals
 | Tool | When |

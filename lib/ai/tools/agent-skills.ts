@@ -8,27 +8,38 @@ import path from "node:path";
 import { tool } from "ai";
 import { z } from "zod";
 
-const SKILLS_ROOT = path.join(process.cwd(), ".agents", "skills");
+const SKILLS_ROOTS = [
+  path.join(process.cwd(), ".agents", "skills"),
+  path.join(process.cwd(), ".agent", "skills"),
+];
 const MAX_READ_CHARS = 32_000;
 
 async function listSkillSlugs(): Promise<string[]> {
-  try {
-    const entries = await fs.readdir(SKILLS_ROOT, { withFileTypes: true });
-    return entries
-      .filter((e) => e.isDirectory())
-      .map((e) => e.name)
-      .sort();
-  } catch {
-    return [];
+  const slugs = new Set<string>();
+
+  for (const root of SKILLS_ROOTS) {
+    try {
+      const entries = await fs.readdir(root, { withFileTypes: true });
+      entries
+        .filter((e) => e.isDirectory())
+        .forEach((e) => slugs.add(e.name));
+    } catch {
+      // Ignore missing roots and continue to the next candidate.
+    }
   }
+
+  return [...slugs].sort();
 }
 
 function safeSkillPath(slug: string): string | null {
-  const resolved = path.resolve(SKILLS_ROOT, slug, "SKILL.md");
-  if (!resolved.startsWith(SKILLS_ROOT + path.sep)) {
-    return null;
+  for (const root of SKILLS_ROOTS) {
+    const resolved = path.resolve(root, slug, "SKILL.md");
+    if (resolved.startsWith(root + path.sep)) {
+      return resolved;
+    }
   }
-  return resolved;
+
+  return null;
 }
 
 async function readSkillFile(slug: string): Promise<string | null> {
@@ -48,7 +59,7 @@ async function readSkillFile(slug: string): Promise<string | null> {
 }
 
 async function listRuleFiles(slug: string): Promise<string[]> {
-  const rulesDir = path.resolve(SKILLS_ROOT, slug, "rules");
+  const rulesDir = path.resolve(SKILLS_ROOTS[0], slug, "rules");
   try {
     const entries = await fs.readdir(rulesDir, { withFileTypes: true });
     return entries
@@ -57,6 +68,37 @@ async function listRuleFiles(slug: string): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+export type BuiltInSkillSummary = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  isDefault: boolean;
+};
+
+export async function getBuiltInSkillCatalog(): Promise<BuiltInSkillSummary[]> {
+  const slugs = await listSkillSlugs();
+
+  return Promise.all(
+    slugs.map(async (slug) => {
+      const content = await readSkillFile(slug);
+      const titleMatch = content?.match(/^name:\s*(.+)$/m);
+      const title = titleMatch?.[1]?.trim() || slug;
+
+      const descriptionMatch = content?.match(/^description:\s*(.+)$/m);
+      const description = descriptionMatch?.[1]?.trim() || "Built-in agent skill";
+
+      return {
+        id: `builtin-${slug}`,
+        slug,
+        title,
+        description,
+        isDefault: true,
+      };
+    })
+  );
 }
 
 export const readAgentSkill = () =>
@@ -130,10 +172,10 @@ export const readAgentSkill = () =>
               : `No rules/ folder for skill '${slug}'.`,
           };
         }
-        const rulePath = path.resolve(SKILLS_ROOT, slug, "rules", rule);
+        const rulePath = path.resolve(SKILLS_ROOTS[0], slug, "rules", rule);
         if (
           !rulePath.startsWith(
-            path.resolve(SKILLS_ROOT, slug, "rules") + path.sep
+            path.resolve(SKILLS_ROOTS[0], slug, "rules") + path.sep
           )
         ) {
           return { success: false, error: "Invalid rule path" };

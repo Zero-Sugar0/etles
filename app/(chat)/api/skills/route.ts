@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
+import { getBuiltInSkillCatalog } from "@/lib/ai/tools/agent-skills";
 import { getUserSkillsByUserId, saveUserSkill } from "@/lib/db/queries";
 
 const WIKI_ROOT = path.join(process.cwd(), ".wiki");
@@ -51,8 +52,9 @@ export async function GET() {
   }
 
   try {
-    const [defaultPages, userSkills] = await Promise.all([
+    const [defaultPages, builtInSkills, userSkills] = await Promise.all([
       listDefaultPages(),
+      getBuiltInSkillCatalog(),
       getUserSkillsByUserId(session.user.id),
     ]);
 
@@ -65,7 +67,11 @@ export async function GET() {
       updatedAt: s.updatedAt,
     }));
 
-    return NextResponse.json([...defaultPages, ...formattedUserSkills]);
+    return NextResponse.json([
+      ...defaultPages,
+      ...builtInSkills,
+      ...formattedUserSkills,
+    ]);
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch skills" },
