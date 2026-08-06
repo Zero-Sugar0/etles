@@ -1,19 +1,29 @@
-import { Suspense } from "react";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { auth } from "@/app/(auth)/auth";
 import { isUserOnboarded } from "@/lib/ai/tools/memory";
-import { getMissionsByUserId, getCampaignQueueByMissionId } from "@/lib/db/queries";
+import {
+  getCampaignQueueByMissionId,
+  getMissionsByUserId,
+} from "@/lib/db/queries";
 import { CampaignDashboardClient } from "./campaign-dashboard-client";
-import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Campaign Workspace | Etles AI",
-  description: "Audit, refine, and approve auto-generated SDR emails, social content, and community touchpoints before they run live.",
+  description:
+    "Audit, refine, and approve auto-generated SDR emails, social content, and community touchpoints before they run live.",
 };
 
 export default function Page() {
   return (
-    <Suspense fallback={<div className="flex h-dvh items-center justify-center text-sm text-muted-foreground">Loading Campaign Workspace...</div>}>
+    <Suspense
+      fallback={
+        <div className="flex h-dvh items-center justify-center text-sm text-muted-foreground">
+          Loading Campaign Workspace...
+        </div>
+      }
+    >
       <CampaignsPage />
     </Suspense>
   );

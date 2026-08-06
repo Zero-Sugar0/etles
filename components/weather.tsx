@@ -293,10 +293,13 @@ export function Weather({
     !weatherAtLocation.daily.sunrise ||
     !weatherAtLocation.daily.sunset
   ) {
-    const errMsg = (weatherAtLocation as any)?.error || "Invalid weather data format.";
+    const errMsg =
+      (weatherAtLocation as any)?.error || "Invalid weather data format.";
     return (
       <div className="flex w-full flex-col gap-2 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-xs text-red-500 backdrop-blur-xs">
-        <div className="font-semibold text-red-600 dark:text-red-400">Weather Lookup Failed</div>
+        <div className="font-semibold text-red-600 dark:text-red-400">
+          Weather Lookup Failed
+        </div>
         <div className="text-red-500/80">{errMsg}</div>
       </div>
     );

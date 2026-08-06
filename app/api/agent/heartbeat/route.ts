@@ -12,9 +12,12 @@
  * Body: { userId: string, type: "weekly_synthesis" }
  */
 
-import { NextRequest, NextResponse } from "next/server";
 import { Receiver } from "@upstash/qstash";
-import { triggerHeartbeatWorkflow, triggerWeeklySynthesisWorkflow } from "@/lib/workflow/client";
+import { type NextRequest, NextResponse } from "next/server";
+import {
+  triggerHeartbeatWorkflow,
+  triggerWeeklySynthesisWorkflow,
+} from "@/lib/workflow/client";
 
 const receiver = process.env.QSTASH_CURRENT_SIGNING_KEY
   ? new Receiver({
@@ -28,11 +31,13 @@ export async function POST(req: NextRequest) {
   if (receiver) {
     const body = await req.text();
     const signature = req.headers.get("upstash-signature") ?? "";
-    const isValid = await receiver.verify({
-      signature,
-      body,
-      clockTolerance: 5,
-    }).catch(() => false);
+    const isValid = await receiver
+      .verify({
+        signature,
+        body,
+        clockTolerance: 5,
+      })
+      .catch(() => false);
 
     if (!isValid) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -46,7 +51,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { userId, type } = parsed;
-    if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    if (!userId) {
+      return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    }
 
     // Fire-and-forget — respond to QStash immediately to avoid delivery timeout.
     const triggered =
@@ -56,48 +63,77 @@ export async function POST(req: NextRequest) {
 
     if (!triggered) {
       console.error(
-        `[Heartbeat] Workflow trigger failed for user ${userId}. Check QSTASH_TOKEN and BASE_URL.`,
+        `[Heartbeat] Workflow trigger failed for user ${userId}. Check QSTASH_TOKEN and BASE_URL.`
       );
     }
 
     if (type === "weekly_synthesis") {
-      return NextResponse.json({ ok: true, type: "weekly_synthesis", workflowRunId: triggered?.workflowRunId ?? null });
+      return NextResponse.json({
+        ok: true,
+        type: "weekly_synthesis",
+        workflowRunId: triggered?.workflowRunId ?? null,
+      });
     }
 
-    return NextResponse.json({ ok: true, type: "heartbeat", workflowRunId: triggered?.workflowRunId ?? null });
+    return NextResponse.json({
+      ok: true,
+      type: "heartbeat",
+      workflowRunId: triggered?.workflowRunId ?? null,
+    });
   }
 
   // Dev mode (no signing keys) — still require a basic secret
-  const devSecret = req.headers.get("x-heartbeat-secret") || req.headers.get("x-agent-secret");
-  const validSecret = process.env.AGENT_DELEGATE_SECRET || process.env.AUTH_SECRET || "dev-internal";
+  const devSecret =
+    req.headers.get("x-heartbeat-secret") || req.headers.get("x-agent-secret");
+  const validSecret =
+    process.env.AGENT_DELEGATE_SECRET ||
+    process.env.AUTH_SECRET ||
+    "dev-internal";
   if (devSecret !== validSecret) {
-    return NextResponse.json({ 
-      error: "Unauthorized",
-      message: "Secret mismatch"
-    }, { status: 401 });
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+        message: "Secret mismatch",
+      },
+      { status: 401 }
+    );
   }
 
   let body: { userId?: string; type?: string };
   try {
-    body = await req.json() as { userId?: string; type?: string };
+    body = (await req.json()) as { userId?: string; type?: string };
   } catch {
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
   const { userId, type } = body;
-  if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  if (!userId) {
+    return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+  }
 
   if (type === "weekly_synthesis") {
     const triggered = await triggerWeeklySynthesisWorkflow({ userId });
     if (!triggered) {
-      console.error(`[Heartbeat] Dev synthesis workflow trigger failed for ${userId}`);
+      console.error(
+        `[Heartbeat] Dev synthesis workflow trigger failed for ${userId}`
+      );
     }
-    return NextResponse.json({ ok: true, type: "weekly_synthesis", workflowRunId: triggered?.workflowRunId ?? null });
+    return NextResponse.json({
+      ok: true,
+      type: "weekly_synthesis",
+      workflowRunId: triggered?.workflowRunId ?? null,
+    });
   }
 
   const triggered = await triggerHeartbeatWorkflow({ userId });
   if (!triggered) {
-    console.error(`[Heartbeat] Dev workflow trigger failed for ${userId}. Check QSTASH_TOKEN and BASE_URL.`);
+    console.error(
+      `[Heartbeat] Dev workflow trigger failed for ${userId}. Check QSTASH_TOKEN and BASE_URL.`
+    );
   }
-  return NextResponse.json({ ok: true, type: "heartbeat", workflowRunId: triggered?.workflowRunId ?? null });
+  return NextResponse.json({
+    ok: true,
+    type: "heartbeat",
+    workflowRunId: triggered?.workflowRunId ?? null,
+  });
 }

@@ -1,7 +1,7 @@
 import { tool } from "ai";
-import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
+import { z } from "zod";
 
 // Simple in-memory fallback cache
 const memoryScratchpads = new Map<string, string>();
@@ -58,7 +58,13 @@ function clearScratch(userId: string, keyId: string) {
   }
 }
 
-export const readScratchpad = ({ userId, keyId }: { userId: string; keyId: string }) =>
+export const readScratchpad = ({
+  userId,
+  keyId,
+}: {
+  userId: string;
+  keyId: string;
+}) =>
   tool({
     description:
       "Read the contents of your scratchpad. Use this to retrieve your notes, plans, " +
@@ -73,7 +79,13 @@ export const readScratchpad = ({ userId, keyId }: { userId: string; keyId: strin
     },
   });
 
-export const writeScratchpad = ({ userId, keyId }: { userId: string; keyId: string }) =>
+export const writeScratchpad = ({
+  userId,
+  keyId,
+}: {
+  userId: string;
+  keyId: string;
+}) =>
   tool({
     description:
       "Write content to your scratchpad. You can either overwrite the scratchpad " +
@@ -83,7 +95,9 @@ export const writeScratchpad = ({ userId, keyId }: { userId: string; keyId: stri
       mode: z
         .enum(["overwrite", "append"])
         .default("overwrite")
-        .describe("Whether to overwrite the entire scratchpad or append to the end of it."),
+        .describe(
+          "Whether to overwrite the entire scratchpad or append to the end of it."
+        ),
     }),
     execute: async ({ content, mode }) => {
       let finalContent = content;
@@ -100,7 +114,13 @@ export const writeScratchpad = ({ userId, keyId }: { userId: string; keyId: stri
     },
   });
 
-export const clearScratchpad = ({ userId, keyId }: { userId: string; keyId: string }) =>
+export const clearScratchpad = ({
+  userId,
+  keyId,
+}: {
+  userId: string;
+  keyId: string;
+}) =>
   tool({
     description: "Clear all contents of your scratchpad.",
     inputSchema: z.object({}),

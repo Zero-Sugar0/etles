@@ -12,10 +12,7 @@
       "context_window": 40960,
       "max_tokens": 16384,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["reasoning", "tool-use"],
       "pricing": {
         "input": "0.00000012",
         "output": "0.00000024"
@@ -32,10 +29,7 @@
       "context_window": 262144,
       "max_tokens": 16384,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "reasoning"
-      ],
+      "tags": ["tool-use", "reasoning"],
       "pricing": {
         "input": "0.00000022",
         "output": "0.00000088"
@@ -52,10 +46,7 @@
       "context_window": 40960,
       "max_tokens": 16384,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["reasoning", "tool-use"],
       "pricing": {
         "input": "0.00000012",
         "output": "0.0000005"
@@ -72,11 +63,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000016",
         "output": "0.00000064"
@@ -93,11 +80,7 @@
       "context_window": 240000,
       "max_tokens": 64000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.0000013",
         "input_tiers": [
@@ -183,10 +166,7 @@
       "context_window": 262144,
       "max_tokens": 65536,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "tool-use"],
       "pricing": {
         "input": "0.0000015",
         "input_tiers": [
@@ -252,9 +232,7 @@
       "context_window": 262144,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.00000015",
         "output": "0.0000006"
@@ -271,9 +249,7 @@
       "context_window": 256000,
       "max_tokens": 256000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.0000005",
         "output": "0.0000012"
@@ -290,10 +266,7 @@
       "context_window": 1000000,
       "max_tokens": 65536,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "tool-use"],
       "pricing": {
         "input": "0.000001",
         "input_tiers": [
@@ -419,10 +392,7 @@
       "context_window": 262144,
       "max_tokens": 32768,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000012",
         "input_tiers": [
@@ -488,10 +458,7 @@
       "context_window": 262144,
       "max_tokens": 32768,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000012",
         "input_tiers": [
@@ -557,11 +524,7 @@
       "context_window": 256000,
       "max_tokens": 65536,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000012",
         "input_tiers": [
@@ -627,9 +590,7 @@
       "context_window": 131072,
       "max_tokens": 32768,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.00000015",
         "output": "0.0000012"
@@ -646,10 +607,7 @@
       "context_window": 131072,
       "max_tokens": 32768,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["reasoning", "tool-use"],
       "pricing": {
         "input": "0.00000015",
         "output": "0.0000012"
@@ -666,11 +624,7 @@
       "context_window": 131072,
       "max_tokens": 129024,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision",
-        "implicit-caching"
-      ],
+      "tags": ["tool-use", "vision", "implicit-caching"],
       "pricing": {
         "input": "0.0000004",
         "output": "0.0000016"
@@ -687,11 +641,7 @@
       "context_window": 131072,
       "max_tokens": 129024,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision",
-        "implicit-caching"
-      ],
+      "tags": ["tool-use", "vision", "implicit-caching"],
       "pricing": {
         "input": "0.0000004",
         "output": "0.0000016"
@@ -708,12 +658,7 @@
       "context_window": 131072,
       "max_tokens": 32768,
       "type": "language",
-      "tags": [
-        "vision",
-        "reasoning",
-        "tool-use",
-        "file-input"
-      ],
+      "tags": ["vision", "reasoning", "tool-use", "file-input"],
       "pricing": {
         "input": "0.0000004",
         "output": "0.000004"
@@ -824,12 +769,7 @@
       "context_window": 256000,
       "max_tokens": 256000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "file-input",
-        "vision"
-      ],
+      "tags": ["reasoning", "tool-use", "file-input", "vision"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.0000036"
@@ -915,11 +855,7 @@
       "context_window": 991000,
       "max_tokens": 64000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.00000125",
         "output": "0.00000375",
@@ -1155,12 +1091,7 @@
       "context_window": 1000000,
       "max_tokens": 1000000,
       "type": "language",
-      "tags": [
-        "file-input",
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["file-input", "reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000025",
@@ -1178,11 +1109,7 @@
       "context_window": 300000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "file-input",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["file-input", "tool-use", "vision"],
       "pricing": {
         "input": "0.00000006",
         "output": "0.00000024"
@@ -1199,9 +1126,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.000000035",
         "output": "0.00000014"
@@ -1218,11 +1143,7 @@
       "context_window": 300000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "file-input",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["file-input", "tool-use", "vision"],
       "pricing": {
         "input": "0.0000008",
         "output": "0.0000032"
@@ -1254,11 +1175,7 @@
       "context_window": 200000,
       "max_tokens": 4096,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision",
-        "explicit-caching"
-      ],
+      "tags": ["tool-use", "vision", "explicit-caching"],
       "pricing": {
         "input": "0.00000025",
         "output": "0.00000125",
@@ -1277,12 +1194,7 @@
       "context_window": 200000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "file-input",
-        "tool-use",
-        "vision",
-        "explicit-caching"
-      ],
+      "tags": ["file-input", "tool-use", "vision", "explicit-caching"],
       "pricing": {
         "input": "0.0000008",
         "output": "0.000004",
@@ -1709,9 +1621,7 @@
       "context_window": 131000,
       "max_tokens": 131000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.00000025",
         "output": "0.000001"
@@ -1728,10 +1638,7 @@
       "context_window": 262100,
       "max_tokens": 80000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["reasoning", "tool-use"],
       "pricing": {
         "input": "0.00000025",
         "output": "0.0000009"
@@ -1748,9 +1655,7 @@
       "context_window": 131072,
       "max_tokens": 131072,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.000000045",
         "output": "0.00000015"
@@ -1767,9 +1672,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {}
     },
     {
@@ -1783,9 +1686,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {}
     },
     {
@@ -1799,9 +1700,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {}
     },
     {
@@ -1815,9 +1714,7 @@
       "context_window": 67300,
       "max_tokens": 67300,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {}
     },
     {
@@ -1831,9 +1728,7 @@
       "context_window": 67300,
       "max_tokens": 67300,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {}
     },
     {
@@ -1847,9 +1742,7 @@
       "context_window": 512,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.08"
       }
@@ -1865,9 +1758,7 @@
       "context_window": 512,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.04"
       }
@@ -1883,9 +1774,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.05"
       }
@@ -1901,9 +1790,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.04"
       }
@@ -1919,9 +1806,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.06"
       }
@@ -1937,12 +1822,7 @@
       "context_window": 256000,
       "max_tokens": 32000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.00000025",
         "input_tiers": [
@@ -1982,12 +1862,7 @@
       "context_window": 256000,
       "max_tokens": 64000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.00000025",
         "input_tiers": [
@@ -2027,9 +1902,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "video",
-      "tags": [
-        "vision"
-      ],
+      "tags": ["vision"],
       "pricing": {
         "video_token_pricing": {
           "no_video_input": {
@@ -2053,9 +1926,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "video",
-      "tags": [
-        "vision"
-      ],
+      "tags": ["vision"],
       "pricing": {
         "video_token_pricing": {
           "no_video_input": {
@@ -2181,9 +2052,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.03"
       }
@@ -2199,9 +2068,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.04"
       }
@@ -2217,9 +2084,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.035"
       }
@@ -2235,9 +2100,7 @@
       "context_window": 256000,
       "max_tokens": 8000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.0000025",
         "output": "0.00001"
@@ -2308,11 +2171,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000135",
         "output": "0.0000054"
@@ -2329,10 +2188,7 @@
       "context_window": 163840,
       "max_tokens": 163840,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "tool-use"],
       "pricing": {
         "input": "0.00000027",
         "output": "0.00000112",
@@ -2350,11 +2206,7 @@
       "context_window": 128000,
       "max_tokens": 128000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.0000017"
@@ -2371,11 +2223,7 @@
       "context_window": 131072,
       "max_tokens": 65536,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.00000027",
         "output": "0.000001",
@@ -2393,10 +2241,7 @@
       "context_window": 128000,
       "max_tokens": 8000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000028",
         "output": "0.00000042",
@@ -2414,11 +2259,7 @@
       "context_window": 128000,
       "max_tokens": 8000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "implicit-caching",
-        "reasoning"
-      ],
+      "tags": ["tool-use", "implicit-caching", "reasoning"],
       "pricing": {
         "input": "0.00000062",
         "output": "0.00000185"
@@ -2435,11 +2276,7 @@
       "context_window": 1000000,
       "max_tokens": 384000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000014",
         "output": "0.00000028",
@@ -2457,11 +2294,7 @@
       "context_window": 1000000,
       "max_tokens": 384000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.000000435",
         "output": "0.00000087",
@@ -2517,11 +2350,7 @@
       "context_window": 32768,
       "max_tokens": 65536,
       "type": "language",
-      "tags": [
-        "image-generation",
-        "implicit-caching",
-        "web-search"
-      ],
+      "tags": ["image-generation", "implicit-caching", "web-search"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000025",
@@ -2743,11 +2572,7 @@
       "context_window": 65536,
       "max_tokens": 32768,
       "type": "language",
-      "tags": [
-        "image-generation",
-        "web-search",
-        "implicit-caching"
-      ],
+      "tags": ["image-generation", "web-search", "implicit-caching"],
       "pricing": {
         "input": "0.000002",
         "output": "0.000012",
@@ -3264,12 +3089,7 @@
       "context_window": 262144,
       "max_tokens": 131072,
       "type": "language",
-      "tags": [
-        "file-input",
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["file-input", "reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.00000014",
         "output": "0.0000004"
@@ -3286,9 +3106,7 @@
       "context_window": 480,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.02"
       }
@@ -3304,9 +3122,7 @@
       "context_window": 480,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.04"
       }
@@ -3322,9 +3138,7 @@
       "context_window": 480,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.06"
       }
@@ -3534,11 +3348,7 @@
       "context_window": 128000,
       "max_tokens": 128000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.00000025",
         "output": "0.00000075",
@@ -3556,9 +3366,7 @@
       "context_window": 32000,
       "max_tokens": 16384,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.00000025",
         "output": "0.000001"
@@ -3575,12 +3383,7 @@
       "context_window": 1000000,
       "max_tokens": 32000,
       "type": "language",
-      "tags": [
-        "file-input",
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["file-input", "reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.0000015",
         "output": "0.0000035"
@@ -3845,9 +3648,7 @@
       "context_window": 256000,
       "max_tokens": 32000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000012",
@@ -3865,11 +3666,7 @@
       "context_window": 256000,
       "max_tokens": 256000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "reasoning",
-        "implicit-caching"
-      ],
+      "tags": ["tool-use", "reasoning", "implicit-caching"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000012",
@@ -3887,9 +3684,7 @@
       "context_window": 128000,
       "max_tokens": 100000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {}
     },
     {
@@ -3903,10 +3698,7 @@
       "context_window": 32768,
       "max_tokens": 32768,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["reasoning", "tool-use"],
       "pricing": {}
     },
     {
@@ -3920,9 +3712,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.00000072",
         "output": "0.00000072"
@@ -3939,10 +3729,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000022",
         "output": "0.00000022"
@@ -3959,10 +3746,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.00000016",
         "output": "0.00000016"
@@ -4011,10 +3795,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.00000072",
         "output": "0.00000072"
@@ -4031,9 +3812,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.00000072",
         "output": "0.00000072"
@@ -4050,10 +3829,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.00000024",
         "output": "0.00000097"
@@ -4070,10 +3846,7 @@
       "context_window": 128000,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.00000017",
         "output": "0.00000066"
@@ -4090,11 +3863,7 @@
       "context_window": 205000,
       "max_tokens": 205000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000012",
@@ -4113,11 +3882,7 @@
       "context_window": 204800,
       "max_tokens": 131072,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000012",
@@ -4136,11 +3901,7 @@
       "context_window": 204800,
       "max_tokens": 131072,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000024",
@@ -4159,11 +3920,7 @@
       "context_window": 204800,
       "max_tokens": 131000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000012",
@@ -4182,11 +3939,7 @@
       "context_window": 204800,
       "max_tokens": 131000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.0000024",
@@ -4205,11 +3958,7 @@
       "context_window": 204800,
       "max_tokens": 131000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000012",
@@ -4228,11 +3977,7 @@
       "context_window": 204800,
       "max_tokens": 131100,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.0000024",
@@ -4308,9 +4053,7 @@
       "context_window": 128000,
       "max_tokens": 4000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.0000003",
         "output": "0.0000009"
@@ -4342,9 +4085,7 @@
       "context_window": 256000,
       "max_tokens": 256000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.0000004",
         "output": "0.000002"
@@ -4361,9 +4102,7 @@
       "context_window": 128000,
       "max_tokens": 64000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.0000001",
         "output": "0.0000003"
@@ -4380,10 +4119,7 @@
       "context_window": 256000,
       "max_tokens": 256000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.0000001",
         "output": "0.0000003"
@@ -4400,11 +4136,7 @@
       "context_window": 128000,
       "max_tokens": 64000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.000002",
         "output": "0.000005"
@@ -4421,11 +4153,7 @@
       "context_window": 128000,
       "max_tokens": 64000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.0000005",
         "output": "0.0000015"
@@ -4442,11 +4170,7 @@
       "context_window": 256000,
       "max_tokens": 256000,
       "type": "language",
-      "tags": [
-        "file-input",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["file-input", "tool-use", "vision"],
       "pricing": {
         "input": "0.0000002",
         "output": "0.0000002"
@@ -4463,9 +4187,7 @@
       "context_window": 128000,
       "max_tokens": 4000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.0000001",
         "output": "0.0000001"
@@ -4482,9 +4204,7 @@
       "context_window": 128000,
       "max_tokens": 4000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.00000015",
         "output": "0.00000015"
@@ -4516,10 +4236,7 @@
       "context_window": 256000,
       "max_tokens": 256000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.0000005",
         "output": "0.0000015"
@@ -4536,10 +4253,7 @@
       "context_window": 128000,
       "max_tokens": 64000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.0000004",
         "output": "0.000002"
@@ -4556,11 +4270,7 @@
       "context_window": 256000,
       "max_tokens": 256000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.0000015",
         "output": "0.0000075"
@@ -4577,9 +4287,7 @@
       "context_window": 128000,
       "max_tokens": 128000,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.00000015",
         "output": "0.00000015"
@@ -4596,10 +4304,7 @@
       "context_window": 32000,
       "max_tokens": 4000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.0000001",
         "output": "0.0000003"
@@ -4616,10 +4321,7 @@
       "context_window": 128000,
       "max_tokens": 4000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.00000015",
         "output": "0.00000015"
@@ -4636,10 +4338,7 @@
       "context_window": 128000,
       "max_tokens": 4000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.000002",
         "output": "0.000006"
@@ -4656,9 +4355,7 @@
       "context_window": 131072,
       "max_tokens": 131072,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.00000057",
         "output": "0.0000023"
@@ -4675,11 +4372,7 @@
       "context_window": 216144,
       "max_tokens": 216144,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000047",
         "output": "0.000002",
@@ -4697,12 +4390,7 @@
       "context_window": 262114,
       "max_tokens": 262114,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "vision",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "vision", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.000003",
@@ -4720,12 +4408,7 @@
       "context_window": 262000,
       "max_tokens": 262000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.00000095",
         "output": "0.000004",
@@ -4823,10 +4506,7 @@
       "context_window": 262144,
       "max_tokens": 262144,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["reasoning", "tool-use"],
       "pricing": {
         "input": "0.00000005",
         "output": "0.00000024"
@@ -4843,11 +4523,7 @@
       "context_window": 256000,
       "max_tokens": 32000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000015",
         "output": "0.00000065"
@@ -4864,11 +4540,7 @@
       "context_window": 1000000,
       "max_tokens": 65000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.0000024",
@@ -4886,11 +4558,7 @@
       "context_window": 131072,
       "max_tokens": 131072,
       "type": "language",
-      "tags": [
-        "vision",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["vision", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.0000002",
         "output": "0.0000006"
@@ -4907,10 +4575,7 @@
       "context_window": 131072,
       "max_tokens": 131072,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["reasoning", "tool-use"],
       "pricing": {
         "input": "0.00000006",
         "output": "0.00000023"
@@ -4927,9 +4592,7 @@
       "context_window": 16385,
       "max_tokens": 4096,
       "type": "language",
-      "tags": [
-        "tool-use"
-      ],
+      "tags": ["tool-use"],
       "pricing": {
         "input": "0.0000005",
         "output": "0.0000015"
@@ -4962,10 +4625,7 @@
       "context_window": 128000,
       "max_tokens": 4096,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["tool-use", "vision"],
       "pricing": {
         "input": "0.00001",
         "output": "0.00003"
@@ -5142,9 +4802,7 @@
       "context_window": 128000,
       "max_tokens": 16384,
       "type": "language",
-      "tags": [
-        "web-search"
-      ],
+      "tags": ["web-search"],
       "pricing": {
         "input": "0.00000015",
         "output": "0.0000006",
@@ -5358,13 +5016,7 @@
       "context_window": 400000,
       "max_tokens": 272000,
       "type": "language",
-      "tags": [
-        "file-input",
-        "reasoning",
-        "tool-use",
-        "vision",
-        "web-search"
-      ],
+      "tags": ["file-input", "reasoning", "tool-use", "vision", "web-search"],
       "pricing": {
         "input": "0.000015",
         "output": "0.00012",
@@ -5633,13 +5285,7 @@
       "context_window": 400000,
       "max_tokens": 128000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "vision",
-        "reasoning",
-        "file-input",
-        "web-search"
-      ],
+      "tags": ["tool-use", "vision", "reasoning", "file-input", "web-search"],
       "pricing": {
         "input": "0.000021",
         "output": "0.000168",
@@ -6000,13 +5646,7 @@
       "context_window": 1000000,
       "max_tokens": 128000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "file-input",
-        "web-search",
-        "vision"
-      ],
+      "tags": ["reasoning", "tool-use", "file-input", "web-search", "vision"],
       "pricing": {
         "input": "0.00003",
         "input_tiers": [
@@ -6052,10 +5692,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation",
-        "implicit-caching"
-      ],
+      "tags": ["image-generation", "implicit-caching"],
       "pricing": {
         "input": "0.000005",
         "output": "0.00004",
@@ -6073,10 +5710,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation",
-        "implicit-caching"
-      ],
+      "tags": ["image-generation", "implicit-caching"],
       "pricing": {
         "input": "0.000002",
         "output": "0.000008",
@@ -6094,10 +5728,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation",
-        "implicit-caching"
-      ],
+      "tags": ["image-generation", "implicit-caching"],
       "pricing": {
         "input": "0.000005",
         "output": "0.000032",
@@ -6115,10 +5746,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation",
-        "implicit-caching"
-      ],
+      "tags": ["image-generation", "implicit-caching"],
       "pricing": {
         "input": "0.000005",
         "output": "0.00003",
@@ -6136,11 +5764,7 @@
       "context_window": 131072,
       "max_tokens": 131072,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000001",
         "output": "0.0000005"
@@ -6157,11 +5781,7 @@
       "context_window": 131072,
       "max_tokens": 8192,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000005",
         "output": "0.0000002"
@@ -6178,11 +5798,7 @@
       "context_window": 131072,
       "max_tokens": 65536,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.000000075",
         "output": "0.0000003",
@@ -6218,9 +5834,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "realtime",
-      "tags": [
-        "websocket-realtime"
-      ],
+      "tags": ["websocket-realtime"],
       "pricing": {
         "input": "0.000004",
         "output": "0.000024",
@@ -6345,11 +5959,7 @@
       "context_window": 200000,
       "max_tokens": 100000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.0000011",
         "output": "0.0000044",
@@ -6367,13 +5977,7 @@
       "context_window": 200000,
       "max_tokens": 100000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "vision",
-        "file-input",
-        "tool-use",
-        "web-search"
-      ],
+      "tags": ["reasoning", "vision", "file-input", "tool-use", "web-search"],
       "pricing": {
         "input": "0.00002",
         "output": "0.00008",
@@ -6516,10 +6120,7 @@
       "context_window": 127000,
       "max_tokens": 8000,
       "type": "language",
-      "tags": [
-        "vision",
-        "web-search"
-      ],
+      "tags": ["vision", "web-search"],
       "pricing": {}
     },
     {
@@ -6533,10 +6134,7 @@
       "context_window": 200000,
       "max_tokens": 8000,
       "type": "language",
-      "tags": [
-        "vision",
-        "web-search"
-      ],
+      "tags": ["vision", "web-search"],
       "pricing": {}
     },
     {
@@ -6550,10 +6148,7 @@
       "context_window": 127000,
       "max_tokens": 8000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "web-search"
-      ],
+      "tags": ["reasoning", "web-search"],
       "pricing": {}
     },
     {
@@ -6567,9 +6162,7 @@
       "context_window": 512,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {}
     },
     {
@@ -6583,9 +6176,7 @@
       "context_window": 131072,
       "max_tokens": 131072,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image_dimension_quality_pricing": [
           {
@@ -6610,9 +6201,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.022",
         "image_dimension_quality_pricing": [
@@ -6634,9 +6223,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.04",
         "image_dimension_quality_pricing": [
@@ -6658,9 +6245,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.04",
         "image_dimension_quality_pricing": [
@@ -6682,9 +6267,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.25",
         "image_dimension_quality_pricing": [
@@ -6706,9 +6289,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.035",
         "image_dimension_quality_pricing": [
@@ -6730,9 +6311,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.21",
         "image_dimension_quality_pricing": [
@@ -6754,9 +6333,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.035",
         "image_dimension_quality_pricing": [
@@ -6778,9 +6355,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.21",
         "image_dimension_quality_pricing": [
@@ -6802,11 +6377,7 @@
       "context_window": 1000000,
       "max_tokens": 1000000,
       "type": "language",
-      "tags": [
-        "vision",
-        "tool-use",
-        "reasoning"
-      ],
+      "tags": ["vision", "tool-use", "reasoning"],
       "pricing": {
         "input": "0.000005",
         "input_tiers": [
@@ -6857,11 +6428,7 @@
       "context_window": 262114,
       "max_tokens": 262114,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000009",
         "output": "0.0000003",
@@ -6879,12 +6446,7 @@
       "context_window": 256000,
       "max_tokens": 256000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.0000002",
         "output": "0.00000115",
@@ -7082,12 +6644,7 @@
       "context_window": 1000000,
       "max_tokens": 1000000,
       "type": "language",
-      "tags": [
-        "tool-use",
-        "file-input",
-        "vision",
-        "implicit-caching"
-      ],
+      "tags": ["tool-use", "file-input", "vision", "implicit-caching"],
       "pricing": {
         "input": "0.0000002",
         "output": "0.0000005",
@@ -7593,9 +7150,7 @@
       "context_window": 0,
       "max_tokens": 0,
       "type": "image",
-      "tags": [
-        "image-generation"
-      ],
+      "tags": ["image-generation"],
       "pricing": {
         "image": "0.02"
       }
@@ -7732,11 +7287,7 @@
       "context_window": 262144,
       "max_tokens": 32000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.0000001",
         "output": "0.0000003",
@@ -7754,11 +7305,7 @@
       "context_window": 1000000,
       "max_tokens": 128000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.000001",
         "input_tiers": [
@@ -7833,12 +7380,7 @@
       "context_window": 1050000,
       "max_tokens": 131000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "file-input",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "file-input", "implicit-caching"],
       "pricing": {
         "input": "0.000000435",
         "output": "0.00000087",
@@ -7856,11 +7398,7 @@
       "context_window": 128000,
       "max_tokens": 96000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.0000022",
@@ -7878,11 +7416,7 @@
       "context_window": 128000,
       "max_tokens": 96000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000002",
         "output": "0.0000011",
@@ -7900,12 +7434,7 @@
       "context_window": 66000,
       "max_tokens": 16000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use",
-        "vision"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use", "vision"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.0000018",
@@ -7923,11 +7452,7 @@
       "context_window": 200000,
       "max_tokens": 96000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.0000022",
@@ -7989,11 +7514,7 @@
       "context_window": 200000,
       "max_tokens": 120000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000006",
         "output": "0.0000022",
@@ -8011,11 +7532,7 @@
       "context_window": 200000,
       "max_tokens": 131000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000007",
         "output": "0.0000004"
@@ -8032,11 +7549,7 @@
       "context_window": 200000,
       "max_tokens": 128000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000006",
         "output": "0.0000004",
@@ -8054,11 +7567,7 @@
       "context_window": 202800,
       "max_tokens": 131100,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.00000095",
         "output": "0.00000315",
@@ -8076,11 +7585,7 @@
       "context_window": 202800,
       "max_tokens": 131100,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000012",
         "output": "0.000004",
@@ -8098,11 +7603,7 @@
       "context_window": 202000,
       "max_tokens": 202000,
       "type": "language",
-      "tags": [
-        "implicit-caching",
-        "reasoning",
-        "tool-use"
-      ],
+      "tags": ["implicit-caching", "reasoning", "tool-use"],
       "pricing": {
         "input": "0.0000013",
         "output": "0.0000043",
@@ -8120,11 +7621,7 @@
       "context_window": 1040000,
       "max_tokens": 128000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.0000014",
         "output": "0.0000044",
@@ -8142,11 +7639,7 @@
       "context_window": 1000000,
       "max_tokens": 128000,
       "type": "language",
-      "tags": [
-        "reasoning",
-        "tool-use",
-        "implicit-caching"
-      ],
+      "tags": ["reasoning", "tool-use", "implicit-caching"],
       "pricing": {
         "input": "0.000003",
         "output": "0.00001025",

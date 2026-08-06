@@ -10,31 +10,34 @@
  * Triggered by: app/api/telegram/[userId]/route.ts → after() block
  */
 
-import { serve } from "@upstash/workflow/nextjs";
-import { generateText, stepCountIs } from "ai";
-import { Redis } from "@upstash/redis";
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
+import { Redis } from "@upstash/redis";
+import { serve } from "@upstash/workflow/nextjs";
+import { generateText, stepCountIs } from "ai";
+import { buildEtlesTelegramTools } from "@/lib/ai/build-etles-telegram-tools";
+import { systemPrompt } from "@/lib/ai/prompts";
+import { getLanguageModel } from "@/lib/ai/providers";
 import {
   getChatById,
   getMessagesByChatId,
   saveChat,
   saveMessages,
 } from "@/lib/db/queries";
-import { getLanguageModel } from "@/lib/ai/providers";
-import { systemPrompt } from "@/lib/ai/prompts";
-import { buildEtlesTelegramTools } from "@/lib/ai/build-etles-telegram-tools";
-import { getSessionTail, saveSessionTail } from "@/lib/session-tail";
-import { touchUserActivity } from "@/lib/user-activity";
-import { getCachedSystemPrompt, setCachedSystemPrompt } from "@/lib/prompt-cache";
-import { generateUUID } from "@/lib/utils";
 import {
+  getCachedSystemPrompt,
+  setCachedSystemPrompt,
+} from "@/lib/prompt-cache";
+import { getSessionTail, saveSessionTail } from "@/lib/session-tail";
+import {
+  deleteMessage,
+  editMessageText,
   sendLongMessage,
   sendStatusMessage,
-  editMessageText,
-  deleteMessage,
   startTypingHeartbeat,
 } from "@/lib/telegram/api";
+import { touchUserActivity } from "@/lib/user-activity";
+import { generateUUID } from "@/lib/utils";
 import type { TelegramWorkflowPayload } from "@/lib/workflow/client";
 
 export const maxDuration = 300;
@@ -60,14 +63,16 @@ function redisChatKey(ownerUserId: string, telegramChatId: number): string {
 async function getOrCreateChat(
   ownerUserId: string,
   telegramChatId: number,
-  senderName: string,
+  senderName: string
 ): Promise<string> {
   if (redis) {
     const key = redisChatKey(ownerUserId, telegramChatId);
     const cached = await redis.get<string>(key);
     if (cached) {
       const chat = await getChatById({ id: cached });
-      if (chat) return cached;
+      if (chat) {
+        return cached;
+      }
     }
   }
 
@@ -91,13 +96,19 @@ async function getOrCreateChat(
 // ── Workflow ──────────────────────────────────────────────────────────────────
 
 export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
-  const { ownerUserId, botToken, telegramChatId, senderName, userText, baseUrl } =
-    context.requestPayload;
+  const {
+    ownerUserId,
+    botToken,
+    telegramChatId,
+    senderName,
+    userText,
+    baseUrl,
+  } = context.requestPayload;
   const statusMessageId = await context.run("status-start", async () => {
     return sendStatusMessage(
       botToken,
       telegramChatId,
-      "🤖 <b>Etles is on it</b>\n\nAnalyzing your request...",
+      "🤖 <b>Etles is on it</b>\n\nAnalyzing your request..."
     );
   });
 
@@ -131,7 +142,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
         botToken,
         telegramChatId,
         statusMessageId,
-        "🧠 <b>Etles is thinking</b>\n\nGathering conversation context...",
+        "🧠 <b>Etles is thinking</b>\n\nGathering conversation context..."
       );
     }
     const dbMessages = await getMessagesByChatId({ id: chatId });
@@ -154,7 +165,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
         botToken,
         telegramChatId,
         statusMessageId,
-        "🛠 <b>Working with tools</b>\n\nCalling apps and planning the best answer...",
+        "🛠 <b>Working with tools</b>\n\nCalling apps and planning the best answer..."
       );
     }
     const stopTyping = startTypingHeartbeat(botToken, telegramChatId);
@@ -162,7 +173,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
     try {
       const session = await composio.create(ownerUserId, {
         manageConnections: true,
-          multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
+        multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
       });
       composioTools = await session.tools();
     } catch (e) {
@@ -248,7 +259,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
         botToken,
         telegramChatId,
         statusMessageId,
-        "✅ <b>Done</b>\n\nSending your response...",
+        "✅ <b>Done</b>\n\nSending your response..."
       );
     }
     await saveMessages({
@@ -257,10 +268,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
           id: generateUUID(),
           chatId,
           role: "assistant",
-          parts: [
-            { type: "text" as const, text: aiText },
-            ...toolCallParts,
-          ],
+          parts: [{ type: "text" as const, text: aiText }, ...toolCallParts],
           attachments: [],
           createdAt: new Date(),
         },
@@ -277,7 +285,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
       .slice(-5)
       .map((m) => {
         const textPart = (m.parts as { type: string; text?: string }[]).find(
-          (p) => p.type === "text",
+          (p) => p.type === "text"
         );
         return {
           role: m.role as "user" | "assistant",

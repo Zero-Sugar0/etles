@@ -1,10 +1,9 @@
-import { tool, type UIMessageStreamWriter } from "ai";
-import { z } from "zod";
-import type { ChatMessage } from "@/lib/types";
 import { put } from "@vercel/blob";
-import { generateUUID } from "@/lib/utils";
+import { tool } from "ai";
+import { z } from "zod";
 import { resolveVideoModelId } from "@/lib/ai/models";
 import { getVideoModel } from "@/lib/ai/providers";
+import { generateUUID } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Helper — converts a base64 string + mime type into the inlineData shape
@@ -56,7 +55,9 @@ Modes:
       modelId: z
         .string()
         .optional()
-        .describe("Optional explicit video model ID. Overrides provider selection when provided."),
+        .describe(
+          "Optional explicit video model ID. Overrides provider selection when provided."
+        ),
 
       provider: z
         .enum(["google", "bytedance", "xai", "minimax"])
@@ -130,7 +131,9 @@ Modes:
     }) => {
       try {
         const model = resolveVideoModelId(provider, explicitModelId);
-        console.log(`[Video Gen] Generating video using ${model} via Vercel AI SDK & AI Gateway`);
+        console.log(
+          `[Video Gen] Generating video using ${model} via Vercel AI SDK & AI Gateway`
+        );
 
         const videoModel = getVideoModel(model);
         const result = await videoModel.doGenerate({
@@ -145,9 +148,10 @@ Modes:
           providerOptions: {},
         });
 
-        const rawVideoUris = result.videos
-          ?.map((video: any) => video.url ?? video.data)
-          .filter(Boolean) ?? [];
+        const rawVideoUris =
+          result.videos
+            ?.map((video: any) => video.url ?? video.data)
+            .filter(Boolean) ?? [];
 
         if (rawVideoUris.length === 0) {
           throw new Error("No videos found in the AI Gateway response.");
@@ -165,7 +169,9 @@ Modes:
             });
 
             if (!videoRes.ok) {
-              console.error(`Failed to fetch video from gateway URI: ${rawUri} | Status: ${videoRes.status} ${videoRes.statusText}`);
+              console.error(
+                `Failed to fetch video from gateway URI: ${rawUri} | Status: ${videoRes.status} ${videoRes.statusText}`
+              );
               continue;
             }
 
@@ -175,7 +181,8 @@ Modes:
               continue;
             }
 
-            const contentType = videoRes.headers.get("content-type") || "video/mp4";
+            const contentType =
+              videoRes.headers.get("content-type") || "video/mp4";
             const extension = contentType.split("/")[1] || "mp4";
             const filename = `gemini-videos/${generateUUID()}.${extension}`;
             const blobData = await put(filename, Buffer.from(videoBuffer), {
@@ -192,7 +199,9 @@ Modes:
         }
 
         if (videoUris.length === 0) {
-          throw new Error("Failed to persist any generated videos to Blob storage. Check logs for fetch/put errors.");
+          throw new Error(
+            "Failed to persist any generated videos to Blob storage. Check logs for fetch/put errors."
+          );
         }
 
         return {
@@ -204,10 +213,15 @@ Modes:
           aspectRatio,
           resolution,
           videoCount: videoUris.length,
-          ...(startFrameBase64 && { mode: endFrameBase64 ? "first-and-last-frame" : "image-to-video" }),
-          ...(referenceImages && { referenceImageCount: referenceImages.length }),
+          ...(startFrameBase64 && {
+            mode: endFrameBase64 ? "first-and-last-frame" : "image-to-video",
+          }),
+          ...(referenceImages && {
+            referenceImageCount: referenceImages.length,
+          }),
           ...(videoToExtendUri && { mode: "video-extension" }),
-          ...(!startFrameBase64 && !videoToExtendUri && { mode: "text-to-video" }),
+          ...(!startFrameBase64 &&
+            !videoToExtendUri && { mode: "text-to-video" }),
           markdown: videoUris.map((uri) => `![Video](${uri})`).join("\n\n"),
         };
       } catch (error) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { isValidElement, type ComponentProps } from "react";
+import { type ComponentProps, isValidElement } from "react";
 import { cn } from "@/lib/utils";
 import { MermaidDisplay } from "./mermaid-display";
 

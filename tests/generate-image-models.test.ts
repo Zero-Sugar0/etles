@@ -8,7 +8,10 @@ test("defaults to the Google lite image model", () => {
 });
 
 test("maps provider aliases to supported image models", () => {
-  assert.equal(resolveImageModelId("google"), "google/gemini-3.1-flash-lite-image");
+  assert.equal(
+    resolveImageModelId("google"),
+    "google/gemini-3.1-flash-lite-image"
+  );
   assert.equal(resolveImageModelId("openai"), "openai/gpt-image-2");
   assert.equal(resolveImageModelId("bytedance"), "bytedance/seedream-5.0-pro");
   assert.equal(resolveImageModelId("xai"), "xai/grok-imagine-image");

@@ -17,8 +17,8 @@ import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import { Index } from "@upstash/vector";
 import { generateText, stepCountIs } from "ai";
-import { auditAgentRunEvent } from "@/lib/agent/agent-run-audit";
 import { notifyParentAgent } from "@/lib/agent/agent-bus";
+import { auditAgentRunEvent } from "@/lib/agent/agent-run-audit";
 import {
   getAgentDepartment,
   getDepartmentLabel,
@@ -35,7 +35,6 @@ import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
 import { notifySubAgentHandoffToMainAgent } from "@/lib/agent/subagent-handoff-notify";
 import { getGoogleModel, getLanguageModel } from "@/lib/ai/providers";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
-import { withApproval } from "@/lib/ai/tools/with-approval";
 import * as browserUseTools from "@/lib/ai/tools/browser-use";
 import {
   getCollaborationStatus,
@@ -101,6 +100,7 @@ import {
 import * as twilio from "@/lib/ai/tools/twilio";
 import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
 import { wikiIngest, wikiQuery } from "@/lib/ai/tools/wiki";
+import { withApproval } from "@/lib/ai/tools/with-approval";
 import { saveMessages, updateAgentTask } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 

@@ -3,9 +3,9 @@
  * (composio, chat-sdk, etles-agent, etc.) without relying only on the wiki.
  */
 
-import { tool } from "ai";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { tool } from "ai";
 import { z } from "zod";
 
 const SKILLS_ROOT = path.join(process.cwd(), ".agents", "skills");
@@ -33,7 +33,9 @@ function safeSkillPath(slug: string): string | null {
 
 async function readSkillFile(slug: string): Promise<string | null> {
   const filePath = safeSkillPath(slug);
-  if (!filePath) return null;
+  if (!filePath) {
+    return null;
+  }
   try {
     const content = await fs.readFile(filePath, "utf-8");
     if (content.length > MAX_READ_CHARS) {
@@ -49,7 +51,9 @@ async function listRuleFiles(slug: string): Promise<string[]> {
   const rulesDir = path.resolve(SKILLS_ROOT, slug, "rules");
   try {
     const entries = await fs.readdir(rulesDir, { withFileTypes: true });
-    return entries.filter((e) => e.isFile() && e.name.endsWith(".md")).map((e) => e.name);
+    return entries
+      .filter((e) => e.isFile() && e.name.endsWith(".md"))
+      .map((e) => e.name);
   } catch {
     return [];
   }
@@ -65,15 +69,21 @@ export const readAgentSkill = () =>
     inputSchema: z.object({
       action: z
         .enum(["index", "read", "read_rule"])
-        .describe("'index' lists skills. 'read' loads SKILL.md. 'read_rule' loads a rules/*.md file."),
+        .describe(
+          "'index' lists skills. 'read' loads SKILL.md. 'read_rule' loads a rules/*.md file."
+        ),
       slug: z
         .string()
         .optional()
-        .describe("Skill folder name, e.g. 'composio', 'chat-sdk', 'etles-agent'. Required for read/read_rule."),
+        .describe(
+          "Skill folder name, e.g. 'composio', 'chat-sdk', 'etles-agent'. Required for read/read_rule."
+        ),
       rule: z
         .string()
         .optional()
-        .describe("Rule filename for read_rule, e.g. 'tr-session-basic.md'. Omit to list rules for a slug."),
+        .describe(
+          "Rule filename for read_rule, e.g. 'tr-session-basic.md'. Omit to list rules for a slug."
+        ),
     }),
     execute: async ({ action, slug, rule }) => {
       if (action === "index") {
@@ -84,11 +94,18 @@ export const readAgentSkill = () =>
             const firstLine =
               content
                 ?.split("\n")
-                .find((l) => l.startsWith("description:") || l.startsWith("description >"))
+                .find(
+                  (l) =>
+                    l.startsWith("description:") ||
+                    l.startsWith("description >")
+                )
                 ?.replace(/^description:?\s*>?\s*/, "")
                 ?.trim() ?? "";
-            return { slug: s, description: firstLine || "Built-in agent skill" };
-          }),
+            return {
+              slug: s,
+              description: firstLine || "Built-in agent skill",
+            };
+          })
         );
         return {
           success: true,
@@ -114,14 +131,21 @@ export const readAgentSkill = () =>
           };
         }
         const rulePath = path.resolve(SKILLS_ROOT, slug, "rules", rule);
-        if (!rulePath.startsWith(path.resolve(SKILLS_ROOT, slug, "rules") + path.sep)) {
+        if (
+          !rulePath.startsWith(
+            path.resolve(SKILLS_ROOT, slug, "rules") + path.sep
+          )
+        ) {
           return { success: false, error: "Invalid rule path" };
         }
         try {
           const content = await fs.readFile(rulePath, "utf-8");
           return { success: true, slug, rule, content };
         } catch {
-          return { success: false, error: `Rule '${rule}' not found for skill '${slug}'` };
+          return {
+            success: false,
+            error: `Rule '${rule}' not found for skill '${slug}'`,
+          };
         }
       }
 

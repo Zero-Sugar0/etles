@@ -1,23 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
 import { ChevronDown, ExternalLink, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Button } from "@/components/ui/button";
-import {
-  Confirmation,
-  ConfirmationAction,
-  ConfirmationActions,
-  ConfirmationRequest,
-  ConfirmationTitle,
-} from "./confirmation";
-import { ToolInput, ToolOutput } from "../elements/tool";
 import {
   findToolkit,
   formatActionDescriptor,
@@ -27,6 +18,15 @@ import {
   splitComposioToolName,
   type ToolkitInfo,
 } from "@/lib/toolkit-logos";
+import { cn } from "@/lib/utils";
+import { ToolInput, ToolOutput } from "../elements/tool";
+import {
+  Confirmation,
+  ConfirmationAction,
+  ConfirmationActions,
+  ConfirmationRequest,
+  ConfirmationTitle,
+} from "./confirmation";
 
 export { preloadToolkitLogos } from "@/lib/toolkit-logos";
 
@@ -41,7 +41,11 @@ export function parseToolNameDetails(type: string): {
 
   // 1. Weather
   if (lowerRaw === "getweather") {
-    return { appSlug: "weather", appLabel: "weather", actionName: "get_weather" };
+    return {
+      appSlug: "weather",
+      appLabel: "weather",
+      actionName: "get_weather",
+    };
   }
 
   // 2. Chart Rendering
@@ -51,16 +55,28 @@ export function parseToolNameDetails(type: string): {
 
   // 3. Document Editing & suggestions (using Google Docs style icon)
   if (lowerRaw === "createdocument") {
-    return { appSlug: "google-docs", appLabel: "document", actionName: "create" };
+    return {
+      appSlug: "google-docs",
+      appLabel: "document",
+      actionName: "create",
+    };
   }
   if (lowerRaw === "updatedocument") {
-    return { appSlug: "google-docs", appLabel: "document", actionName: "update" };
+    return {
+      appSlug: "google-docs",
+      appLabel: "document",
+      actionName: "update",
+    };
   }
   if (lowerRaw === "editdocument") {
     return { appSlug: "google-docs", appLabel: "document", actionName: "edit" };
   }
   if (lowerRaw === "requestsuggestions") {
-    return { appSlug: "google-docs", appLabel: "document", actionName: "suggest" };
+    return {
+      appSlug: "google-docs",
+      appLabel: "document",
+      actionName: "suggest",
+    };
   }
 
   // 4. Scratchpad (using Notion style icon)
@@ -156,27 +172,55 @@ export function parseToolNameDetails(type: string): {
     return { appSlug: "clock", appLabel: "agent status", actionName: "get" };
   }
   if (lowerRaw === "setmorningbriefingtime") {
-    return { appSlug: "google-calendar", appLabel: "morning briefing", actionName: "set" };
+    return {
+      appSlug: "google-calendar",
+      appLabel: "morning briefing",
+      actionName: "set",
+    };
   }
 
   // 13. Knowledge Graph
   if (lowerRaw === "upsertknowledgeentity") {
-    return { appSlug: "database", appLabel: "knowledge graph", actionName: "upsert_entity" };
+    return {
+      appSlug: "database",
+      appLabel: "knowledge graph",
+      actionName: "upsert_entity",
+    };
   }
   if (lowerRaw === "addknowledgerelation") {
-    return { appSlug: "database", appLabel: "knowledge graph", actionName: "add_relation" };
+    return {
+      appSlug: "database",
+      appLabel: "knowledge graph",
+      actionName: "add_relation",
+    };
   }
   if (lowerRaw === "getknowledgeentity") {
-    return { appSlug: "database", appLabel: "knowledge graph", actionName: "get_entity" };
+    return {
+      appSlug: "database",
+      appLabel: "knowledge graph",
+      actionName: "get_entity",
+    };
   }
   if (lowerRaw === "searchknowledgegraph") {
-    return { appSlug: "database", appLabel: "knowledge graph", actionName: "search" };
+    return {
+      appSlug: "database",
+      appLabel: "knowledge graph",
+      actionName: "search",
+    };
   }
   if (lowerRaw === "deleteknowledgeentity") {
-    return { appSlug: "database", appLabel: "knowledge graph", actionName: "delete_entity" };
+    return {
+      appSlug: "database",
+      appLabel: "knowledge graph",
+      actionName: "delete_entity",
+    };
   }
   if (lowerRaw === "deleteknowledgerelation") {
-    return { appSlug: "database", appLabel: "knowledge graph", actionName: "delete_relation" };
+    return {
+      appSlug: "database",
+      appLabel: "knowledge graph",
+      actionName: "delete_relation",
+    };
   }
 
   // 14. Goals
@@ -187,7 +231,11 @@ export function parseToolNameDetails(type: string): {
     return { appSlug: "todoist", appLabel: "goals", actionName: "update" };
   }
   if (lowerRaw === "loggoalprogress") {
-    return { appSlug: "todoist", appLabel: "goals", actionName: "log_progress" };
+    return {
+      appSlug: "todoist",
+      appLabel: "goals",
+      actionName: "log_progress",
+    };
   }
   if (lowerRaw === "listgoals") {
     return { appSlug: "todoist", appLabel: "goals", actionName: "list" };
@@ -204,7 +252,11 @@ export function parseToolNameDetails(type: string): {
     return { appSlug: "todoist", appLabel: "planner", actionName: "add_task" };
   }
   if (lowerRaw === "updateplantask") {
-    return { appSlug: "todoist", appLabel: "planner", actionName: "update_task" };
+    return {
+      appSlug: "todoist",
+      appLabel: "planner",
+      actionName: "update_task",
+    };
   }
   if (lowerRaw === "listplans") {
     return { appSlug: "todoist", appLabel: "planner", actionName: "list" };
@@ -236,7 +288,11 @@ export function parseToolNameDetails(type: string): {
     return { appSlug: "mcp", appLabel: "agent skills", actionName: "read" };
   }
   if (lowerRaw === "readdepartmentmemory") {
-    return { appSlug: "database", appLabel: "department", actionName: "recall" };
+    return {
+      appSlug: "database",
+      appLabel: "department",
+      actionName: "recall",
+    };
   }
   if (lowerRaw === "writedepartmentmemory") {
     return { appSlug: "database", appLabel: "department", actionName: "share" };
@@ -246,7 +302,10 @@ export function parseToolNameDetails(type: string): {
   if (lowerRaw.startsWith("twiliowhatsapp")) {
     const action = raw.slice(14);
     const parsedAction = action
-      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      ? action
+          .replace(/([A-Z])/g, "_$1")
+          .toLowerCase()
+          .replace(/^_+/, "")
       : "execute";
     return {
       appSlug: "whatsapp",
@@ -257,7 +316,10 @@ export function parseToolNameDetails(type: string): {
   if (lowerRaw.startsWith("twilio") && !lowerRaw.startsWith("twiliowhatsapp")) {
     const action = raw.slice(6);
     const parsedAction = action
-      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      ? action
+          .replace(/([A-Z])/g, "_$1")
+          .toLowerCase()
+          .replace(/^_+/, "")
       : "execute";
     return {
       appSlug: "twilio",
@@ -294,7 +356,10 @@ export function parseToolNameDetails(type: string): {
     const hasCaps = /[A-Z]/.test(raw);
     const parsedAction = hasCaps
       ? raw.replace(/([A-Z])/g, "_$1").toLowerCase()
-      : raw.replace(/(sandbox|files|infiles|link|process|diagnostics)/g, "_$1").toLowerCase().replace(/^_+/, "");
+      : raw
+          .replace(/(sandbox|files|infiles|link|process|diagnostics)/g, "_$1")
+          .toLowerCase()
+          .replace(/^_+/, "");
     return {
       appSlug: "daytona",
       appLabel: "daytona",
@@ -306,7 +371,10 @@ export function parseToolNameDetails(type: string): {
   if (lowerRaw.startsWith("sandbox")) {
     const action = raw.slice(7);
     const parsedAction = action
-      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      ? action
+          .replace(/([A-Z])/g, "_$1")
+          .toLowerCase()
+          .replace(/^_+/, "")
       : "execute";
     return {
       appSlug: "daytona",
@@ -319,7 +387,10 @@ export function parseToolNameDetails(type: string): {
   if (lowerRaw.startsWith("browser")) {
     const action = raw.slice(7);
     const parsedAction = action
-      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      ? action
+          .replace(/([A-Z])/g, "_$1")
+          .toLowerCase()
+          .replace(/^_+/, "")
       : "execute";
     return {
       appSlug: "brave",
@@ -332,7 +403,10 @@ export function parseToolNameDetails(type: string): {
   if (lowerRaw.startsWith("oracle")) {
     const action = raw.slice(6);
     const parsedAction = action
-      ? action.replace(/([A-Z])/g, "_$1").toLowerCase().replace(/^_+/, "")
+      ? action
+          .replace(/([A-Z])/g, "_$1")
+          .toLowerCase()
+          .replace(/^_+/, "")
       : "execute";
     return {
       appSlug: "aws", // cloud host logo fallback
@@ -343,19 +417,39 @@ export function parseToolNameDetails(type: string): {
 
   // Handle Composio meta-tools
   if (lowerRaw === "composio_search_tools") {
-    return { appSlug: "composio", appLabel: "composio", actionName: "search_tools" };
+    return {
+      appSlug: "composio",
+      appLabel: "composio",
+      actionName: "search_tools",
+    };
   }
   if (lowerRaw === "composio_multi_execute_tool") {
-    return { appSlug: "composio", appLabel: "composio", actionName: "execute_actions" };
+    return {
+      appSlug: "composio",
+      appLabel: "composio",
+      actionName: "execute_actions",
+    };
   }
   if (lowerRaw === "composio_manage_connections") {
-    return { appSlug: "composio", appLabel: "composio", actionName: "manage_connections" };
+    return {
+      appSlug: "composio",
+      appLabel: "composio",
+      actionName: "manage_connections",
+    };
   }
   if (lowerRaw === "composio_initiate_connection") {
-    return { appSlug: "composio", appLabel: "composio", actionName: "connect_account" };
+    return {
+      appSlug: "composio",
+      appLabel: "composio",
+      actionName: "connect_account",
+    };
   }
   if (lowerRaw === "composio_get_connection_status") {
-    return { appSlug: "composio", appLabel: "composio", actionName: "check_connection" };
+    return {
+      appSlug: "composio",
+      appLabel: "composio",
+      actionName: "check_connection",
+    };
   }
 
   // Extract by underscores (Composio integrations: GMAIL_SEND_EMAIL, GOOGLE_CALENDAR_LIST_EVENTS)
@@ -365,7 +459,8 @@ export function parseToolNameDetails(type: string): {
     const parts = raw.replace(/^composio_/i, "").split("_");
     const appSlug = parsed?.appSlug ?? resolveToolkitSlug(parts[0] ?? raw);
     const actionName =
-      parsed?.actionName ?? (parts.slice(1).join("_").toLowerCase() || "execute");
+      parsed?.actionName ??
+      (parts.slice(1).join("_").toLowerCase() || "execute");
 
     return {
       appSlug,
@@ -478,7 +573,9 @@ export function getToolPreviewText(
   // Check output first if available
   if (output) {
     if (typeof output === "string") {
-      if (output.length < 60) return output;
+      if (output.length < 60) {
+        return output;
+      }
       return output.slice(0, 57) + "...";
     }
     if (typeof output === "object") {
@@ -491,7 +588,9 @@ export function getToolPreviewText(
         output.text ||
         data.text;
       if (typeof message === "string") {
-        if (message.length < 60) return message;
+        if (message.length < 60) {
+          return message;
+        }
         return message.slice(0, 57) + "...";
       }
     }
@@ -515,7 +614,9 @@ export function getToolPreviewText(
     for (const key of candidates) {
       if (typeof input[key] === "string" && input[key].trim()) {
         const val = input[key].trim();
-        if (val.length < 50) return val;
+        if (val.length < 50) {
+          return val;
+        }
         return val.slice(0, 47) + "...";
       }
     }
@@ -530,18 +631,22 @@ export function getToolPreviewText(
     }
   }
 
-  if (state === "input-streaming") return "Thinking...";
-  if (state === "output-available") return "Completed";
+  if (state === "input-streaming") {
+    return "Thinking...";
+  }
+  if (state === "output-available") {
+    return "Completed";
+  }
   return "Running...";
 }
 
 interface ToolPillProps {
-  type: string;
-  state: string;
   input?: any;
+  isConsecutive?: boolean;
   output?: any;
   rawError?: string;
-  isConsecutive?: boolean;
+  state: string;
+  type: string;
 }
 
 export function ToolPill({
@@ -565,7 +670,9 @@ export function ToolPill({
   useEffect(() => {
     let active = true;
     preloadToolkitLogos().then((toolkits: ToolkitInfo[]) => {
-      if (!active) return;
+      if (!active) {
+        return;
+      }
       const match = findToolkit(toolkits, appSlug);
       if (match?.logo) {
         setLogoUrl(match.logo);
@@ -600,7 +707,6 @@ export function ToolPill({
       )}
     >
       <img
-        src={finalLogoSrc}
         alt={displayAppLabel}
         className="size-3.5 object-contain rounded-[3px] shrink-0"
         onError={(e) => {
@@ -608,15 +714,20 @@ export function ToolPill({
           e.currentTarget.onerror = null;
           e.currentTarget.src = "/logos/api.svg";
         }}
+        src={finalLogoSrc}
       />
       <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate capitalize">
         {displayAppLabel}
       </span>
-      <span className="text-zinc-400/60 dark:text-zinc-600/60 font-medium">·</span>
+      <span className="text-zinc-400/60 dark:text-zinc-600/60 font-medium">
+        ·
+      </span>
       <span className="text-[11px] text-zinc-600 dark:text-zinc-400 font-medium lowercase">
         {friendlyAction}
       </span>
-      <span className="text-zinc-400/60 dark:text-zinc-600/60 font-medium">·</span>
+      <span className="text-zinc-400/60 dark:text-zinc-600/60 font-medium">
+        ·
+      </span>
       <span className="text-zinc-500 dark:text-zinc-400 truncate max-w-[200px] md:max-w-[300px]">
         {summaryText}
       </span>
@@ -632,14 +743,14 @@ export function ToolPill({
 
 interface ExpandableToolPillProps {
   actualToolCallId: string;
-  type: string;
-  state: string;
+  addToolApprovalResponse: any;
+  approvalId?: string;
+  isConsecutiveTool?: boolean;
   part: any;
   rawError?: string;
   redirectUrl?: string;
-  isConsecutiveTool?: boolean;
-  approvalId?: string;
-  addToolApprovalResponse: any;
+  state: string;
+  type: string;
 }
 
 export function ExpandableToolPill({
@@ -663,18 +774,18 @@ export function ExpandableToolPill({
       key={actualToolCallId}
     >
       <Collapsible
-        defaultOpen={state === "approval-requested" || state === "output-error"}
         className="w-full"
+        defaultOpen={state === "approval-requested" || state === "output-error"}
       >
         <CollapsibleTrigger asChild>
           <div>
             <ToolPill
-              type={type}
-              state={state}
               input={part.input}
+              isConsecutive={isConsecutiveTool}
               output={part.output}
               rawError={rawError}
-              isConsecutive={isConsecutiveTool}
+              state={state}
+              type={type}
             />
           </div>
         </CollapsibleTrigger>
@@ -684,9 +795,9 @@ export function ExpandableToolPill({
 
           {isAwaitingApproval && (
             <Confirmation
+              approval={{ id: approvalId! }}
               className="mx-3 mb-3"
               state={state as any}
-              approval={{ id: approvalId! }}
             >
               <ConfirmationRequest>
                 <ConfirmationTitle>
@@ -694,13 +805,13 @@ export function ExpandableToolPill({
                 </ConfirmationTitle>
                 <ConfirmationActions>
                   <ConfirmationAction
-                    variant="outline"
                     onClick={() => {
                       addToolApprovalResponse({
                         id: approvalId,
                         approved: false,
                       });
                     }}
+                    variant="outline"
                   >
                     Deny
                   </ConfirmationAction>

@@ -6,7 +6,7 @@ import postgres from "postgres";
 config({ path: ".env.local" });
 config({ path: ".env" });
 
-import { mission, campaignQueue, user } from "../lib/db/schema";
+import { campaignQueue, mission, user } from "../lib/db/schema";
 
 const dbUrl = process.env.POSTGRES_URL;
 if (!dbUrl) {
@@ -24,21 +24,35 @@ async function main() {
     console.log(`Total Users in system: ${usersCount.length}`);
     if (usersCount.length > 0) {
       console.log("First 3 Users:");
-      usersCount.slice(0, 3).forEach(u => console.log(`- ID: ${u.id}, Email: ${u.email}, Name: ${u.firstName} ${u.lastName}`));
+      usersCount
+        .slice(0, 3)
+        .forEach((u) =>
+          console.log(
+            `- ID: ${u.id}, Email: ${u.email}, Name: ${u.firstName} ${u.lastName}`
+          )
+        );
     }
 
     const missionsCount = await db.select().from(mission);
     console.log(`\nTotal Missions in system: ${missionsCount.length}`);
     if (missionsCount.length > 0) {
       console.log("Missions:");
-      missionsCount.forEach(m => console.log(`- ID: ${m.id}, UserID: ${m.userId}, Goal: ${m.goal}, Status: ${m.status}`));
+      missionsCount.forEach((m) =>
+        console.log(
+          `- ID: ${m.id}, UserID: ${m.userId}, Goal: ${m.goal}, Status: ${m.status}`
+        )
+      );
     }
 
     const queueCount = await db.select().from(campaignQueue);
     console.log(`\nTotal Campaign Queue Items in system: ${queueCount.length}`);
     if (queueCount.length > 0) {
       console.log("Queue Items:");
-      queueCount.forEach(q => console.log(`- ID: ${q.id}, MissionID: ${q.missionId}, Channel: ${q.channel}, Status: ${q.status}, Recipient: ${q.recipient}`));
+      queueCount.forEach((q) =>
+        console.log(
+          `- ID: ${q.id}, MissionID: ${q.missionId}, Channel: ${q.channel}, Status: ${q.status}, Recipient: ${q.recipient}`
+        )
+      );
     }
   } catch (err) {
     console.error("Diagnostic failed:", err);

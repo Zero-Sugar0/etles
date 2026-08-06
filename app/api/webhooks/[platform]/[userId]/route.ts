@@ -1,8 +1,10 @@
+import { after, type NextRequest, NextResponse } from "next/server";
 import { buildUserBot } from "@/lib/bot";
-import { after } from "next/server";
-import { NextRequest, NextResponse } from "next/server";
 
-async function handleWebhook(req: NextRequest, params: Promise<{ platform: string; userId: string }>) {
+async function handleWebhook(
+  req: NextRequest,
+  params: Promise<{ platform: string; userId: string }>
+) {
   const { platform, userId } = await params;
 
   const bot = await buildUserBot(userId, platform);
@@ -11,7 +13,10 @@ async function handleWebhook(req: NextRequest, params: Promise<{ platform: strin
 
   if (!handler) {
     console.error(`[Webhook] No handler for platform: ${platform}`);
-    return NextResponse.json({ error: "Invalid platform webhook" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid platform webhook" },
+      { status: 400 }
+    );
   }
 
   console.log(`[Webhook] ${req.method} → ${platform} for user ${userId}`);
@@ -33,7 +38,10 @@ async function handleWebhook(req: NextRequest, params: Promise<{ platform: strin
 
 // GET — needed for WhatsApp & some other platforms that send a verification
 // challenge via GET before delivering any events.
-export async function GET(req: NextRequest, { params }: { params: Promise<{ platform: string; userId: string }> }) {
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ platform: string; userId: string }> }
+) {
   try {
     return await handleWebhook(req, params);
   } catch (error: any) {
@@ -44,12 +52,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ plat
         details: error.message,
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ platform: string; userId: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ platform: string; userId: string }> }
+) {
   try {
     return await handleWebhook(req, params);
   } catch (error: any) {
@@ -60,7 +71,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pla
         details: error.message,
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

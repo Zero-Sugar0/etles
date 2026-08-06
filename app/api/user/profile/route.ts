@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
 import { updateUserNames } from "@/lib/db/queries";
 
@@ -9,13 +9,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { firstName, lastName } = await req.json() as {
+    const { firstName, lastName } = (await req.json()) as {
       firstName?: string;
       lastName?: string;
     };
 
     if (!firstName || !lastName) {
-      return NextResponse.json({ error: "First name and Last name are required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "First name and Last name are required" },
+        { status: 400 }
+      );
     }
 
     await updateUserNames(session.user.id, firstName, lastName);

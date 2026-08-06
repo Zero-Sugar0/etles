@@ -17,7 +17,7 @@ const domainMapping: Record<string, string[]> = {
     "project_manager",
     "personal_admin",
     "task_coordinator",
-    "onboarding_specialist"
+    "onboarding_specialist",
   ],
   "finance-legal.ts": [
     "finance",
@@ -26,7 +26,7 @@ const domainMapping: Record<string, string[]> = {
     "revenue_forecasting",
     "procurement_operator",
     "investor_relations",
-    "stripe_churn"
+    "stripe_churn",
   ],
   "marketing-growth.ts": [
     "social_media",
@@ -36,7 +36,7 @@ const domainMapping: Record<string, string[]> = {
     "community_manager",
     "ads_manager",
     "event_planner",
-    "competitive_intel"
+    "competitive_intel",
   ],
   "dev-ops-qa.ts": [
     "code_review",
@@ -47,12 +47,9 @@ const domainMapping: Record<string, string[]> = {
     "data_engineer",
     "security_operator",
     "qa_tester",
-    "incident_response"
+    "incident_response",
   ],
-  "creative-design.ts": [
-    "cinematic_director",
-    "visual_designer"
-  ],
+  "creative-design.ts": ["cinematic_director", "visual_designer"],
   "support-services.ts": [
     "customer_success",
     "demo_closer",
@@ -60,8 +57,8 @@ const domainMapping: Record<string, string[]> = {
     "knowledge_librarian",
     "travel_concierge",
     "ecommerce_operator",
-    "docs_keeper"
-  ]
+    "docs_keeper",
+  ],
 };
 
 // Check if any agent is missing a domain and place in core.ts as fallback
@@ -81,8 +78,10 @@ for (const agent of SUBAGENT_DEFINITIONS) {
 
 // Split the agents and write files
 for (const [filename, slugs] of Object.entries(domainMapping)) {
-  const fileAgents = SUBAGENT_DEFINITIONS.filter(a => slugs.includes(a.slug));
-  if (fileAgents.length === 0) continue;
+  const fileAgents = SUBAGENT_DEFINITIONS.filter((a) => slugs.includes(a.slug));
+  if (fileAgents.length === 0) {
+    continue;
+  }
 
   const content = `import type { SubAgentDefinition } from "../subagent-definitions";
 

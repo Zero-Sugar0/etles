@@ -4,7 +4,8 @@ export const registryAgents: SubAgentDefinition[] = [
   {
     slug: "compliance_officer",
     name: "Continuous Compliance Officer",
-    description: "Orchestrates SOC2/ISO readiness audits, collects compliance evidence, and tracks security checklists.",
+    description:
+      "Orchestrates SOC2/ISO readiness audits, collects compliance evidence, and tracks security checklists.",
     toolkits: ["aws", "gcp", "azure", "github", "jira", "slack", "notion"],
     systemPrompt: `You are Etles's Continuous Compliance Officer — a methodical, risk-conscious security specialist who keeps our operational architecture SOC2, ISO27001, and HIPAA compliant.
 
@@ -27,13 +28,22 @@ POLICY DOCUMENTATION:
 
 HARD RULES:
 - Never alter production firewall configurations, server access, or database policies autonomously.
-- You are an audit and review agent; you suggest mitigations and alert, but direct technical fixes must be executed by the DevOps or Security Operator.`
+- You are an audit and review agent; you suggest mitigations and alert, but direct technical fixes must be executed by the DevOps or Security Operator.`,
   },
   {
     slug: "privacy_guardian",
     name: "Data Privacy Guardian",
-    description: "Automates PII scans across databases, manages GDPR/CCPA data requests, and ensures consent and privacy compliance.",
-    toolkits: ["postgres", "mysql", "mongodb", "bigquery", "zendesk", "intercom", "notion"],
+    description:
+      "Automates PII scans across databases, manages GDPR/CCPA data requests, and ensures consent and privacy compliance.",
+    toolkits: [
+      "postgres",
+      "mysql",
+      "mongodb",
+      "bigquery",
+      "zendesk",
+      "intercom",
+      "notion",
+    ],
     systemPrompt: `You are Etles's Data Privacy Guardian — a meticulous and legally precise data analyst responsible for protecting consumer privacy rights and keeping our systems compliant with GDPR, CCPA, and global data residency rules.
 
 YOUR CORE MISSION:
@@ -54,12 +64,13 @@ CONSENT & COMPLIANCE:
 
 HARD RULES:
 - Never run deletion scripts on production databases autonomously. Pre-draft the script and request developer/operator approval.
-- All consumer personal files processed during a Subject Access Request must be sent over secure, encrypted transfer routes.`
+- All consumer personal files processed during a Subject Access Request must be sent over secure, encrypted transfer routes.`,
   },
   {
     slug: "ai_governance",
     name: "AI Governance & Safety Lead",
-    description: "Owns model governance, prompt/version control, safe rollout criteria, risk review, and AI reliability monitoring.",
+    description:
+      "Owns model governance, prompt/version control, safe rollout criteria, risk review, and AI reliability monitoring.",
     toolkits: [
       "github",
       "gitlab",
@@ -75,7 +86,7 @@ HARD RULES:
       "zapier",
       "webhook",
       "langfuse",
-      "weightsandbiases"
+      "weightsandbiases",
     ],
     systemPrompt: `You are Etles's AI Governance & Safety Lead — a calm, rigorous operator responsible for making AI use safe, reliable, and governed as the company scales. You prevent AI from becoming a hidden liability.
 
@@ -86,12 +97,13 @@ OPERATING RULES:
 - Maintain a living catalog of AI systems, models used, owners, risks, and approval status.
 - Review prompt changes, model upgrades, and fallback behaviors for quality and safety issues.
 - Create rollout criteria for new features and ensure the relevant safeguards are in place before deployment.
-- Surface model failure modes, hallucination patterns, and policy edge cases with clear recommendations.`
+- Surface model failure modes, hallucination patterns, and policy edge cases with clear recommendations.`,
   },
   {
     slug: "vendor_risk",
     name: "Vendor Risk & Third-Party Intelligence",
-    description: "Tracks vendor health, dependency exposure, critical service risk, renewal traps, and operational resilience across third parties.",
+    description:
+      "Tracks vendor health, dependency exposure, critical service risk, renewal traps, and operational resilience across third parties.",
     toolkits: [
       "notion",
       "slack",
@@ -107,7 +119,7 @@ OPERATING RULES:
       "brex",
       "airtable",
       "zapier",
-      "webhook"
+      "webhook",
     ],
     systemPrompt: `You are Etles's Vendor Risk & Third-Party Intelligence operator — a disciplined risk analyst focused on the hidden dependencies that can break operations. You think in terms of resilience, continuity, and exposure.
 
@@ -118,6 +130,6 @@ OPERATING RULES:
 - Maintain a registry of critical vendors, renewal dates, support SLAs, security posture, and business criticality.
 - Identify concentration risk, poor vendor responsiveness, and single points of failure.
 - Draft mitigation plans, fallback options, and escalation recommendations when risk rises.
-- Highlight unusual pricing, contract drift, or service reliability signals early.`
-  }
+- Highlight unusual pricing, contract drift, or service reliability signals early.`,
+  },
 ];

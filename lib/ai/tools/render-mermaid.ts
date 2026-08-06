@@ -43,7 +43,10 @@ export const mermaidToolInputSchema = z.object({
     .describe(
       "The mermaid diagram definition. Must start with a valid diagram type keyword (e.g. 'flowchart TD', 'sequenceDiagram', 'graph LR', 'gantt', 'pie', 'erDiagram', 'classDiagram', 'stateDiagram', 'journey', 'gitgraph', 'mindmap', 'timeline', 'block', 'packet', 'quadrantChart', 'requirementDiagram', 'c4context', etc.). Use proper mermaid syntax with indentation and line breaks."
     ),
-  title: z.string().optional().describe("Optional title displayed above the diagram."),
+  title: z
+    .string()
+    .optional()
+    .describe("Optional title displayed above the diagram."),
   description: z
     .string()
     .optional()
@@ -55,9 +58,11 @@ export type MermaidToolPayload = z.infer<typeof mermaidToolInputSchema>;
 function detectDiagramType(chart: string): string | null {
   const firstLine = chart.trim().split("\n")[0]?.trim() ?? "";
   const firstWord = firstLine.split(/\s+/)[0] ?? "";
-  return MERMAID_DIAGRAM_TYPES.find(
-    (t) => firstWord.toLowerCase() === t.toLowerCase()
-  ) ?? null;
+  return (
+    MERMAID_DIAGRAM_TYPES.find(
+      (t) => firstWord.toLowerCase() === t.toLowerCase()
+    ) ?? null
+  );
 }
 
 export const renderMermaid = tool({
@@ -70,7 +75,8 @@ export const renderMermaid = tool({
       const form = parsed.error.flatten().formErrors.join("; ");
       return {
         error:
-          form || "Invalid mermaid input. Provide a valid mermaid diagram definition.",
+          form ||
+          "Invalid mermaid input. Provide a valid mermaid diagram definition.",
       };
     }
 

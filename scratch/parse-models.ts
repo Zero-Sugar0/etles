@@ -19,21 +19,29 @@ const parsedModels: any[] = [];
 for (const m of models) {
   const tags = m.tags || [];
   const hasVision = tags.includes("vision") || tags.includes("multimodal");
-  const hasReasoning = tags.includes("reasoning") || tags.includes("thinking") || m.id.includes("thinking") || m.id.includes("reasoner") || m.id.includes("thinking");
-  const hasTools = tags.includes("tool-use") || tags.includes("tools") || tags.includes("function-calling");
+  const hasReasoning =
+    tags.includes("reasoning") ||
+    tags.includes("thinking") ||
+    m.id.includes("thinking") ||
+    m.id.includes("reasoner") ||
+    m.id.includes("thinking");
+  const hasTools =
+    tags.includes("tool-use") ||
+    tags.includes("tools") ||
+    tags.includes("function-calling");
 
   const [provider] = m.id.split("/");
 
   parsedModels.push({
     id: m.id,
     name: m.name || m.id,
-    provider: provider,
+    provider,
     description: m.description || "",
     features: {
       reasoning: hasReasoning,
       vision: hasVision,
-      tools: hasTools
-    }
+      tools: hasTools,
+    },
   });
 }
 
@@ -52,15 +60,27 @@ for (const prov of Object.keys(byProvider)) {
 }
 
 // Let's filter and inspect the top/latest models per key provider
-const targetProviders = ["openai", "anthropic", "google", "xai", "deepseek", "minimax", "zai"];
+const targetProviders = [
+  "openai",
+  "anthropic",
+  "google",
+  "xai",
+  "deepseek",
+  "minimax",
+  "zai",
+];
 console.log("\n--- Key Providers & Top Models Sample ---");
 for (const prov of targetProviders) {
   if (byProvider[prov]) {
-    console.log(`\n[${prov.toUpperCase()}] (${byProvider[prov].length} total):`);
+    console.log(
+      `\n[${prov.toUpperCase()}] (${byProvider[prov].length} total):`
+    );
     // Print first 8 models to inspect
-    byProvider[prov].slice(0, 10).forEach(m => {
+    byProvider[prov].slice(0, 10).forEach((m) => {
       console.log(`  - ${m.id} (${m.name})`);
-      console.log(`    Features: reasoning=${m.features.reasoning}, vision=${m.features.vision}, tools=${m.features.tools}`);
+      console.log(
+        `    Features: reasoning=${m.features.reasoning}, vision=${m.features.vision}, tools=${m.features.tools}`
+      );
     });
   }
 }
@@ -71,4 +91,6 @@ fs.writeFileSync(
   JSON.stringify(parsedModels, null, 2),
   "utf-8"
 );
-console.log("\nWrote classified list to: scratch/parsed-models-classified.json");
+console.log(
+  "\nWrote classified list to: scratch/parsed-models-classified.json"
+);

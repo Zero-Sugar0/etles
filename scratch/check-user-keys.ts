@@ -8,7 +8,9 @@ dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 async function main() {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return;
+  if (!url || !token) {
+    return;
+  }
 
   const redis = new Redis({ url, token });
   const userId = "fb398c2f-dc5f-4634-ab6c-0359329ba939";
@@ -18,7 +20,7 @@ async function main() {
       `agent:status:${userId}:synthesis`,
       `agent:status:${userId}:morning`,
       `agent:status:${userId}:paused`,
-      `agent:heartbeat:schedules:${userId}`
+      `agent:heartbeat:schedules:${userId}`,
     ];
     console.log("Checking keys for user:", userId);
     for (const key of keys) {
@@ -27,7 +29,10 @@ async function main() {
         const type = await redis.type(key);
         const val = await redis.get(key);
         console.log(`Key: ${key} (${type})`);
-        console.log(`Value:`, typeof val === "object" ? JSON.stringify(val, null, 2) : val);
+        console.log(
+          "Value:",
+          typeof val === "object" ? JSON.stringify(val, null, 2) : val
+        );
       } else {
         console.log(`Key: ${key} -> DOES NOT EXIST`);
       }

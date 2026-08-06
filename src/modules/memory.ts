@@ -1,15 +1,15 @@
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
+import fs from "fs";
+import os from "os";
+import path from "path";
 
-const CONFIG_DIR = path.join(os.homedir(), '.config', 'agent');
-const MEMORY_FILE = path.join(CONFIG_DIR, 'memory.json');
+const CONFIG_DIR = path.join(os.homedir(), ".config", "agent");
+const MEMORY_FILE = path.join(CONFIG_DIR, "memory.json");
 
 export interface MemoryEntry {
   key: string;
-  value: string;
   type: string;
   updatedAt: string;
+  value: string;
 }
 
 function ensureConfigDir() {
@@ -21,7 +21,7 @@ function ensureConfigDir() {
 export function loadMemory(): Record<string, MemoryEntry> {
   if (fs.existsSync(MEMORY_FILE)) {
     try {
-      const content = fs.readFileSync(MEMORY_FILE, 'utf8');
+      const content = fs.readFileSync(MEMORY_FILE, "utf8");
       return JSON.parse(content);
     } catch (e) {
       return {};
@@ -32,12 +32,14 @@ export function loadMemory(): Record<string, MemoryEntry> {
 
 export function saveMemory(memory: Record<string, MemoryEntry>): void {
   ensureConfigDir();
-  fs.writeFileSync(MEMORY_FILE, JSON.stringify(memory, null, 2), 'utf8');
+  fs.writeFileSync(MEMORY_FILE, JSON.stringify(memory, null, 2), "utf8");
 }
 
 export function listMemory(): MemoryEntry[] {
   const memory = loadMemory();
-  return Object.values(memory).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  return Object.values(memory).sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
 }
 
 export function getMemory(key: string): MemoryEntry | null {
@@ -45,7 +47,11 @@ export function getMemory(key: string): MemoryEntry | null {
   return memory[key] || null;
 }
 
-export function setMemory(key: string, value: string, type = 'string'): { entry: MemoryEntry; action: 'write' | 'update' } {
+export function setMemory(
+  key: string,
+  value: string,
+  type = "string"
+): { entry: MemoryEntry; action: "write" | "update" } {
   const memory = loadMemory();
   const exists = !!memory[key];
   const entry: MemoryEntry = {
@@ -56,7 +62,7 @@ export function setMemory(key: string, value: string, type = 'string'): { entry:
   };
   memory[key] = entry;
   saveMemory(memory);
-  return { entry, action: exists ? 'update' : 'write' };
+  return { entry, action: exists ? "update" : "write" };
 }
 
 export function deleteMemory(key: string): boolean {
@@ -74,12 +80,15 @@ export function clearMemory(): void {
 }
 
 export interface MemoryDiff {
-  written: { key: string; value: string }[];
-  updated: { key: string; oldValue: string; newValue: string }[];
   deleted: { key: string; value: string }[];
+  updated: { key: string; oldValue: string; newValue: string }[];
+  written: { key: string; value: string }[];
 }
 
-export function generateMemoryDiff(oldMemory: Record<string, MemoryEntry>, newMemory: Record<string, MemoryEntry>): MemoryDiff {
+export function generateMemoryDiff(
+  oldMemory: Record<string, MemoryEntry>,
+  newMemory: Record<string, MemoryEntry>
+): MemoryDiff {
   const written: { key: string; value: string }[] = [];
   const updated: { key: string; oldValue: string; newValue: string }[] = [];
   const deleted: { key: string; value: string }[] = [];
@@ -88,7 +97,11 @@ export function generateMemoryDiff(oldMemory: Record<string, MemoryEntry>, newMe
     if (!oldMemory[key]) {
       written.push({ key, value: newMemory[key].value });
     } else if (oldMemory[key].value !== newMemory[key].value) {
-      updated.push({ key, oldValue: oldMemory[key].value, newValue: newMemory[key].value });
+      updated.push({
+        key,
+        oldValue: oldMemory[key].value,
+        newValue: newMemory[key].value,
+      });
     }
   }
 

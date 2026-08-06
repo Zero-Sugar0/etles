@@ -10,9 +10,9 @@ import {
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
+import { markdownComponents } from "@/components/elements/markdown-components";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
-import { markdownComponents } from "@/components/elements/markdown-components";
 import {
   Tooltip,
   TooltipContent,
@@ -20,7 +20,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-export { ToolPill, ExpandableToolPill } from "./tool-pill";
+
+export { ExpandableToolPill, ToolPill } from "./tool-pill";
 
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   from: UIMessage["role"];

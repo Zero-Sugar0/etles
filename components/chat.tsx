@@ -25,14 +25,13 @@ import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
+import { preloadToolkitLogos } from "@/lib/toolkit-logos";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
-import { ActiveAgentTasksBanner } from "./active-agent-tasks-banner";
 import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { preloadToolkitLogos } from "@/lib/toolkit-logos";
 import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
@@ -137,10 +136,9 @@ export function Chat({
               return false;
             }
             const state = (part as { state?: string }).state;
-            return (
-              state === "approval-responded" || state === "output-denied"
-            );
-          }) ?? false);
+            return state === "approval-responded" || state === "output-denied";
+          }) ??
+            false);
 
         return {
           body: {

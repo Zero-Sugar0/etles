@@ -33,9 +33,9 @@ import {
   parseAgentMessage,
 } from "./elements/agent-action";
 import { ChartDisplay } from "./elements/chart-display";
-import { MermaidDisplay } from "./elements/mermaid-display";
 import { EventCard, parseEventMessage } from "./elements/event";
 import { ExpandableContent } from "./elements/expandable-content";
+import { MermaidDisplay } from "./elements/mermaid-display";
 import { MessageContent } from "./elements/message";
 import { Response } from "./elements/response";
 import {
@@ -574,13 +574,11 @@ const PurePreviewMessage = ({
                     <div className={widthClass} key={toolCallId}>
                       <MermaidDisplay
                         chart={(out as { chart: string }).chart}
-                        title={
-                          (out as { title?: string }).title ?? undefined
-                        }
                         description={
                           (out as { description?: string }).description ??
                           undefined
                         }
+                        title={(out as { title?: string }).title ?? undefined}
                       />
                     </div>
                   );

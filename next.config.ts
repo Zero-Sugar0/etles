@@ -1,6 +1,6 @@
 import { withBotId } from "botid/next/config";
-import path from "path";
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
@@ -18,7 +18,10 @@ const nextConfig: NextConfig = {
       config.resolve.alias = {};
     }
 
-    config.resolve.alias["zlib-sync"] = path.resolve(__dirname, "lib/shims/zlib-sync.js");
+    config.resolve.alias["zlib-sync"] = path.resolve(
+      import.meta.dirname,
+      "lib/shims/zlib-sync.js"
+    );
 
     return config;
   },
