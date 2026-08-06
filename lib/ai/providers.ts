@@ -7,7 +7,11 @@ import {
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
-import { DEFAULT_CHAT_MODEL, titleModel } from "./models";
+import {
+  DEFAULT_CHAT_MODEL,
+  resolveImageModelId,
+  titleModel,
+} from "./models";
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -67,6 +71,11 @@ export function getGoogleModel(modelId: string) {
   const directId = modelId.replace(/^google\//, "");
 
   return google(directId);
+}
+
+export function getImageModel(modelId?: string, provider?: string) {
+  const resolvedModelId = resolveImageModelId(provider, modelId);
+  return gateway.imageModel(resolvedModelId);
 }
 
 /**

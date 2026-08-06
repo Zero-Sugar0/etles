@@ -3,6 +3,68 @@
 
 export const DEFAULT_CHAT_MODEL = "moonshotai/kimi-k2.5";
 
+export type ImageModelProvider = "google" | "openai" | "bytedance" | "xai";
+
+export type ImageModel = {
+  id: string;
+  name: string;
+  provider: ImageModelProvider;
+  description: string;
+};
+
+export const DEFAULT_IMAGE_MODEL_ID = "google/gemini-3.1-flash-lite-image";
+
+export const imageModels: ImageModel[] = [
+  {
+    id: "google/gemini-3.1-flash-lite-image",
+    name: "Gemini 3.1 Flash Lite Image",
+    provider: "google",
+    description: "Fast image generation model for lightweight edits and renders.",
+  },
+  {
+    id: "openai/gpt-image-2",
+    name: "GPT Image 2",
+    provider: "openai",
+    description: "OpenAI image generation model for rich visual outputs.",
+  },
+  {
+    id: "bytedance/seedream-5.0-pro",
+    name: "Seedream 5.0 Pro",
+    provider: "bytedance",
+    description: "ByteDance advanced image generation model.",
+  },
+  {
+    id: "bytedance/seedream-4.5",
+    name: "Seedream 4.5",
+    provider: "bytedance",
+    description: "ByteDance image generation model for balanced quality and speed.",
+  },
+  {
+    id: "xai/grok-imagine-image",
+    name: "Grok Imagine Image",
+    provider: "xai",
+    description: "xAI image generation model for creative image creation.",
+  },
+];
+
+export function resolveImageModelId(provider?: string, explicitModelId?: string) {
+  const normalizedExplicitModelId = explicitModelId?.trim();
+  if (normalizedExplicitModelId) {
+    return normalizedExplicitModelId;
+  }
+
+  const normalizedProvider = provider?.trim().toLowerCase();
+  if (!normalizedProvider) {
+    return DEFAULT_IMAGE_MODEL_ID;
+  }
+
+  const matchedModel = imageModels.find(
+    (model) => model.provider === normalizedProvider
+  );
+
+  return matchedModel?.id ?? DEFAULT_IMAGE_MODEL_ID;
+}
+
 export const titleModel = {
   description: "Fast model for title generation",
   gatewayOrder: ["google", "fireworks"],

@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { ChatMessage } from "@/lib/types";
 import { put } from "@vercel/blob";
 import { generateUUID } from "@/lib/utils";
+import { resolveImageModelId } from "@/lib/ai/models";
 
 function mapAspectRatioToOpenAISize(aspectRatio?: string): `${number}x${number}` {
   if (aspectRatio === "16:9") return "1792x1024";
@@ -20,6 +21,10 @@ export const generateImageTool = (
     description: "Generate an image or edit an existing image based on a prompt.",
     inputSchema: z.object({
       prompt: z.string().describe("The prompt to generate the image from. If editing, describe how to edit the image."),
+      modelId: z
+        .string()
+        .optional()
+        .describe("Optional explicit image model ID. Overrides the provider selection when provided."),
       aspectRatio: z
         .enum([
           "1:1",
@@ -42,21 +47,19 @@ export const generateImageTool = (
         .default("1K")
         .describe("Resolution size of the generated image. Use 2K or 4K only if specified."),
       provider: z
-        .enum(["google", "openai"])
+        .enum(["google", "openai", "bytedance", "xai"])
         .optional()
         .default("google")
-        .describe("The provider/model to use. 'google' uses gemini-3.1-flash-image-preview. 'openai' uses openai-image-2 (openai/gpt-image-2). Default is google."),
+        .describe("The provider to use. Supported providers are google, openai, bytedance, and xai."),
       editReferenceImageUrl: z
         .string()
         .url()
         .optional()
         .describe("ONLY use this if the user wants to EDIT an existing image. Do NOT use this for generating a new image. Provide the exact URL the user specified."),
     }),
-    execute: async ({ prompt, aspectRatio, resolution, provider, editReferenceImageUrl }) => {
+    execute: async ({ prompt, aspectRatio, resolution, provider, editReferenceImageUrl, modelId: explicitModelId }) => {
       try {
-        const modelId = provider === "openai"
-          ? "openai/gpt-image-2"
-          : "google/gemini-3.1-flash-image-preview";
+        const modelId = resolveImageModelId(provider, explicitModelId);
 
         console.log(`[Image Gen] Generating image using ${modelId} via Vercel AI SDK & AI Gateway`);
 
@@ -97,8 +100,9 @@ export const generateImageTool = (
         const result = await generateImage({
           model: gateway.imageModel(modelId),
           prompt: promptInput,
-          aspectRatio: provider === "google" ? aspectRatio : undefined,
-          size,
+          ...(provider === "openai"
+            ? { size }
+            : { aspectRatio }),
         });
 
         const base64Image = result.image.base64;
