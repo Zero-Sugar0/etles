@@ -1,42 +1,10 @@
-import { GoogleGenAI } from "@google/genai";
 import { tool, type UIMessageStreamWriter } from "ai";
 import { z } from "zod";
 import type { ChatMessage } from "@/lib/types";
 import { put } from "@vercel/blob";
 import { generateUUID } from "@/lib/utils";
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-const POLL_INTERVAL_MS = 10_000;
-const MAX_POLL_ATTEMPTS = 60; // 10 minutes max before giving up
-
-// ---------------------------------------------------------------------------
-// Helper — polls a video operation until done or timed out
-// ---------------------------------------------------------------------------
-async function pollUntilDone(
-  ai: GoogleGenAI,
-  operation: any,
-  onProgress?: (attempt: number) => void
-) {
-  let current = operation;
-  let attempts = 0;
-
-  while (!current.done) {
-    if (attempts >= MAX_POLL_ATTEMPTS) {
-      throw new Error(
-        `Video generation timed out after ${(MAX_POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000}s.`
-      );
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    onProgress?.(++attempts);
-
-    current = await ai.operations.getVideosOperation({ operation: current });
-  }
-
-  return current;
-}
+import { resolveVideoModelId } from "@/lib/ai/models";
+import { getVideoModel } from "@/lib/ai/providers";
 
 // ---------------------------------------------------------------------------
 // Helper — converts a base64 string + mime type into the inlineData shape
@@ -54,16 +22,14 @@ function toImagePayload(base64: string, mimeType: string) {
 // ---------------------------------------------------------------------------
 export const generateVideoTool = () =>
   tool({
-    description: `Generate an 8-second video using Google Veo 3.1.
+    description: `Generate a video via the AI Gateway using the requested provider/model.
 
 Modes:
 - Text-to-video: provide only a prompt.
 - Image-to-video: provide a startFrameBase64 to animate from a specific first frame.
 - First + last frame: provide both startFrameBase64 and endFrameBase64 to guide start and end.
-- Reference images: provide up to 3 referenceImages to lock in a subject's appearance (person, product, character).
-- Video extension: provide videoToExtendUri (a previously generated Veo video URI) to extend it.
-
-Resolution note: 4k is not available for Veo 3.1 Lite. Video extension is limited to 720p.`,
+- Reference images: provide up to 3 referenceImages to lock in a subject's appearance.
+- Video extension: provide videoToExtendUri (when supported by the selected model).`,
 
     inputSchema: z.object({
       prompt: z
@@ -87,13 +53,16 @@ Resolution note: 4k is not available for Veo 3.1 Lite. Video extension is limite
           "Output resolution. Higher = slower + more expensive. 4k not available for Lite model."
         ),
 
-      model: z
-        .enum(["veo-3.1-generate-preview", "veo-3.1-lite-generate-preview"])
+      modelId: z
+        .string()
         .optional()
-        .default("veo-3.1-generate-preview")
-        .describe(
-          "Which Veo variant to use. Lite is faster and cheaper but no 4k."
-        ),
+        .describe("Optional explicit video model ID. Overrides provider selection when provided."),
+
+      provider: z
+        .enum(["google", "bytedance", "xai", "minimax"])
+        .optional()
+        .default("google")
+        .describe("The provider to use for video generation."),
 
       // ── Image-to-video / first frame ─────────────────────────────────────
       startFrameBase64: z
@@ -150,7 +119,8 @@ Resolution note: 4k is not available for Veo 3.1 Lite. Video extension is limite
       prompt,
       aspectRatio,
       resolution,
-      model,
+      modelId: explicitModelId,
+      provider,
       startFrameBase64,
       startFrameMimeType,
       endFrameBase64,
@@ -159,91 +129,43 @@ Resolution note: 4k is not available for Veo 3.1 Lite. Video extension is limite
       videoToExtendUri,
     }) => {
       try {
-        const ai = new GoogleGenAI({
-          apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+        const model = resolveVideoModelId(provider, explicitModelId);
+        console.log(`[Video Gen] Generating video using ${model} via Vercel AI SDK & AI Gateway`);
+
+        const videoModel = getVideoModel(model);
+        const result = await videoModel.doGenerate({
+          prompt,
+          n: 1,
+          aspectRatio: aspectRatio as `${number}:${number}`,
+          resolution: undefined,
+          duration: 8,
+          fps: undefined,
+          seed: undefined,
+          image: undefined,
+          providerOptions: {},
         });
 
-        // ── Build the generateVideos payload ────────────────────────────────
-        const payload: any = {
-          model,
-          prompt,
-          config: {
-            aspectRatio,
-            resolution,
-          },
-        };
-
-        // First frame (image-to-video)
-        if (startFrameBase64) {
-          payload.image = toImagePayload(startFrameBase64, startFrameMimeType ?? "image/png");
-        }
-
-        // Last frame — only meaningful when a first frame is also set
-        if (endFrameBase64) {
-          if (!startFrameBase64) {
-            return {
-              error: "endFrameBase64 requires startFrameBase64 to also be provided.",
-            };
-          }
-          payload.lastFrame = toImagePayload(endFrameBase64, endFrameMimeType ?? "image/png");
-        }
-
-        // Reference images — up to 3, Veo 3.1 full only
-        if (referenceImages && referenceImages.length > 0) {
-          payload.config.referenceImages = referenceImages.map((ref) => ({
-            image: toImagePayload(ref.base64, ref.mimeType),
-            referenceType: "asset",
-          }));
-        }
-
-        // Video extension
-        if (videoToExtendUri) {
-          payload.video = { uri: videoToExtendUri };
-          // Extension is limited to 720p
-          if (resolution !== "720p") {
-            payload.config.resolution = "720p";
-          }
-        }
-
-        // ── Submit the job ──────────────────────────────────────────────────
-        let operation = await ai.models.generateVideos(payload);
-
-        // ── Poll until done ────────────────────────────────────────────────
-        operation = await pollUntilDone(ai, operation);
-
-        // ── Extract the result ──────────────────────────────────────────────
-        const generatedVideos = operation.response?.generatedVideos;
-
-        if (!generatedVideos || generatedVideos.length === 0) {
-          throw new Error("No videos found in Veo response.");
-        }
-
-        // Collect all generated video URIs (Veo can return multiple)
-        const rawVideoUris: string[] = generatedVideos.map(
-          (v: any) => v.video?.uri ?? v.video?.url
-        ).filter(Boolean);
+        const rawVideoUris = result.videos
+          ?.map((video: any) => video.url ?? video.data)
+          .filter(Boolean) ?? [];
 
         if (rawVideoUris.length === 0) {
-          throw new Error("Generated videos contained no accessible URIs.");
+          throw new Error("No videos found in the AI Gateway response.");
         }
 
-        // Upload each video to Vercel Blob for persistence
         const videoUris: string[] = [];
-        
+
         for (const rawUri of rawVideoUris) {
           try {
-            console.log(`Fetching video from Veo URI: ${rawUri}`);
+            console.log(`Fetching video from gateway URI: ${rawUri}`);
             const videoRes = await fetch(rawUri, {
               headers: {
-                "x-goog-api-key": process.env.GOOGLE_GENERATIVE_AI_API_KEY!,
                 "User-Agent": "Mozilla/5.0 (compatible; EtlesAgent/1.0)",
               },
             });
 
             if (!videoRes.ok) {
-              console.error(
-                `Failed to fetch video from Veo URI: ${rawUri} | Status: ${videoRes.status} ${videoRes.statusText}`
-              );
+              console.error(`Failed to fetch video from gateway URI: ${rawUri} | Status: ${videoRes.status} ${videoRes.statusText}`);
               continue;
             }
 
@@ -255,7 +177,6 @@ Resolution note: 4k is not available for Veo 3.1 Lite. Video extension is limite
 
             const contentType = videoRes.headers.get("content-type") || "video/mp4";
             const extension = contentType.split("/")[1] || "mp4";
-            
             const filename = `gemini-videos/${generateUUID()}.${extension}`;
             const blobData = await put(filename, Buffer.from(videoBuffer), {
               access: "public",
@@ -274,21 +195,20 @@ Resolution note: 4k is not available for Veo 3.1 Lite. Video extension is limite
           throw new Error("Failed to persist any generated videos to Blob storage. Check logs for fetch/put errors.");
         }
 
-        // ── Return persistent metadata to the model ──────────────────────────────
         return {
           status: "SUCCESS",
-          url: videoUris[0], // Primary URL
-          videoUris, // All URLs
+          url: videoUris[0],
+          videoUris,
           prompt,
           model,
           aspectRatio,
-          resolution: payload.config.resolution ?? resolution,
+          resolution,
           videoCount: videoUris.length,
           ...(startFrameBase64 && { mode: endFrameBase64 ? "first-and-last-frame" : "image-to-video" }),
           ...(referenceImages && { referenceImageCount: referenceImages.length }),
           ...(videoToExtendUri && { mode: "video-extension" }),
           ...(!startFrameBase64 && !videoToExtendUri && { mode: "text-to-video" }),
-          markdown: videoUris.map(uri => `![Video](${uri})`).join("\n\n")
+          markdown: videoUris.map((uri) => `![Video](${uri})`).join("\n\n"),
         };
       } catch (error) {
         console.error("Video generation failed:", error);

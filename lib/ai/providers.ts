@@ -10,6 +10,7 @@ import { isTestEnvironment } from "../constants";
 import {
   DEFAULT_CHAT_MODEL,
   resolveImageModelId,
+  resolveVideoModelId,
   titleModel,
 } from "./models";
 
@@ -76,6 +77,11 @@ export function getGoogleModel(modelId: string) {
 export function getImageModel(modelId?: string, provider?: string) {
   const resolvedModelId = resolveImageModelId(provider, modelId);
   return gateway.imageModel(resolvedModelId);
+}
+
+export function getVideoModel(modelId?: string, provider?: string) {
+  const resolvedModelId = resolveVideoModelId(provider, modelId);
+  return gateway.videoModel(resolvedModelId);
 }
 
 /**
