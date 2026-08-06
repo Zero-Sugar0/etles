@@ -9,6 +9,7 @@ import type { ToolSet } from "ai";
 import * as aws from "@/lib/ai/tools/aws";
 import * as azure from "@/lib/ai/tools/azure";
 import * as browserUseTools from "@/lib/ai/tools/browser-use";
+import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
 import * as db from "@/lib/ai/tools/databases";
 import {
   archiveSandbox,
@@ -118,6 +119,7 @@ export function buildEtlesTelegramTools({
   return {
     ...withApproval(composioTools),
     getWeather,
+    readAgentSkill: readAgentSkill(),
     saveMemory: saveMemory({ userId }),
     recallMemory: recallMemory({ userId }),
     searchPastConversations: searchPastConversations({ userId }),
