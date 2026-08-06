@@ -3,6 +3,7 @@
 import { useTheme } from "next-themes";
 import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { normalizeMermaidChart } from "@/lib/ai/tools/render-mermaid";
 
 type MermaidDisplayProps = {
   chart: string;
@@ -110,7 +111,8 @@ export function MermaidDisplay({
 
         const id = `mermaid-${reactId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
-        const { svg: renderedSvg } = await mermaid.render(id, chart);
+        const sanitizedChart = normalizeMermaidChart(chart);
+        const { svg: renderedSvg } = await mermaid.render(id, sanitizedChart);
 
         if (!cancelled) {
           setSvg(renderedSvg);
@@ -195,13 +197,15 @@ export function MermaidDisplay({
           display: flex;
           justify-content: center;
           width: 100%;
+          min-width: 0;
         }
 
         .mermaid-rendered :global(svg) {
           display: block;
           height: auto;
-          max-width: none;
+          max-width: 100%;
           overflow: visible;
+          min-width: 0;
         }
 
         .mermaid-rendered :global(.node rect),
