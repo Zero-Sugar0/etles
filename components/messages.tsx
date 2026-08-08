@@ -1,19 +1,234 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import {
   ArrowDownIcon,
+  BotIcon,
+  CheckIcon,
+  ChevronDownIcon,
   Loader2,
   StopCircleIcon,
-  TerminalIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useActiveAgentTasks } from "@/hooks/use-active-agent-tasks";
+import {
+  type AgentTask,
+  useActiveAgentTasks,
+} from "@/hooks/use-active-agent-tasks";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
 import { Button } from "./ui/button";
+
+type AgentActivityGroupProps = {
+  tasks: AgentTask[];
+  cancellingTasks: Record<string, boolean>;
+  onCancel: (taskId: string) => void;
+};
+
+function AgentActivityGroup({
+  tasks,
+  cancellingTasks,
+  onCancel,
+}: AgentActivityGroupProps) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [openGroup, setOpenGroup] = useState(true);
+  const workingTasks = tasks.filter(
+    (task) => task.status === "pending" || task.status === "running"
+  );
+  const completedTasks = tasks.filter(
+    (task) => task.status === "completed" || task.status === "failed"
+  );
+
+  return (
+    <section
+      aria-label="Agent activity"
+      aria-live="polite"
+      className="mx-1 mt-2 mb-4 overflow-hidden rounded-xl border border-border/70 bg-card/80 shadow-xs backdrop-blur"
+    >
+      <button
+        aria-expanded={openGroup}
+        className="flex min-h-12 w-full items-center justify-between gap-3 px-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+        onClick={() => setOpenGroup((value) => !value)}
+        type="button"
+      >
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <BotIcon aria-hidden="true" className="size-4" />
+          </span>
+          <span className="truncate text-sm font-medium text-foreground">
+            {workingTasks.length > 0
+              ? `${workingTasks.length} ${workingTasks.length === 1 ? "agent" : "agents"} working…`
+              : `${completedTasks.length} ${completedTasks.length === 1 ? "agent" : "agents"} done`}
+          </span>
+        </span>
+        <ChevronDownIcon
+          aria-hidden="true"
+          className={cn(
+            "size-4 shrink-0 text-muted-foreground transition-transform",
+            openGroup && "rotate-180"
+          )}
+        />
+      </button>
+
+      {openGroup && (
+        <div className="border-t border-border/60 px-2">
+          {workingTasks.map((task) => {
+            const isOpen = openId === task.id;
+            const isStopping = Boolean(cancellingTasks[task.id]);
+            return (
+              <div
+                className="border-b border-border/50 last:border-b-0"
+                key={task.id}
+              >
+                <button
+                  aria-controls={`agent-detail-${task.id}`}
+                  aria-expanded={isOpen}
+                  className="flex min-h-14 w-full items-center gap-3 px-1 py-2 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                  onClick={() => setOpenId(isOpen ? null : task.id)}
+                  type="button"
+                >
+                  <span className="relative flex size-7 shrink-0 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary">
+                    <span
+                      aria-hidden="true"
+                      className="absolute size-2 animate-pulse rounded-full bg-primary"
+                    />
+                    <span className="sr-only">Working</span>
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium capitalize text-foreground">
+                      {task.agentType.replace(/_/g, " ")}
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {task.task}
+                    </span>
+                  </span>
+                  <ChevronDownIcon
+                    aria-hidden="true"
+                    className={cn(
+                      "size-4 shrink-0 text-muted-foreground transition-transform",
+                      isOpen && "rotate-180"
+                    )}
+                  />
+                </button>
+                {isOpen && (
+                  <div
+                    className="flex flex-col gap-3 px-11 pb-3"
+                    id={`agent-detail-${task.id}`}
+                  >
+                    <p className="text-xs leading-relaxed text-muted-foreground">
+                      {task.task}
+                    </p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] text-muted-foreground/70">
+                        run {task.id.slice(0, 8)}
+                      </span>
+                      <Button
+                        className="h-8 rounded-md px-2.5 text-xs text-muted-foreground hover:text-destructive"
+                        disabled={isStopping}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onCancel(task.id);
+                        }}
+                        size="sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        {isStopping ? (
+                          <Loader2
+                            aria-hidden="true"
+                            className="size-3.5 animate-spin"
+                          />
+                        ) : (
+                          <StopCircleIcon
+                            aria-hidden="true"
+                            className="size-3.5"
+                          />
+                        )}
+                        {isStopping ? "Stopping" : "Stop agent"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {completedTasks.length > 0 && (
+            <details
+              className="border-t border-border/60"
+              open={workingTasks.length === 0}
+            >
+              <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-1 text-sm text-muted-foreground marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
+                <span className="flex items-center gap-2">
+                  <CheckIcon
+                    aria-hidden="true"
+                    className="size-4 text-emerald-500"
+                  />
+                  {completedTasks.length}{" "}
+                  {completedTasks.length === 1 ? "agent" : "agents"} done
+                </span>
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className="size-4 transition-transform details-open:rotate-180"
+                />
+              </summary>
+              <div className="pb-1">
+                {completedTasks.map((task) => (
+                  <div key={task.id}>
+                    <div className="flex min-h-12 items-center gap-3 border-t border-border/40 px-1 py-2">
+                      <span
+                        className={cn(
+                          "flex size-7 shrink-0 items-center justify-center rounded-full",
+                          task.status === "failed"
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-emerald-500/10 text-emerald-500"
+                        )}
+                      >
+                        <CheckIcon aria-hidden="true" className="size-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium capitalize text-foreground">
+                          {task.agentType.replace(/_/g, " ")}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {task.status === "failed"
+                            ? "Task failed"
+                            : "Completed"}
+                        </span>
+                      </span>
+                      <button
+                        aria-label={`View ${task.agentType.replace(/_/g, " ")} details`}
+                        className="rounded-md p-2 text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        onClick={() =>
+                          setOpenId(openId === task.id ? null : task.id)
+                        }
+                        type="button"
+                      >
+                        <ChevronDownIcon
+                          aria-hidden="true"
+                          className={cn(
+                            "size-4",
+                            openId === task.id && "rotate-180"
+                          )}
+                        />
+                      </button>
+                    </div>
+                    {openId === task.id && (
+                      <p className="px-11 pb-3 text-xs leading-relaxed text-muted-foreground">
+                        {task.result?.text || task.result?.error || task.task}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
 
 type MessagesProps = {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
@@ -186,89 +401,11 @@ function PureMessages({
             ) && <ThinkingMessage />}
 
           {activeTasks && activeTasks.length > 0 && (
-            <section
-              aria-label="Active agent work"
-              aria-live="polite"
-              className="flex flex-col gap-3 mt-3 mb-5 rounded-2xl border border-primary/20 bg-card/85 p-3 shadow-sm backdrop-blur transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
-            >
-              <div className="flex items-center justify-between gap-3 border-b border-border/60 px-1.5 pb-3 select-none">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <TerminalIcon aria-hidden="true" className="size-3.5" />
-                  </span>
-                  <div>
-                    <h2 className="font-mono text-[11px] font-bold uppercase tracking-wider text-foreground">
-                      Agent workspace
-                    </h2>
-                    <p className="text-[11px] text-muted-foreground">
-                      Your team is working in parallel
-                    </p>
-                  </div>
-                </div>
-                <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 font-mono text-[10px] font-semibold text-primary">
-                  {activeTasks.length} active
-                </span>
-              </div>
-
-              {/* Console Rows */}
-              <div className="flex flex-col divide-y divide-border/20 max-h-[220px] overflow-y-auto">
-                {activeTasks.map((task) => {
-                  const isStopping = !!cancellingTasks[task.id];
-                  return (
-                    <div
-                      className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 py-2.5 px-1.5 hover:bg-muted/30 transition-colors duration-150 group"
-                      key={task.id}
-                    >
-                      {/* Left Side: Pulse + Agent Slug */}
-                      <div className="flex items-center gap-2.5 min-w-0 md:w-[170px] shrink-0">
-                        <span className="relative flex size-1.5 shrink-0">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                          <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
-                        </span>
-                        <div className="flex items-center gap-1.5 min-w-0 font-mono text-xs font-semibold">
-                          <span className="text-foreground truncate uppercase tracking-wide">
-                            {task.agentType.replace(/_/g, " ")}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground/50 shrink-0">
-                            ({task.id.slice(0, 6)})
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Center Side: Interactive terminal prompt line */}
-                      <div className="flex items-center gap-2 min-w-0 grow">
-                        <span className="text-primary/70 font-mono text-xs shrink-0 select-none font-bold">
-                          &gt;
-                        </span>
-                        <p
-                          className="font-mono text-xs text-muted-foreground truncate leading-none md:max-w-[420px] hover:text-foreground transition-colors duration-150 select-all cursor-text"
-                          title={task.task}
-                        >
-                          {task.task}
-                        </p>
-                      </div>
-
-                      {/* Right Side: Action Trigger */}
-                      <Button
-                        className="h-6 px-2 rounded-md text-[10px] font-mono font-semibold text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors duration-150 shrink-0 gap-1 ml-auto md:ml-0 opacity-80 group-hover:opacity-100"
-                        disabled={isStopping}
-                        onClick={() => handleCancelTask(task.id)}
-                        size="sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        {isStopping ? (
-                          <Loader2 className="size-3 animate-spin text-destructive" />
-                        ) : (
-                          <StopCircleIcon className="size-3 text-destructive/75" />
-                        )}
-                        <span>{isStopping ? "stopping..." : "stop"}</span>
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+            <AgentActivityGroup
+              cancellingTasks={cancellingTasks}
+              onCancel={handleCancelTask}
+              tasks={activeTasks}
+            />
           )}
 
           <div
