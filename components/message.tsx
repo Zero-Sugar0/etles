@@ -52,6 +52,7 @@ import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
+import { YahooFinanceDisplay } from "./elements/yahoo-finance-display";
 
 const PurePreviewMessage = ({
   addToolApprovalResponse,
@@ -470,6 +471,40 @@ const PurePreviewMessage = ({
                     </ToolContent>
                   </Tool>
                 </div>
+              );
+            }
+
+            if ((type as string) === "tool-getYahooFinance") {
+              const financePart = part as any;
+              const { toolCallId, state } = financePart;
+              const output = financePart.output as any;
+              if (
+                state === "output-available" &&
+                output &&
+                !output.error &&
+                output.type === "yahoo-finance"
+              ) {
+                return <YahooFinanceDisplay data={output} key={toolCallId} />;
+              }
+              return (
+                <Tool
+                  className="w-full max-w-2xl"
+                  defaultOpen={state !== "input-streaming"}
+                  key={toolCallId}
+                >
+                  <ToolHeader state={state} type={type} />
+                  <ToolContent>
+                    {state === "input-available" && (
+                      <ToolInput input={financePart.input} />
+                    )}
+                    {state === "output-error" && (
+                      <ToolOutput output="Could not load market data." />
+                    )}
+                    {state === "output-available" && output?.error && (
+                      <ToolOutput output={output.error} />
+                    )}
+                  </ToolContent>
+                </Tool>
               );
             }
 

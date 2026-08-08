@@ -186,18 +186,28 @@ function PureMessages({
             ) && <ThinkingMessage />}
 
           {activeTasks && activeTasks.length > 0 && (
-            <div className="flex flex-col gap-2 mt-3 mb-5 border border-border/50 bg-muted/20 dark:bg-muted/10 rounded-xl p-3 shadow-2xs backdrop-blur-xs transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
-              {/* Header of the unified console */}
-              <div className="flex items-center justify-between px-1.5 pb-2.5 border-b border-border/45 select-none">
-                <div className="flex items-center gap-2">
-                  <TerminalIcon className="size-3.5 text-primary animate-pulse" />
-                  <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-foreground">
-                    Active Agent Console
+            <section
+              aria-label="Active agent work"
+              aria-live="polite"
+              className="flex flex-col gap-3 mt-3 mb-5 rounded-2xl border border-primary/20 bg-card/85 p-3 shadow-sm backdrop-blur transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-border/60 px-1.5 pb-3 select-none">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <TerminalIcon aria-hidden="true" className="size-3.5" />
                   </span>
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-primary/10 text-primary">
-                    {activeTasks.length} running
-                  </span>
+                  <div>
+                    <h2 className="font-mono text-[11px] font-bold uppercase tracking-wider text-foreground">
+                      Agent workspace
+                    </h2>
+                    <p className="text-[11px] text-muted-foreground">
+                      Your team is working in parallel
+                    </p>
+                  </div>
                 </div>
+                <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 font-mono text-[10px] font-semibold text-primary">
+                  {activeTasks.length} active
+                </span>
               </div>
 
               {/* Console Rows */}
@@ -258,7 +268,7 @@ function PureMessages({
                   );
                 })}
               </div>
-            </div>
+            </section>
           )}
 
           <div
