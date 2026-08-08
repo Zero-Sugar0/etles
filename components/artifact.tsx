@@ -390,7 +390,7 @@ function PureArtifact({
                     },
                   }
             }
-            className="fixed flex h-dvh flex-col overflow-hidden border-zinc-200 bg-background md:border-l dark:border-zinc-700 dark:bg-muted"
+            className="fixed flex h-dvh flex-col overflow-hidden border-border/80 bg-background/95 shadow-2xl shadow-primary/10 backdrop-blur-xl md:border-l"
             exit={{
               opacity: 0,
               scale: 0.5,

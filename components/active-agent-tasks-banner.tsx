@@ -38,11 +38,11 @@ export function ActiveAgentTasksBanner({
   return (
     <div
       className={cn(
-        "mx-2 mt-2 flex items-center justify-between gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 py-2 text-sm shadow-xs backdrop-blur md:mx-3",
+        "mx-2 mt-2 flex flex-col gap-2 overflow-hidden rounded-2xl border border-primary/20 bg-card/90 p-1 shadow-lg shadow-primary/5 backdrop-blur-xl md:mx-3",
         className
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2 px-3 py-2.5">
         <LoaderIcon className="size-4 shrink-0 animate-spin text-primary" />
         <span className="truncate text-muted-foreground">
           {tasks.length === 1 ? (
@@ -61,7 +61,16 @@ export function ActiveAgentTasksBanner({
           )}
         </span>
       </div>
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex flex-wrap gap-1.5 px-3 pb-1">
+        {tasks.slice(0, 4).map((task) => (
+          <span className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-border/70 bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground" key={task.id}>
+            <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary" />
+            <span className="max-w-[220px] truncate">{task.agentType.replace(/_/g, " ")}</span>
+          </span>
+        ))}
+        {tasks.length > 4 && <span className="px-1 py-1 text-[11px] text-muted-foreground">+{tasks.length - 4} more</span>}
+      </div>
+      <div className="flex shrink-0 items-center justify-between gap-1 border-t border-border/60 px-2 py-1">
         <Button
           asChild
           className="h-7 rounded-lg"

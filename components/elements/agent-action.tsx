@@ -114,20 +114,20 @@ export const AgentActionCard = ({ agent }: { agent: AgentActionData }) => {
 
   return (
     <div
-      className="not-prose my-1.5 w-full max-w-md overflow-hidden rounded-xl border border-white/5 bg-white/[0.01] backdrop-blur-xl transition-all hover:bg-white/[0.03] shadow-xs"
+      className="not-prose my-3 w-full max-w-2xl overflow-hidden rounded-2xl border border-border/70 bg-card/80 shadow-md shadow-primary/5 backdrop-blur-xl transition-all hover:border-primary/30 hover:shadow-lg hover:shadow-primary/10"
       data-agent-task-id={taskId}
     >
       <div
         className="flex cursor-pointer items-center gap-2 p-2 select-none"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex size-6 shrink-0 items-center justify-center rounded-[6px] border border-white/10 bg-black/40 shadow-inner">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 shadow-inner">
           <Bot className="text-primary" size={12} />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 mb-0.5">
-            <h4 className="font-bold text-[12px] tracking-tight text-white/90">
+            <h4 className="font-semibold text-sm tracking-tight text-foreground">
               {agent.agentType}
             </h4>
             <Badge
@@ -229,7 +229,7 @@ export const AgentActionCard = ({ agent }: { agent: AgentActionData }) => {
 
 export const AgentMessageBubble = ({ agent }: { agent: AgentResultData }) => {
   return (
-    <div className="not-prose my-1.5 w-full max-w-md overflow-hidden rounded-xl border border-white/5 bg-[#0a0a0a] p-2.5 shadow-sm transition-all focus-within:ring-1 focus-within:ring-primary/20">
+    <div className="not-prose my-3 w-full max-w-2xl overflow-hidden rounded-2xl border border-emerald-500/20 bg-card/90 p-4 shadow-md shadow-emerald-500/5 transition-all focus-within:ring-2 focus-within:ring-primary/30">
       <div className="flex items-center gap-2 mb-2">
         <div className="flex size-6 shrink-0 items-center justify-center rounded-[6px] border border-white/10 bg-black/60 shadow-inner">
           <Bot className="text-primary" size={12} />

@@ -97,6 +97,7 @@ import {
   tavilyMap,
   tavilySearch,
 } from "@/lib/ai/tools/tavily-search";
+import { yahooFinance } from "@/lib/ai/tools/yahoo-finance";
 import * as twilio from "@/lib/ai/tools/twilio";
 import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
 import { wikiIngest, wikiQuery } from "@/lib/ai/tools/wiki";
@@ -271,6 +272,7 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     tavilyExtract,
     tavilyCrawl,
     tavilyMap,
+    yahooFinance,
     wikiQuery: wikiQuery({ userId }),
     wikiIngest: wikiIngest({ userId }),
     readAgentSkill: readAgentSkill(),

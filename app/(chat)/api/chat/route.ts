@@ -132,6 +132,7 @@ import {
   tavilyMap,
   tavilySearch,
 } from "@/lib/ai/tools/tavily-search";
+import { yahooFinance } from "@/lib/ai/tools/yahoo-finance";
 import {
   listActiveTriggers,
   removeTrigger,
@@ -822,6 +823,7 @@ export async function POST(request: Request) {
                   tavilyExtract,
                   tavilyCrawl,
                   tavilyMap,
+                  yahooFinance,
                   // Twilio Tools
                   twilioMakeCall: twilioTools.twilioMakeCall({
                     userId: session.user.id!,

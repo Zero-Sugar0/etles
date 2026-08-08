@@ -186,7 +186,7 @@ export function WorkflowProgressCard({
   return (
     <div
       className={cn(
-        "w-[min(100%,480px)] overflow-hidden rounded-xl border bg-card text-card-foreground shadow-sm",
+        "w-[min(100%,620px)] overflow-hidden rounded-2xl border bg-card/90 text-card-foreground shadow-lg shadow-primary/5 backdrop-blur-xl",
         {
           "border-border": isRunning,
           "border-emerald-500/30": isCompleted,
@@ -229,7 +229,7 @@ export function WorkflowProgressCard({
       </div>
 
       {/* ── Steps ──────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-2.5 px-3.5 py-3">
+      <div className="flex flex-col gap-3 px-4 py-4">
         {allRows.map((step, idx) => (
           <StepRow
             key={step.name === "pending" ? `pending-${idx}` : step.name}
