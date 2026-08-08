@@ -68,6 +68,7 @@ import { editDocument } from "@/lib/ai/tools/edit-document";
 import { generateImageTool } from "@/lib/ai/tools/generate-image";
 import { generateVideoTool } from "@/lib/ai/tools/generate-video";
 import { getWeather } from "@/lib/ai/tools/get-weather";
+import { getYahooFinance } from "@/lib/ai/tools/yahoo-finance";
 import { listUserMedia } from "@/lib/ai/tools/media-library";
 import {
   addGoal,
@@ -513,6 +514,7 @@ export async function POST(request: Request) {
           stopWhen: stepCountIs(25),
           experimental_activeTools: [
             "getWeather",
+            "getYahooFinance",
             "generateImage",
             "generateVideo",
             "renderChart",
@@ -675,6 +677,7 @@ export async function POST(request: Request) {
           tools: {
             ...composioTools,
             getWeather,
+            getYahooFinance,
             readScratchpad: readScratchpad({
               userId: session.user.id!,
               keyId: id,
