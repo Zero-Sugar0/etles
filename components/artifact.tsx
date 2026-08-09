@@ -19,7 +19,7 @@ import { textArtifact } from "@/artifacts/text/client";
 import { useArtifact } from "@/hooks/use-artifact";
 import type { Document, Vote } from "@/lib/db/schema";
 import type { Attachment, ChatMessage } from "@/lib/types";
-import { fetcher } from "@/lib/utils";
+import { cn, fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";
 import { ArtifactCloseButton } from "./artifact-close-button";
 import { ArtifactMessages } from "./artifact-messages";
@@ -371,6 +371,11 @@ function PureArtifact({
           )}
 
           <motion.div
+            className={cn(
+              "fixed top-0 left-0 flex h-dvh flex-col overflow-hidden border-zinc-200 bg-background md:border-l dark:border-zinc-700 dark:bg-muted",
+              !isMobile &&
+                "left-[clamp(340px,32vw,420px)] w-[calc(100dvw-clamp(340px,32vw,420px))]"
+            )}
             animate={
               isMobile
                 ? {
@@ -390,12 +395,9 @@ function PureArtifact({
                   }
                 : {
                     opacity: 1,
-                    x: 400,
+                    x: 0,
                     y: 0,
                     height: windowHeight,
-                    width: windowWidth
-                      ? windowWidth - 400
-                      : "calc(100dvw-400px)",
                     borderRadius: 0,
                     transition: {
                       delay: 0,
