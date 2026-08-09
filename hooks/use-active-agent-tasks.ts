@@ -27,7 +27,7 @@ async function fetcher(url: string) {
 
 export function useActiveAgentTasks(chatId?: string | null) {
   const url = chatId
-    ? `/api/agent/tasks?chatId=${encodeURIComponent(chatId)}`
+    ? `/api/agent/tasks?all=1&limit=40&chatId=${encodeURIComponent(chatId)}`
     : "/api/agent/tasks";
   const { data: tasks = [], mutate } = useSWR<AgentTask[]>(url, fetcher, {
     refreshInterval: 5000, // Poll every 5s when viewing a chat with active tasks
