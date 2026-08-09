@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
 
   try {
     let tasks;
-    if (all) {
+    if (all && chatId) {
+      tasks = await getRecentAgentTasksByUserId(session.user.id, limit);
+      tasks = tasks.filter((task) => task.chatId === chatId);
+    } else if (all) {
       tasks = await getRecentAgentTasksByUserId(session.user.id, limit);
     } else if (chatId) {
       tasks = await getActiveAgentTasksByChatId(chatId, session.user.id);

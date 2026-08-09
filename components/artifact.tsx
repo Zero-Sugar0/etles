@@ -19,7 +19,7 @@ import { textArtifact } from "@/artifacts/text/client";
 import { useArtifact } from "@/hooks/use-artifact";
 import type { Document, Vote } from "@/lib/db/schema";
 import type { Attachment, ChatMessage } from "@/lib/types";
-import { fetcher } from "@/lib/utils";
+import { cn, fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";
 import { ArtifactCloseButton } from "./artifact-close-button";
 import { ArtifactMessages } from "./artifact-messages";
@@ -107,23 +107,39 @@ function PureArtifact({
   const { open: isSidebarOpen } = useSidebar();
 
   useEffect(() => {
-    if (documents && documents.length > 0) {
-      const mostRecentDocument = documents.at(-1);
-
-      if (mostRecentDocument) {
-        setDocument(mostRecentDocument);
-        setCurrentVersionIndex(documents.length - 1);
-        setArtifact((currentArtifact) => ({
-          ...currentArtifact,
-          content: mostRecentDocument.content ?? "",
-        }));
-      }
+    if (!documents?.length) {
+      return;
     }
+
+    const mostRecentDocument = documents.at(-1);
+    if (!mostRecentDocument) {
+      return;
+    }
+
+    setDocument((currentDocument) =>
+      currentDocument?.id === mostRecentDocument.id &&
+      currentDocument.content === mostRecentDocument.content
+        ? currentDocument
+        : mostRecentDocument
+    );
+    setCurrentVersionIndex((currentIndex) =>
+      currentIndex === documents.length - 1
+        ? currentIndex
+        : documents.length - 1
+    );
+    setArtifact((currentArtifact) => {
+      const nextContent = mostRecentDocument.content ?? "";
+      return currentArtifact.content === nextContent
+        ? currentArtifact
+        : { ...currentArtifact, content: nextContent };
+    });
   }, [documents, setArtifact]);
 
   useEffect(() => {
-    mutateDocuments();
-  }, [mutateDocuments]);
+    if (artifact.isVisible && artifact.documentId !== "init") {
+      void mutateDocuments();
+    }
+  }, [artifact.documentId, artifact.isVisible, mutateDocuments]);
 
   const { mutate } = useSWRConfig();
   const [isContentDirty, setIsContentDirty] = useState(false);
@@ -300,7 +316,7 @@ function PureArtifact({
                   damping: 30,
                 },
               }}
-              className="relative h-dvh w-[400px] shrink-0 bg-muted dark:bg-background"
+              className="relative h-dvh w-[clamp(340px,32vw,420px)] min-w-0 shrink-0 bg-muted dark:bg-background"
               exit={{
                 opacity: 0,
                 x: 0,
@@ -313,14 +329,14 @@ function PureArtifact({
                 {!isCurrentVersion && (
                   <motion.div
                     animate={{ opacity: 1 }}
-                    className="absolute top-0 left-0 z-50 h-dvh w-[400px] bg-zinc-900/50"
+                    className="absolute top-0 left-0 z-50 h-dvh w-full bg-zinc-900/50"
                     exit={{ opacity: 0 }}
                     initial={{ opacity: 0 }}
                   />
                 )}
               </AnimatePresence>
 
-              <div className="flex h-full flex-col items-center justify-between">
+              <div className="flex h-full min-h-0 min-w-0 flex-col items-center justify-between">
                 <ArtifactMessages
                   addToolApprovalResponse={addToolApprovalResponse}
                   artifactStatus={artifact.status}
@@ -355,6 +371,11 @@ function PureArtifact({
           )}
 
           <motion.div
+            className={cn(
+              "fixed top-0 left-0 flex h-dvh flex-col overflow-hidden border-zinc-200 bg-background md:border-l dark:border-zinc-700 dark:bg-muted",
+              !isMobile &&
+                "left-[clamp(340px,32vw,420px)] w-[calc(100dvw-clamp(340px,32vw,420px))]"
+            )}
             animate={
               isMobile
                 ? {
@@ -374,12 +395,9 @@ function PureArtifact({
                   }
                 : {
                     opacity: 1,
-                    x: 400,
+                    x: 0,
                     y: 0,
                     height: windowHeight,
-                    width: windowWidth
-                      ? windowWidth - 400
-                      : "calc(100dvw-400px)",
                     borderRadius: 0,
                     transition: {
                       delay: 0,
@@ -390,7 +408,6 @@ function PureArtifact({
                     },
                   }
             }
-            className="fixed flex h-dvh flex-col overflow-hidden border-zinc-200 bg-background md:border-l dark:border-zinc-700 dark:bg-muted"
             exit={{
               opacity: 0,
               scale: 0.5,
