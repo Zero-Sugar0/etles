@@ -695,13 +695,12 @@ export function ToolPill({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-xs hover:shadow-md transition-all duration-200 select-none group w-fit max-w-full text-left text-xs cursor-pointer",
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors duration-200 select-none group w-fit max-w-full text-left text-xs cursor-pointer",
         {
-          "border-zinc-200/50 bg-white/60 dark:border-zinc-800/40 dark:bg-zinc-950/40 hover:bg-zinc-100/60 dark:hover:bg-zinc-900/40":
+          "hover:bg-muted/50":
             state !== "output-error" && state !== "approval-requested",
-          "border-red-500/20 bg-red-50/20 dark:border-red-950/40 dark:bg-red-950/15 hover:bg-red-50/35 dark:hover:bg-red-950/25":
-            state === "output-error",
-          "border-yellow-500/20 bg-yellow-50/25 dark:border-yellow-950/40 dark:bg-yellow-950/15 hover:bg-yellow-50/35 dark:hover:bg-yellow-950/25":
+          "text-destructive hover:bg-destructive/10": state === "output-error",
+          "text-yellow-600 hover:bg-yellow-500/10":
             state === "approval-requested",
         }
       )}
@@ -790,7 +789,7 @@ export function ExpandableToolPill({
           </div>
         </CollapsibleTrigger>
 
-        <CollapsibleContent className="mt-2 rounded-xl border border-border/40 bg-muted/10 p-2 text-xs transition-all duration-200">
+        <CollapsibleContent className="mt-2 p-2 text-xs transition-all duration-200">
           {"input" in part && !!part.input && <ToolInput input={part.input} />}
 
           {isAwaitingApproval && (

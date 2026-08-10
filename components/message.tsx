@@ -18,6 +18,15 @@ import {
   ConfirmationRequest,
   ConfirmationTitle,
 } from "./ai-elements/confirmation";
+import {
+  Plan,
+  PlanContent,
+  PlanDescription,
+  PlanFooter,
+  PlanHeader,
+  PlanTitle,
+  PlanTrigger,
+} from "./ai-elements/plan";
 import { Shimmer } from "./ai-elements/shimmer";
 import { ExpandableToolPill } from "./ai-elements/tool-pill";
 import { Video } from "./ai-elements/video";
@@ -862,6 +871,57 @@ const PurePreviewMessage = ({
                     )}
                   </ToolContent>
                 </Tool>
+              );
+            }
+
+            if ((type as string) === "tool-createPlan") {
+              const planOutput =
+                (part as any).output?.plan ?? (part as any).input;
+              const planTasks = Array.isArray(planOutput?.tasks)
+                ? planOutput.tasks
+                : [];
+              if (!planOutput?.title) {
+                return null;
+              }
+              return (
+                <Plan className="w-full max-w-2xl" defaultOpen key={key}>
+                  <PlanHeader>
+                    <div className="min-w-0">
+                      <PlanTitle>{String(planOutput.title)}</PlanTitle>
+                      {planOutput.description && (
+                        <PlanDescription>
+                          {String(planOutput.description)}
+                        </PlanDescription>
+                      )}
+                    </div>
+                    <PlanTrigger />
+                  </PlanHeader>
+                  <PlanContent>
+                    <div className="flex flex-col gap-2">
+                      {planTasks.map((task: any, taskIndex: number) => (
+                        <div
+                          className="flex items-start gap-2 text-sm"
+                          key={task.id ?? `${planOutput.title}-${taskIndex}`}
+                        >
+                          <span className="mt-0.5 text-muted-foreground">
+                            {task.status === "completed" ? "✓" : "○"}
+                          </span>
+                          <span>{String(task.text ?? task)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </PlanContent>
+                  <PlanFooter>
+                    <span className="text-muted-foreground text-xs">
+                      {
+                        planTasks.filter(
+                          (task: any) => task.status === "completed"
+                        ).length
+                      }
+                      /{planTasks.length} tasks complete
+                    </span>
+                  </PlanFooter>
+                </Plan>
               );
             }
 

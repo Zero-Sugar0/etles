@@ -17,10 +17,7 @@ export type ToolProps = ComponentProps<typeof Collapsible>;
 
 export const Tool = ({ className, ...props }: ToolProps) => (
   <Collapsible
-    className={cn(
-      "not-prose w-full rounded-lg border border-border/50 bg-muted/30 overflow-hidden",
-      className
-    )}
+    className={cn("not-prose w-full overflow-hidden", className)}
     {...props}
   />
 );
@@ -181,7 +178,7 @@ export type ToolContentProps = ComponentProps<typeof CollapsibleContent>;
 export const ToolContent = ({ className, ...props }: ToolContentProps) => (
   <CollapsibleContent
     className={cn(
-      "border-t border-border/40 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -195,11 +192,11 @@ export type ToolInputProps = ComponentProps<"div"> & {
 };
 
 export const ToolInput = ({ className, input, ...props }: ToolInputProps) => (
-  <div className={cn("space-y-1 p-3", className)} {...props}>
+  <div className={cn("space-y-1 px-0 py-2", className)} {...props}>
     <h4 className="text-[10px] font-semibold text-muted-foreground tracking-[0.12em] uppercase">
       ARGS
     </h4>
-    <pre className="overflow-x-auto rounded-lg bg-background/60 border border-border/30 p-2 font-mono text-xs text-foreground/80 leading-relaxed">
+    <pre className="overflow-x-auto p-2 font-mono text-xs text-foreground/80 leading-relaxed">
       {JSON.stringify(input, null, 2)}
     </pre>
   </div>
@@ -279,16 +276,14 @@ export const ToolOutput = ({
   }
 
   return (
-    <div className={cn("space-y-1 p-3", className)} {...props}>
+    <div className={cn("space-y-1 px-0 py-2", className)} {...props}>
       <h4 className="text-[10px] font-semibold text-muted-foreground tracking-[0.12em] uppercase">
         {hasRealError ? "ERROR" : "RESULT"}
       </h4>
       <div
         className={cn(
-          "overflow-x-auto rounded-lg border text-xs",
-          hasRealError
-            ? "bg-destructive/5 border-destructive/20 text-destructive"
-            : "bg-background/60 border-border/30 text-foreground"
+          "overflow-x-auto text-xs",
+          hasRealError ? "text-destructive" : "text-foreground"
         )}
       >
         {hasRealError && <div className="p-2">{errorText}</div>}
