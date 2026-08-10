@@ -32,6 +32,7 @@ import {
 } from "@/lib/db/queries";
 import { sendLongMessage } from "@/lib/telegram/api";
 import { generateUUID } from "@/lib/utils";
+import { WORKFLOW_BASE_URL } from "@/lib/workflow/client";
 
 export const maxDuration = 300;
 
@@ -282,4 +283,4 @@ ${externalSignals.emailSummary || "(inbox not connected or empty)"}`,
       { ex: 86_400 * 2 }
     );
   });
-});
+}, { baseUrl: WORKFLOW_BASE_URL });

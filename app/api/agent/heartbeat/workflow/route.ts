@@ -30,6 +30,7 @@ import {
   shouldSendSilenceCheckIn,
 } from "@/lib/user-activity";
 import { generateUUID } from "@/lib/utils";
+import { WORKFLOW_BASE_URL } from "@/lib/workflow/client";
 
 export const maxDuration = 300;
 
@@ -312,4 +313,4 @@ Use Telegram HTML formatting only: <b>bold</b>, <i>italic</i>.`,
       }
     }
   });
-});
+}, { baseUrl: WORKFLOW_BASE_URL });

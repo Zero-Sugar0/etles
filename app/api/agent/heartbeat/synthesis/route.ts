@@ -19,6 +19,7 @@ import {
 } from "@/lib/db/queries";
 import { sendLongMessage } from "@/lib/telegram/api";
 import { generateUUID } from "@/lib/utils";
+import { WORKFLOW_BASE_URL } from "@/lib/workflow/client";
 
 export const maxDuration = 300;
 
@@ -214,4 +215,4 @@ If memory is sparse, say so briefly and still provide the best possible plan.`,
   await context.run("update-status", async () => {
     await persistSynthesisStatus("success");
   });
-});
+}, { baseUrl: WORKFLOW_BASE_URL });

@@ -24,6 +24,28 @@ const appBaseUrl =
     : undefined) ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
 
+/**
+ * Public base URL used as the workflow step-callback origin.
+ *
+ * @upstash/workflow's serve() uses this (via the baseUrl option, or the
+ * UPSTASH_WORKFLOW_URL env var) to override the origin it would otherwise
+ * infer from the incoming request. Without it, if a request ever arrives with
+ * a localhost origin, QStash rejects the step callback with:
+ *   'invalid destination url: endpoint resolves to a loopback address: ::1'
+ * which cancels the workflow run (heartbeat / morning / synthesis...).
+ *
+ * Prefer UPSTASH_WORKFLOW_URL (the documented global override — set it equal
+ * to BASE_URL), then fall back to BASE_URL / RENDER_EXTERNAL_URL.
+ */
+export const WORKFLOW_BASE_URL =
+  process.env.UPSTASH_WORKFLOW_URL ||
+  process.env.BASE_URL ||
+  process.env.RENDER_EXTERNAL_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : undefined) ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+
 export function getWorkflowClient(): Client | null {
   if (!token) {
     return null;
