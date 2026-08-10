@@ -472,6 +472,8 @@ export async function POST(request: Request) {
       void saveIntermediateMessages();
     });
 
+    const responseStartedAt = Date.now();
+
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
@@ -1027,8 +1029,17 @@ export async function POST(request: Request) {
         return newId;
       },
       onFinish: async ({ messages: finishedMessages }) => {
+        const persistedMessages = finishedMessages.map((message) => ({
+          ...message,
+          parts: message.parts.map((part) =>
+            part.type === "reasoning" && !(part as any).durationMs
+              ? { ...part, durationMs: Date.now() - responseStartedAt }
+              : part
+          ),
+        }));
+
         if (isToolApprovalFlow) {
-          for (const finishedMsg of finishedMessages) {
+          for (const finishedMsg of persistedMessages) {
             const existingMsg = uiMessages.find((m) => m.id === finishedMsg.id);
             if (existingMsg) {
               await updateMessage({
@@ -1050,10 +1061,10 @@ export async function POST(request: Request) {
               });
             }
           }
-        } else if (finishedMessages.length > 0) {
+        } else if (persistedMessages.length > 0) {
           // Only save messages that are not already in the DB (the new assistant response
           // and any tool calls/results generated in this turn).
-          const newMessages = finishedMessages.filter(
+          const newMessages = persistedMessages.filter(
             (fm) => !uiMessages.some((um) => um.id === fm.id)
           );
 
@@ -1073,7 +1084,7 @@ export async function POST(request: Request) {
 
         if (session?.user?.id) {
           after(async () => {
-            const tail = finishedMessages
+            const tail = persistedMessages
               .filter((m) => m.role === "user" || m.role === "assistant")
               .slice(-5)
               .map((m) => ({
