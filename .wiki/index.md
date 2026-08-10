@@ -23,11 +23,10 @@
 | **research** | Deep research methodology, source evaluation, synthesis, Tavily patterns |
 | **content-creation** | Virality mechanics, platform formats, content calendars, repurposing |
 | **coding-craft** | TypeScript patterns, AI SDK, async patterns, code quality principles |
-| **image-generation** | Prompt engineering for Nano Banana / Gemini image gen, ad visuals, brand assets |
-| **video-generation** | Veo 3.1 prompting, cinematic direction, motion assets, social video |
 | **email-sequences** | Cold email, nurture sequences, subject lines, deliverability, CTAs |
-| **seo-research** | Keyword research, content gaps, SERP analysis, AI-first SEO |
 | **growth-tactics** | Acquisition channels, referral mechanics, community building, launch playbooks |
+| **instructions** | Full operating instructions: capability map, tool reference, operating principles |
+| **skill-or-wiki-creator** | How Etles creates, improves, and maintains its own wiki pages and skills |
 
 ## Update Rules
 
@@ -38,4 +37,4 @@
 - The wiki is for craft knowledge — how to do great work — not architecture or codebase notes.
 
 ---
-*Index last updated: 2026-04-21*
+*Index last updated: 2026-08-10*

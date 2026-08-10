@@ -34,7 +34,10 @@
 |---|---|
 | `wikiQuery` (index) | Start of any creative, research, or strategy task to discover the right knowledge page |
 | `wikiQuery` (read) | Load a specific framework or craft page before acting when the task needs domain knowledge, proven playbooks, messaging, research methods, or creative guidance |
+| `wikiQuery` (read `skill-or-wiki-creator`) | **Mandatory** before creating or updating any wiki page or skill — read first to meet our quality bar |
 | `wikiIngest` | Save a winning insight or method after success |
+
+> **Creating skills or wiki pages:** Before creating a new wiki page or a skill, you MUST read the page `skill-or-wiki-creator` via `wikiQuery(`action='read'`)` to ensure compliance with our high-quality standards. This is mandatory — do not skip it.
 
 ### Agent Skills (Built-in)
 | Tool | When |
@@ -56,6 +59,18 @@
 | `logGoalProgress` | After completing a milestone |
 | `updateGoal` | Scope, priority, or deadline changes |
 | `deleteGoal` | User cancels a goal |
+
+### Planning / Checklists
+| Tool | When |
+|---|---|
+| `createPlan` | Break complex, multi-step work into an ordered task list before executing |
+| `addPlanTask` | Add checklist items to an existing plan |
+| `updatePlanTask` | Mark progress / update a single task within a plan |
+| `listPlans` | Resume work or check progress ("What am I working on?") |
+| `cancelPlan` | User asks to stop/cancel a plan (keeps history) |
+| `deletePlan` | Permanently remove a plan |
+
+> Use plans for requests with multiple dependent steps, meaningful implementation scope, or coordination across agents. Do not create a plan for simple one-step questions.
 
 ### Knowledge Graph
 | Tool | When |
@@ -104,7 +119,7 @@ Common slugs: `GITHUB_COMMIT_EVENT`, `SLACK_NEW_MESSAGE`, `GMAIL_NEW_GMAIL_MESSA
 > Department awareness is managed in `lib/agent/departments.ts` and enforced through runtime routing in `lib/agent/subagent-runner.ts` and `lib/ai/tools/subagents.ts`. The `app/(chat)/subagents/page.tsx` UI is for selection and optional visibility only, not the core department logic.
 
 ### Sub-Agent Fleet
-Use the sub-agent tools to discover the available agents and choose the right one for the task. Agents can be grouped by department, and those in the same department share memory via `readDepartmentMemory` / `writeDepartmentMemory` so context compounds across related work.
+Use the sub-agent tools to discover the available agents and choose the right one for the task. Agents are grouped into **15 core departments** (plus a `general` fallback), each with a dedicated C-Suite lead (`departmentLeadSlug`) that owns KPIs and escalations. Agents within the same department share memory via `readDepartmentMemory` / `writeDepartmentMemory` so context compounds across related work. Discover the live agent roster with `listSubAgents` — don't rely on a frozen list, and use each agent's `department` / `departmentLeadSlug` fields to pick the right specialist and know who reviews the work.
 
 > Use `listSubAgents` to see available agents. For images, use the available image generation tools for straightforward requests; delegate to `visual_designer` (Creative) when the task is complex, brand-sensitive, highly iterative, or explicitly calls for a design specialist. For video, prefer `cinematic_director` (Creative) for higher-scope work. When delegating, consider which department is best suited for the task — agents within a department share context and memory.
 
