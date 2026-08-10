@@ -96,6 +96,7 @@ import { allOracleTools } from "@/lib/ai/tools/oracle-cloud";
 import { getPersistentSandboxTools } from "@/lib/ai/tools/persistent-sandbox";
 import {
   addPlanTask,
+  cancelPlan,
   createPlan,
   deletePlan,
   listPlans,
@@ -824,6 +825,7 @@ export async function POST(request: Request) {
                   listGoals: listGoals({ userId: session.user.id! }),
                   deleteGoal: deleteGoal({ userId: session.user.id! }),
                   createPlan: createPlan({ userId: session.user.id! }),
+                  cancelPlan: cancelPlan({ userId: session.user.id! }),
                   addPlanTask: addPlanTask({ userId: session.user.id! }),
                   updatePlanTask: updatePlanTask({ userId: session.user.id! }),
                   listPlans: listPlans({ userId: session.user.id! }),
