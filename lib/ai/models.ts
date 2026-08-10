@@ -196,6 +196,24 @@ export const chatModels: ChatModel[] = [
   },
   // OpenAI
   {
+    id: "openai/gpt-5.6-luna",
+    name: "GPT-5.6 Luna",
+    provider: "openai",
+    description: "Reasoning-first multimodal model for complex agent work",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["openai", "azure", "bedrock"],
+    reasoningEffort: "high",
+  },
+  {
+    id: "openai/gpt-5.1-codex-mini",
+    name: "GPT-5.1 Codex Mini",
+    provider: "openai",
+    description: "Fast coding model with reasoning, vision, and tool use",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["openai", "azure", "bedrock"],
+    reasoningEffort: "medium",
+  },
+  {
     id: "openai/gpt-4o",
     name: "GPT-4o",
     provider: "openai",
@@ -564,7 +582,8 @@ export const chatModels: ChatModel[] = [
     id: "meta/muse-spark-1.2-contributor",
     name: "Muse Spark 1.2 Contributor",
     provider: "meta",
-    description: "Contributor-tier Muse Spark with advanced reasoning and vision",
+    description:
+      "Contributor-tier Muse Spark with advanced reasoning and vision",
     features: { reasoning: true, vision: true, tools: true },
     gatewayOrder: ["meta"],
   },

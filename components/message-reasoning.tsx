@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import {
-  Reasoning,
-  ReasoningContent,
-  ReasoningTrigger,
-} from "./elements/reasoning";
+  ChainOfThought,
+  ChainOfThoughtContent,
+  ChainOfThoughtHeader,
+  ChainOfThoughtStep,
+} from "./ai-elements/chain-of-thought";
 
 type MessageReasoningProps = {
   isLoading: boolean;
@@ -25,13 +26,27 @@ export function MessageReasoning({
   }, [isLoading]);
 
   return (
-    <Reasoning
+    <ChainOfThought
+      className="w-full max-w-2xl gap-2"
       data-testid="message-reasoning"
       defaultOpen={hasBeenStreaming}
-      isStreaming={isLoading}
     >
-      <ReasoningTrigger />
-      <ReasoningContent>{reasoning}</ReasoningContent>
-    </Reasoning>
+      <ChainOfThoughtHeader>
+        {isLoading ? "Thinking" : "Chain of Thought"}
+      </ChainOfThoughtHeader>
+      <ChainOfThoughtContent>
+        <ChainOfThoughtStep
+          description={
+            isLoading ? "Reasoning in progress" : "Completed reasoning"
+          }
+          label={
+            <span className="whitespace-pre-wrap break-words text-muted-foreground">
+              {reasoning}
+            </span>
+          }
+          status={isLoading ? "active" : "complete"}
+        />
+      </ChainOfThoughtContent>
+    </ChainOfThought>
   );
 }
