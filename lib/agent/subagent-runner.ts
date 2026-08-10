@@ -76,6 +76,7 @@ import { getMissionStatus, launchMission } from "@/lib/ai/tools/missions";
 import { getPersistentSandboxTools } from "@/lib/ai/tools/persistent-sandbox";
 import {
   addPlanTask,
+  cancelPlan,
   createPlan,
   deletePlan,
   listPlans,
@@ -307,6 +308,7 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     listGoals: listGoals({ userId }),
     deleteGoal: deleteGoal({ userId }),
     createPlan: createPlan({ userId }),
+    cancelPlan: cancelPlan({ userId }),
     addPlanTask: addPlanTask({ userId }),
     updatePlanTask: updatePlanTask({ userId }),
     listPlans: listPlans({ userId }),

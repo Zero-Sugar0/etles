@@ -881,12 +881,25 @@ const PurePreviewMessage = ({
               );
             }
 
-            if ((type as string) === "tool-createPlan") {
+            if (
+              [
+                "tool-createPlan",
+                "tool-updatePlanTask",
+                "tool-addPlanTask",
+                "tool-cancelPlan",
+              ].includes(type as string)
+            ) {
               const planOutput =
-                (part as any).output?.plan ?? (part as any).input;
+                (part as any).output?.plan ??
+                (part as any).result?.plan ??
+                (part as any).input;
               const planTasks = Array.isArray(planOutput?.tasks)
                 ? planOutput.tasks
                 : [];
+              const planStatus = planOutput?.status ?? "active";
+              const completedCount = planTasks.filter(
+                (task: any) => task.status === "completed"
+              ).length;
               if (!planOutput?.title) {
                 return null;
               }
@@ -913,19 +926,22 @@ const PurePreviewMessage = ({
                           <span className="mt-0.5 text-muted-foreground">
                             {task.status === "completed" ? "✓" : "○"}
                           </span>
-                          <span>{String(task.text ?? task)}</span>
+                          <span
+                            className={cn(
+                              task.status === "completed" &&
+                                "text-muted-foreground line-through"
+                            )}
+                          >
+                            {String(task.text ?? task)}
+                          </span>
                         </div>
                       ))}
                     </div>
                   </PlanContent>
                   <PlanFooter>
                     <span className="text-muted-foreground text-xs">
-                      {
-                        planTasks.filter(
-                          (task: any) => task.status === "completed"
-                        ).length
-                      }
-                      /{planTasks.length} tasks complete
+                      {planStatus === "cancelled" ? "Cancelled · " : ""}
+                      {completedCount}/{planTasks.length} tasks complete
                     </span>
                   </PlanFooter>
                 </Plan>

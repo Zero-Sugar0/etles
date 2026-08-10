@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ExternalLink, RefreshCw } from "lucide-react";
+import { ChevronDown, ExternalLink, RefreshCw, Wrench } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -705,16 +705,19 @@ export function ToolPill({
         }
       )}
     >
-      <img
-        alt={displayAppLabel}
-        className="size-3.5 object-contain rounded-[3px] shrink-0"
-        onError={(e) => {
-          // If fallback local SVG fails, default to generic API icon
-          e.currentTarget.onerror = null;
-          e.currentTarget.src = "/logos/api.svg";
-        }}
-        src={finalLogoSrc}
-      />
+      {finalLogoSrc ? (
+        <img
+          alt={displayAppLabel}
+          className="size-3.5 object-contain rounded-[3px] shrink-0"
+          onError={() => setLogoUrl("")}
+          src={finalLogoSrc}
+        />
+      ) : (
+        <Wrench
+          aria-hidden="true"
+          className="size-3.5 shrink-0 text-muted-foreground"
+        />
+      )}
       <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate capitalize">
         {displayAppLabel}
       </span>

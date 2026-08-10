@@ -20,9 +20,7 @@ async function listSkillSlugs(): Promise<string[]> {
   for (const root of SKILLS_ROOTS) {
     try {
       const entries = await fs.readdir(root, { withFileTypes: true });
-      entries
-        .filter((e) => e.isDirectory())
-        .forEach((e) => slugs.add(e.name));
+      entries.filter((e) => e.isDirectory()).forEach((e) => slugs.add(e.name));
     } catch {
       // Ignore missing roots and continue to the next candidate.
     }
@@ -42,7 +40,9 @@ function safeSkillPath(slug: string): string | null {
   return null;
 }
 
-async function readSkillFile(slug: string): Promise<string | null> {
+export async function readBuiltInSkillFile(
+  slug: string
+): Promise<string | null> {
   const filePath = safeSkillPath(slug);
   if (!filePath) {
     return null;
@@ -83,12 +83,13 @@ export async function getBuiltInSkillCatalog(): Promise<BuiltInSkillSummary[]> {
 
   return Promise.all(
     slugs.map(async (slug) => {
-      const content = await readSkillFile(slug);
+      const content = await readBuiltInSkillFile(slug);
       const titleMatch = content?.match(/^name:\s*(.+)$/m);
       const title = titleMatch?.[1]?.trim() || slug;
 
       const descriptionMatch = content?.match(/^description:\s*(.+)$/m);
-      const description = descriptionMatch?.[1]?.trim() || "Built-in agent skill";
+      const description =
+        descriptionMatch?.[1]?.trim() || "Built-in agent skill";
 
       return {
         id: `builtin-${slug}`,
@@ -132,7 +133,7 @@ export const readAgentSkill = () =>
         const slugs = await listSkillSlugs();
         const summaries = await Promise.all(
           slugs.map(async (s) => {
-            const content = await readSkillFile(s);
+            const content = await readBuiltInSkillFile(s);
             const firstLine =
               content
                 ?.split("\n")
@@ -191,7 +192,7 @@ export const readAgentSkill = () =>
         }
       }
 
-      const content = await readSkillFile(slug);
+      const content = await readBuiltInSkillFile(slug);
       if (!content) {
         const available = await listSkillSlugs();
         return {

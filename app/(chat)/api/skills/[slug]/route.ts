@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
+import { readBuiltInSkillFile } from "@/lib/ai/tools/agent-skills";
 import { deleteUserSkill, getUserSkillBySlug } from "@/lib/db/queries";
 
 const WIKI_ROOT = path.join(process.cwd(), ".wiki");
@@ -24,7 +25,19 @@ export async function GET(
       return NextResponse.json(userSkill);
     }
 
-    // 2. Try default wiki files
+    // 2. Built-in agent skills live under .agents/skills/<slug>/SKILL.md.
+    const builtInContent = await readBuiltInSkillFile(slug);
+    if (builtInContent) {
+      return NextResponse.json({
+        title: slug,
+        slug,
+        content: builtInContent,
+        description: "Built-in agent skill",
+        isDefault: true,
+      });
+    }
+
+    // 3. Try default wiki files
     const filePath = path.join(WIKI_ROOT, `${slug}.md`);
     const content = await fs.readFile(filePath, "utf-8");
     const titleMatch = content.match(/^#\s+(.*)/);

@@ -3,7 +3,15 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import equal from "fast-deep-equal";
-import { Brain, CheckIcon, Eye, MicIcon, Pencil, Trash2, Wrench } from "lucide-react";
+import {
+  Brain,
+  CheckIcon,
+  Eye,
+  MicIcon,
+  Pencil,
+  Trash2,
+  Wrench,
+} from "lucide-react";
 import {
   type ChangeEvent,
   type Dispatch,
@@ -662,9 +670,20 @@ function PureMultimodalInput({
                           title="Edit message"
                           onClick={() => {
                             // bring this queued message back into the input for editing
-                            const found = queuedMessages.find((m) => m.id === msg.id);
+                            const found = queuedMessages.find(
+                              (m) => m.id === msg.id
+                            );
                             if (found) {
-                              setQueuedMessages((prev) => prev.filter((m) => m.id !== msg.id));
+                              setQueuedMessages((prev) =>
+                                prev.filter((m) => m.id !== msg.id)
+                              );
+                              setInput(found.text);
+                              setIsAgentMode(found.isAgentMode);
+                              setAttachments(found.attachments);
+                              requestAnimationFrame(() => {
+                                textareaRef.current?.focus();
+                                adjustHeight();
+                              });
                             }
                           }}
                         >

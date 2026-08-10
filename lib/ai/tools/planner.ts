@@ -5,6 +5,8 @@ import { generateUUID } from "@/lib/utils";
 
 export type TaskStatus = "pending" | "completed";
 
+export type PlanStatus = "active" | "completed" | "cancelled" | "archived";
+
 export type PlanTask = {
   id: string;
   text: string;
@@ -18,7 +20,7 @@ export type PlanningItem = {
   id: string;
   title: string;
   description: string;
-  status: "active" | "completed" | "archived";
+  status: PlanStatus;
   tasks: PlanTask[];
   createdAt: string;
   updatedAt: string;
@@ -227,6 +229,28 @@ export const updatePlanTask = ({ userId }: { userId: string }) =>
     },
   });
 
+// ─── cancelPlan ─────────────────────────────────────────────────────────────
+export const cancelPlan = ({ userId }: { userId: string }) =>
+  tool({
+    description: "Cancel an active plan without deleting its history.",
+    inputSchema: z.object({
+      planId: z.string().describe("The ID of the plan to cancel."),
+    }),
+    execute: async ({ planId }) => {
+      const redis = getRedis();
+      if (!redis) return { success: false, error: "Redis is not configured." };
+      const current = await readPlan(redis, userId, planId);
+      if (!current) return { success: false, error: "Plan not found." };
+      const updated: PlanningItem = {
+        ...current,
+        status: "cancelled",
+        updatedAt: new Date().toISOString(),
+      };
+      await redis.set(planItemKey(userId, planId), JSON.stringify(updated));
+      return { success: true, plan: updated };
+    },
+  });
+
 // ─── listPlans ──────────────────────────────────────────────────────────────
 export const listPlans = ({ userId }: { userId: string }) =>
   tool({
@@ -234,7 +258,7 @@ export const listPlans = ({ userId }: { userId: string }) =>
       "List all active, completed, or archived plans, todo lists, and checklists.",
     inputSchema: z.object({
       status: z
-        .enum(["active", "completed", "archived"])
+        .enum(["active", "completed", "cancelled", "archived"])
         .optional()
         .describe("Filter plans by current status."),
       limit: z
