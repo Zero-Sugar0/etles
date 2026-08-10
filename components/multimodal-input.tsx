@@ -603,7 +603,7 @@ function PureMultimodalInput({
         type="file"
       />
 
-      <div className="flex flex-col w-full gap-0">
+      <div className="flex w-full min-w-0 flex-col gap-0">
         {queuedMessages.length > 0 && (
           <Queue className="w-full bg-card/95 border-border/70 shadow-none backdrop-blur-xl max-w-full animate-in fade-in slide-in-from-bottom-1 rounded-t-2xl rounded-b-none border-b-0 pb-0">
             <QueueSection defaultOpen={true}>
@@ -711,7 +711,7 @@ function PureMultimodalInput({
 
         <PromptInput
           className={cn(
-            "panel-hairline rounded-2xl border border-border/70 bg-card/95 p-2 shadow-lg backdrop-blur-xl transition-all duration-200 hover:border-muted-foreground/40 focus-within:border-primary/50 focus-within:shadow-xl",
+            "panel-hairline w-full min-w-0 rounded-2xl border border-border/70 bg-card/95 p-1.5 shadow-lg backdrop-blur-xl transition-all duration-200 hover:border-muted-foreground/40 focus-within:border-primary/50 focus-within:shadow-xl sm:p-2",
             queuedMessages.length > 0 && "rounded-t-none border-t-border/40"
           )}
           onSubmit={(event) => {

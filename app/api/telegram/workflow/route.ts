@@ -96,6 +96,20 @@ async function getOrCreateChat(
 // ── Workflow ──────────────────────────────────────────────────────────────────
 
 export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
+  const sendFailure = async (message: string) => {
+    try {
+      await sendLongMessage(
+        context.requestPayload.botToken,
+        context.requestPayload.telegramChatId,
+        message
+      );
+    } catch (error) {
+      console.error(
+        "[TelegramWorkflow] Failed to send failure message:",
+        error
+      );
+    }
+  };
   const {
     ownerUserId,
     botToken,
@@ -253,49 +267,61 @@ export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
   });
 
   // ── Step 4: Persist assistant message + deliver to Telegram ─────────────────
-  await context.run("save-and-send", async () => {
-    if (statusMessageId) {
-      await editMessageText(
-        botToken,
-        telegramChatId,
-        statusMessageId,
-        "✅ <b>Done</b>\n\nSending your response..."
-      );
-    }
-    await saveMessages({
-      messages: [
-        {
-          id: generateUUID(),
-          chatId,
-          role: "assistant",
-          parts: [{ type: "text" as const, text: aiText }, ...toolCallParts],
-          attachments: [],
-          createdAt: new Date(),
-        },
-      ] as any,
-    });
-
-    if (aiText.trim()) {
-      await sendLongMessage(botToken, telegramChatId, aiText);
-    }
-
-    const recent = await getMessagesByChatId({ id: chatId });
-    const tail = recent
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .slice(-5)
-      .map((m) => {
-        const textPart = (m.parts as { type: string; text?: string }[]).find(
-          (p) => p.type === "text"
+  try {
+    await context.run("save-and-send", async () => {
+      if (statusMessageId) {
+        await editMessageText(
+          botToken,
+          telegramChatId,
+          statusMessageId,
+          "✅ <b>Done</b>\n\nSending your response..."
         );
-        return {
-          role: m.role as "user" | "assistant",
-          text: textPart?.text ?? "",
-        };
-      })
-      .filter((m) => m.text.length > 0);
-    await saveSessionTail(ownerUserId, tail);
-    if (statusMessageId) {
-      await deleteMessage(botToken, telegramChatId, statusMessageId);
-    }
-  });
+      }
+      await saveMessages({
+        messages: [
+          {
+            id: generateUUID(),
+            chatId,
+            role: "assistant",
+            parts: [{ type: "text" as const, text: aiText }, ...toolCallParts],
+            attachments: [],
+            createdAt: new Date(),
+          },
+        ] as any,
+      });
+
+      if (aiText.trim()) {
+        await sendLongMessage(botToken, telegramChatId, aiText);
+      } else {
+        await sendFailure(
+          "I completed the request but did not receive a text response. Please try again."
+        );
+      }
+
+      const recent = await getMessagesByChatId({ id: chatId });
+      const tail = recent
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .slice(-5)
+        .map((m) => {
+          const textPart = (m.parts as { type: string; text?: string }[]).find(
+            (p) => p.type === "text"
+          );
+          return {
+            role: m.role as "user" | "assistant",
+            text: textPart?.text ?? "",
+          };
+        })
+        .filter((m) => m.text.length > 0);
+      await saveSessionTail(ownerUserId, tail);
+      if (statusMessageId) {
+        await deleteMessage(botToken, telegramChatId, statusMessageId);
+      }
+    });
+  } catch (error) {
+    console.error("[TelegramWorkflow] Delivery failed:", error);
+    await sendFailure(
+      "I could not finish that request right now. Please try again in a moment."
+    );
+    throw error;
+  }
 });
