@@ -56,6 +56,7 @@ import {
 } from "./elements/tool";
 import { WorkflowProgressCard } from "./elements/workflow-step";
 import { ImageEditor } from "./image-editor";
+import { GeneratedImageCarousel } from "./generated-image-carousel";
 import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
@@ -332,27 +333,10 @@ const PurePreviewMessage = ({
               );
             }
 
-            if ((type as string) === "imageDelta") {
-              return (
-                <div className="flex w-full flex-col gap-2" key={key}>
-                  <div className="overflow-hidden rounded-lg border border-border bg-muted/50">
-                    <ImageEditor
-                      content={(part as any).data}
-                      currentVersionIndex={0}
-                      isCurrentVersion={true}
-                      isInline={true}
-                      status={(part as any).data ? "idle" : "streaming"}
-                      title="Generated Image"
-                    />
-                  </div>
-                </div>
-              );
-            }
-
             if (mode === "edit") {
               return (
                 <div
-                  className="flex w-full flex-row items-start justify-end gap-3"
+                  className="flex w-full min-w-0 flex-row items-start justify-end gap-2 sm:gap-3"
                   key={key}
                 >
                   <div className="min-w-0 flex-1 md:max-w-[80%]">
@@ -673,6 +657,13 @@ const PurePreviewMessage = ({
 
               if (state === "output-available") {
                 const out = partAny.output;
+                const imageOutputs = Array.isArray(out?.images)
+                  ? out.images.filter(
+                      (image: any) => typeof image?.url === "string"
+                    )
+                  : out?.url
+                    ? [out]
+                    : [];
                 if (
                   out &&
                   typeof out === "object" &&
@@ -689,19 +680,14 @@ const PurePreviewMessage = ({
                   );
                 }
 
-                if (
-                  out &&
-                  typeof out === "object" &&
-                  "url" in out &&
-                  typeof out.url === "string"
-                ) {
+                if (imageOutputs.length > 0) {
                   return (
                     <div className={widthClass} key={toolCallId}>
-                      <img
-                        alt={(out as any).originalPrompt || "Generated Image"}
-                        className="rounded-lg border border-border bg-muted/50 max-h-[500px] object-contain shadow-sm"
-                        loading="lazy"
-                        src={out.url}
+                      <GeneratedImageCarousel
+                        images={imageOutputs.map((image: any) => ({
+                          url: image.url,
+                          alt: image.originalPrompt || "Generated image",
+                        }))}
                       />
                     </div>
                   );

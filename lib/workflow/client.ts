@@ -125,7 +125,8 @@ export async function triggerTelegramWorkflow(
   const { workflowRunId } = await client.trigger({
     url: `${appBaseUrl}/api/telegram/workflow`,
     body: payload,
-    retries: 2,
+    retries: 3,
+    failureUrl: `${appBaseUrl}/api/telegram/workflow/failure`,
   });
   return { workflowRunId };
 }
