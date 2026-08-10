@@ -113,14 +113,21 @@ function buildMermaidFlowchart(input: FlowchartToolPayload): string {
   const direction = input.direction ?? "TB";
   const lines: string[] = [`flowchart ${direction}`];
 
-  // Track which node IDs have been declared to avoid duplicates
+  // Mermaid node IDs must be identifier-safe and unique, even when labels come from tools.
   const declared = new Set<string>();
+  const safeIds = new Map<string, string>();
+  for (const [index, node] of input.nodes.entries()) {
+    const base = node.id.replace(/[^a-zA-Z0-9_]/g, "_") || `node_${index + 1}`;
+    let safeId = base;
+    let suffix = 2;
+    while (safeIds.has(safeId)) safeId = `${base}_${suffix++}`;
+    safeIds.set(node.id, safeId);
+  }
 
   for (const node of input.nodes) {
-    if (declared.has(node.id)) {
-      continue;
-    }
-    declared.add(node.id);
+    const safeId = safeIds.get(node.id);
+    if (!safeId || declared.has(safeId)) continue;
+    declared.add(safeId);
 
     const shape = nodeTypeToMermaid(node.type);
     const half = Math.floor(shape.length / 2);
@@ -128,8 +135,8 @@ function buildMermaidFlowchart(input: FlowchartToolPayload): string {
     const close = shape.slice(half);
 
     const label = node.label.replace(/"/g, "#quot;");
-    const colorSuffix = node.color ? `:::${node.id}_style` : "";
-    lines.push(`    ${node.id}${open}"${label}"${close}${colorSuffix}`);
+    const colorSuffix = node.color ? `:::${safeId}_style` : "";
+    lines.push(`    ${safeId}${open}"${label}"${close}${colorSuffix}`);
   }
 
   for (const edge of input.edges) {
@@ -137,14 +144,16 @@ function buildMermaidFlowchart(input: FlowchartToolPayload): string {
     const labelSuffix = edge.label
       ? `|${edge.label.replace(/"/g, "#quot;")}|`
       : "";
-    lines.push(`    ${edge.from} ${labelSuffix}${link} ${edge.to}`);
+    const from = safeIds.get(edge.from);
+    const to = safeIds.get(edge.to);
+    if (from && to) lines.push(`    ${from} ${labelSuffix}${link} ${to}`);
   }
 
   // Add style definitions for colored nodes
   for (const node of input.nodes) {
     if (node.color) {
       lines.push(
-        `    style ${node.id} fill:${node.color},stroke:${node.color},color:#fff`
+        `    style ${safeIds.get(node.id)} fill:${node.color},stroke:${node.color},color:#fff`
       );
     }
   }

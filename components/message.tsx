@@ -223,6 +223,13 @@ const PurePreviewMessage = ({
                   <MessageReasoning
                     isLoading={isLoading || isStreaming}
                     key={key}
+                    durationMs={
+                      typeof (part as any).durationMs === "number"
+                        ? (part as any).durationMs
+                        : typeof (part as any).metadata?.durationMs === "number"
+                          ? (part as any).metadata.durationMs
+                          : undefined
+                    }
                     reasoning={part.text}
                   />
                 );
@@ -523,7 +530,7 @@ const PurePreviewMessage = ({
                 "w-full max-w-full min-w-0 sm:max-w-[min(100%,720px)]";
 
               if (state === "output-available") {
-                const out = part.output;
+                const out = part.output ?? (part as any).result;
                 if (
                   out &&
                   typeof out === "object" &&
@@ -592,7 +599,7 @@ const PurePreviewMessage = ({
                 "w-full max-w-full min-w-0 sm:max-w-[min(100%,720px)]";
 
               if (state === "output-available") {
-                const out = part.output;
+                const out = part.output ?? (part as any).result;
                 if (
                   out &&
                   typeof out === "object" &&
