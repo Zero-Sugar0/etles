@@ -23,6 +23,11 @@ export type AgentDelegatedData = {
   taskId: string;
   status: string;
   timestamp?: string;
+  requestedAgentType?: string;
+  requestedAgentName?: string;
+  department?: string;
+  departmentLeadSlug?: string | null;
+  routedThroughLead?: boolean;
 };
 
 export type AgentResultData = {
@@ -162,6 +167,12 @@ export const AgentActionCard = ({ agent }: { agent: AgentActionData }) => {
           <p className="text-[10px] text-zinc-400 mt-0.5 line-clamp-1">
             {agent.task}
           </p>
+          {delegated && agent.routedThroughLead && agent.department && (
+            <p className="text-[9px] text-primary/80 mt-0.5 font-mono">
+              {agent.departmentLeadSlug ?? "department lead"} →{" "}
+              {agent.requestedAgentType ?? "specialist"}
+            </p>
+          )}
           {agent.timestamp && (
             <p className="text-[9px] text-zinc-500 mt-0.5">{agent.timestamp}</p>
           )}

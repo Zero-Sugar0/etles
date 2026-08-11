@@ -5,6 +5,7 @@ import { Redis } from "@upstash/redis";
 import { tool } from "ai";
 import { z } from "zod";
 import { createAgentTask } from "@/lib/db/queries";
+import { createAgentScheduleEvent, insertAgentSchedule } from "@/lib/db/queries/agent-calendar";
 import { generateUUID } from "@/lib/utils";
 
 function getRedis(): Redis | null {
@@ -160,6 +161,26 @@ export const setReminder = ({
           );
         }
 
+        const fireAt = new Date(Date.now() + delaySeconds * 1000);
+        try {
+          const calendarEntry = await insertAgentSchedule({
+            id: taskId,
+            userId,
+            agentSlug: "executive_lead",
+            department: "executive_ops",
+            title: label ?? "Reminder",
+            message,
+            kind: "reminder",
+            startsAt: fireAt,
+            nextRunAt: fireAt,
+            qstashId: result.messageId,
+            idempotencyKey: `${userId}:reminder:${label ?? message}:${fireAt.toISOString()}`,
+            payload: { type: "reminder", message, taskId },
+          });
+          await createAgentScheduleEvent({ id: generateUUID(), scheduleId: calendarEntry.id, userId, eventKey: `${calendarEntry.id}:created`, type: "created", metadata: { qstashMessageId: result.messageId } });
+        } catch (calendarError) {
+          console.warn("[schedule.setReminder] Calendar persistence failed:", calendarError);
+        }
         await trackSchedule(userId, {
           kind: "reminder",
           messageId: result.messageId,
@@ -168,7 +189,7 @@ export const setReminder = ({
           createdAt: new Date().toISOString(),
         });
 
-        const fireAt = new Date(Date.now() + delaySeconds * 1000);
+        
         return {
           success: true,
           messageId: result.messageId,
@@ -249,6 +270,26 @@ export const setCronJob = ({
           );
         }
 
+        try {
+          const calendarEntry = await insertAgentSchedule({
+            id: taskId,
+            userId,
+            agentSlug: "executive_lead",
+            department: "executive_ops",
+            title: name,
+            message,
+            kind: "cron",
+            status: "active",
+            cron,
+            timezone: "UTC",
+            qstashId: schedule.scheduleId,
+            idempotencyKey: `${userId}:cron:${name}`,
+            payload: { type: "cron", name, message, taskId },
+          });
+          await createAgentScheduleEvent({ id: generateUUID(), scheduleId: calendarEntry.id, userId, eventKey: `${calendarEntry.id}:created`, type: "created", metadata: { qstashScheduleId: schedule.scheduleId } });
+        } catch (calendarError) {
+          console.warn("[schedule.setCronJob] Calendar persistence failed:", calendarError);
+        }
         await trackSchedule(userId, {
           kind: "cron",
           scheduleId: schedule.scheduleId,

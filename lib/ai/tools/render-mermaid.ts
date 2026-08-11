@@ -13,7 +13,17 @@ export function normalizeMermaidChart(input: string): string {
     .replace(/```\s*$/i, "")
     .trim();
 
-  return withoutFence;
+  return withoutFence
+    .replace(/\bend\s*\(\(/g, "finish((")
+    .replace(/\bend\s*\[/g, "finish[")
+    .replace(/\bend\s*\{/g, "finish{")
+    .replace(/\bend\b(?=\s*-->|\s*[-=])/g, "finish")
+    .replace(/(["'][^"']*)\/\]/g, "$1]")
+    .replace(/\|([^|\n]+)\|\s*(-->|-.+?->)/g, "|$1|$2")
+    .replace(
+      /(^|\n)(\s*)([A-Za-z_][\w-]*)\s*\|([^|\n]+)\|\s*(-->|-.+?->)\s*([A-Za-z_][\w-]*)/g,
+      "$1$2$3 $5|$4| $6"
+    );
 }
 
 /**

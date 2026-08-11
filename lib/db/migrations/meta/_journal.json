@@ -127,6 +127,13 @@
       "when": 1783340299338,
       "tag": "0017_flowery_red_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1786465371492,
+      "tag": "0018_cold_captain_universe",
+      "breakpoints": true
     }
   ]
 }
