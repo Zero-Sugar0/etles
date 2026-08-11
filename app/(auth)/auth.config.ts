@@ -6,7 +6,7 @@ export const authConfig = {
     newUser: "/",
   },
   trustHost: true,
-  secret: process.env.AUTH_SECRET ?? process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET,
   session: {
     strategy: "jwt",
   },

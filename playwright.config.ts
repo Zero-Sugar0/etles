@@ -96,5 +96,18 @@ export default defineConfig({
     url: `${baseURL}/ping`,
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,
+    env: {
+      /*
+       * Guarantee a non-empty AUTH_SECRET for the spawned dev server.
+       * In CI, GitHub Actions passes `secrets.AUTH_SECRET` which resolves
+       * to an empty string when the repository secret is unset, causing
+       * NextAuth to throw "MissingSecret" on every /api/auth request.
+       * This test-only fallback keeps `pnpm test` green regardless.
+       * Playwright merges this over process.env, so other vars are kept.
+       */
+      AUTH_SECRET:
+        process.env.AUTH_SECRET ||
+        "e2e-test-only-secret-8f3a47b6c92d1e05a7b4c6d2f9e1a3b5",
+    },
   },
 });
