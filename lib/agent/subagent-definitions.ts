@@ -187,6 +187,10 @@ const AGENT_TOOLKIT_EXPANSIONS: Partial<Record<AgentSlug, string[]>> = {
   social_media: [
     "instagram",
     "facebook",
+    "linkedin",
+    "reddit",
+    "x",
+    "twitter",
     "youtube",
     "tiktok",
     "buffer",

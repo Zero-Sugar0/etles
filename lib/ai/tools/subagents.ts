@@ -120,31 +120,48 @@ export const delegateToSubAgent = ({
         ),
     }),
     execute: async ({ agentType, task, attachments }) => {
-      const definition = getSubAgentBySlug(agentType);
-      if (!definition) {
+      const requestedDefinition = getSubAgentBySlug(agentType);
+      if (!requestedDefinition) {
         return {
           success: false,
           error: `Unknown agent type: ${agentType}. Use listSubAgents to see available agents.`,
         };
       }
 
+      const requestedDepartment = getAgentDepartment(agentType);
+      const departmentLeadSlug = getDepartmentLeadSlug(requestedDepartment);
+      const routedAgentType =
+        departmentLeadSlug && departmentLeadSlug !== agentType
+          ? departmentLeadSlug
+          : agentType;
+      const definition =
+        getSubAgentBySlug(routedAgentType) ?? requestedDefinition;
+      const routedThroughLead = routedAgentType !== agentType;
+      const routingContext = routedThroughLead
+        ? `\n\n###DEPARTMENT_ROUTING###\nYou are the ${definition.name}. You are accountable for this department request. Assign the requested specialist (${requestedDefinition.name}, ${agentType}) only after reviewing the task, then synthesize and quality-check their work before reporting back. Do not bypass the department hierarchy.\n###END_DEPARTMENT_ROUTING###`
+        : "";
       const finalTask =
-        attachments && attachments.length > 0
+        (attachments && attachments.length > 0
           ? `${task}\n###ATTACHMENTS###\n${JSON.stringify(attachments)}`
-          : task;
+          : task) + routingContext;
 
       const taskId = generateUUID();
       await createAgentTask({
         id: taskId,
         userId,
         chatId,
-        agentType,
+        agentType: routedAgentType,
         task: finalTask,
       });
 
       const delegationPayload = {
         agentType: definition.name,
-        slug: agentType,
+        slug: routedAgentType,
+        requestedAgentType: agentType,
+        requestedAgentName: requestedDefinition.name,
+        department: requestedDepartment,
+        departmentLeadSlug: departmentLeadSlug ?? null,
+        routedThroughLead,
         task,
         taskId,
         status: "running",
@@ -178,7 +195,7 @@ export const delegateToSubAgent = ({
             taskId,
             userId,
             chatId,
-            agentType,
+            agentType: routedAgentType,
             task: finalTask,
           });
           if (workflowResult?.workflowRunId) {
@@ -233,7 +250,7 @@ export const delegateToSubAgent = ({
             taskId,
             userId,
             chatId,
-            agentType,
+            agentType: routedAgentType,
             task: finalTask,
           });
           return {
