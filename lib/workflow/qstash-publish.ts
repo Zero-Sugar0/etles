@@ -34,6 +34,8 @@ export interface QStashPublishOptions {
   retries?: number;
   /** Delay in seconds before first delivery (default: 0) */
   delaySecs?: number;
+  /** Stable id used to make retries and duplicate enqueue requests safe. */
+  deduplicationId?: string;
 }
 
 /**
@@ -59,6 +61,7 @@ export async function publishToQStash(
     body: opts.body,
     retries: opts.retries ?? 3,
     delay: opts.delaySecs ?? 0,
+    ...(opts.deduplicationId ? { deduplicationId: opts.deduplicationId } : {}),
   });
 
   return { messageId: response.messageId };

@@ -905,6 +905,17 @@ const PurePreviewMessage = ({
                 (part as any).output?.plan ??
                 (part as any).result?.plan ??
                 (part as any).input;
+              const planId = planOutput?.id ?? planOutput?.planId;
+              const latestPlanIndex = planId
+                ? message.parts.reduce((latest, candidate, candidateIndex) => {
+                    if (!candidate || typeof candidate !== "object") return latest;
+                    const candidateType = (candidate as any).type as string;
+                    if (!candidateType?.startsWith("tool-")) return latest;
+                    const candidatePlan = (candidate as any).output?.plan ?? (candidate as any).result?.plan ?? (candidate as any).input;
+                    return candidatePlan?.id === planId || candidatePlan?.planId === planId ? candidateIndex : latest;
+                  }, -1)
+                : index;
+              if (latestPlanIndex !== index) return null;
               const planTasks = Array.isArray(planOutput?.tasks)
                 ? planOutput.tasks
                 : [];
@@ -916,7 +927,7 @@ const PurePreviewMessage = ({
                 return null;
               }
               return (
-                <Plan className="w-full max-w-2xl" defaultOpen key={key}>
+                <Plan className="w-full max-w-2xl" defaultOpen key={planId ? `plan-${planId}` : key}>
                   <PlanHeader>
                     <div className="min-w-0">
                       <PlanTitle>{String(planOutput.title)}</PlanTitle>
@@ -936,11 +947,11 @@ const PurePreviewMessage = ({
                           key={task.id ?? `${planOutput.title}-${taskIndex}`}
                         >
                           <span className="mt-0.5 text-muted-foreground">
-                            {task.status === "completed" ? "✓" : "○"}
+                            {task.status === "completed" ? "✓" : task.status === "cancelled" ? "×" : "○"}
                           </span>
                           <span
                             className={cn(
-                              task.status === "completed" &&
+                              (task.status === "completed" || task.status === "cancelled") &&
                                 "text-muted-foreground line-through"
                             )}
                           >

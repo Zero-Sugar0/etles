@@ -20,6 +20,7 @@ import {
   saveMessages,
   updateAgentTask,
 } from "@/lib/db/queries";
+import { createAgentScheduleEvent, getAgentSchedule, updateAgentSchedule } from "@/lib/db/queries/agent-calendar";
 import { generateUUID } from "@/lib/utils";
 
 const composioStatus = new Composio({ provider: new VercelProvider() });
@@ -28,6 +29,16 @@ async function handler(req: NextRequest) {
   try {
     const body = await req.json();
     const { userId, message, taskId } = body;
+
+    if (!userId || !taskId) return NextResponse.json({ ok: false, error: "Invalid schedule payload" }, { status: 400 });
+    const schedule = await getAgentSchedule(userId, taskId);
+    if (schedule && schedule.status !== "active") {
+      return NextResponse.json({ ok: true, skipped: true, reason: `Schedule is ${schedule.status}` });
+    }
+    if (schedule) {
+      await updateAgentSchedule(userId, taskId, { lastRunAt: new Date(), retryCount: 0 });
+      await createAgentScheduleEvent({ id: generateUUID(), scheduleId: taskId, userId, eventKey: `${taskId}:fired:${body.messageId ?? new Date().toISOString()}`, type: "fired", metadata: { qstashMessageId: body.messageId ?? null } });
+    }
 
     console.log(`[QStash] Proactive trigger: "${message}" for user ${userId}`);
 
@@ -207,6 +218,11 @@ Be direct, professional, and efficient. Do not ask for user confirmation.`;
     }
 
     await saveMessages({ messages: messagesToSave });
+
+    if (schedule) {
+      await updateAgentSchedule(userId, taskId, { status: schedule.kind === "reminder" ? "completed" : "active", lastError: null });
+      await createAgentScheduleEvent({ id: generateUUID(), scheduleId: taskId, userId, eventKey: `${taskId}:completed:${body.messageId ?? new Date().toISOString()}`, type: "completed", metadata: { toolCount: result.toolCalls?.length ?? 0 } });
+    }
 
     // 5. Update AgentTask status if it exists
     if (taskId) {

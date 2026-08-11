@@ -1,6 +1,6 @@
 "use client";
 
-import { BookText, Bot, Image as ImageIcon, Megaphone } from "lucide-react";
+import { BookText, Bot, CalendarClock, Image as ImageIcon, Megaphone } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
@@ -133,6 +133,12 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                   >
                     <ActivityIcon />
                     <span>Agent Status</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton className="h-9 rounded-lg" onClick={() => { setOpenMobile(false); router.push("/calendar"); }}>
+                    <CalendarClock className="size-4" />
+                    <span>Agent Calendar</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>

@@ -22,6 +22,8 @@ import type { VisibilityType } from "@/components/visibility-selector";
 import { ChatbotError } from "../errors";
 import { generateUUID } from "../utils";
 import {
+  agentSchedule,
+  agentScheduleEvent,
   agentTask,
   botIntegration,
   type CampaignQueueItem,
@@ -54,7 +56,7 @@ import { generateHashedPassword } from "./utils";
 
 // biome-ignore lint: Forbidden non-null assertion.
 const client = postgres(process.env.POSTGRES_URL!);
-const db = drizzle(client);
+export const db = drizzle(client);
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
