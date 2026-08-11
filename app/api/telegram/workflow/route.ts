@@ -38,7 +38,10 @@ import {
 } from "@/lib/telegram/api";
 import { touchUserActivity } from "@/lib/user-activity";
 import { generateUUID } from "@/lib/utils";
-import type { TelegramWorkflowPayload } from "@/lib/workflow/client";
+import {
+  WORKFLOW_BASE_URL,
+  type TelegramWorkflowPayload,
+} from "@/lib/workflow/client";
 
 export const maxDuration = 300;
 
@@ -95,233 +98,243 @@ async function getOrCreateChat(
 
 // ── Workflow ──────────────────────────────────────────────────────────────────
 
-export const { POST } = serve<TelegramWorkflowPayload>(async (context) => {
-  const sendFailure = async (message: string) => {
-    try {
-      await sendLongMessage(
-        context.requestPayload.botToken,
-        context.requestPayload.telegramChatId,
-        message
-      );
-    } catch (error) {
-      console.error(
-        "[TelegramWorkflow] Failed to send failure message:",
-        error
-      );
-    }
-  };
-  const {
-    ownerUserId,
-    botToken,
-    telegramChatId,
-    senderName,
-    userText,
-    baseUrl,
-  } = context.requestPayload;
-  const statusMessageId = await context.run("status-start", async () => {
-    return sendStatusMessage(
-      botToken,
-      telegramChatId,
-      "🤖 <b>Etles is on it</b>\n\nAnalyzing your request..."
-    );
-  });
-
-  // ── Step 1: Get / create DB chat, persist user message ──────────────────────
-  const chatId = await context.run("setup-chat", async () => {
-    const id = await getOrCreateChat(ownerUserId, telegramChatId, senderName);
-
-    await saveMessages({
-      messages: [
-        {
-          id: generateUUID(),
-          chatId: id,
-          role: "user",
-          parts: [{ type: "text" as const, text: userText }],
-          attachments: [],
-          createdAt: new Date(),
-        },
-      ] as any,
-    });
-
-    await touchUserActivity(ownerUserId);
-
-    return id;
-  });
-
-  // ── Step 2: Load conversation history ───────────────────────────────────────
-  // Returned as plain JSON so Workflow can cache and replay the step.
-  const history = await context.run("load-history", async () => {
-    if (statusMessageId) {
-      await editMessageText(
-        botToken,
-        telegramChatId,
-        statusMessageId,
-        "🧠 <b>Etles is thinking</b>\n\nGathering conversation context..."
-      );
-    }
-    const dbMessages = await getMessagesByChatId({ id: chatId });
-    return dbMessages
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => {
-        const textPart = (m.parts as any[]).find((p: any) => p.type === "text");
-        return {
-          role: m.role as "user" | "assistant",
-          content: textPart?.text ?? "",
-        };
-      })
-      .filter((m) => m.content.length > 0);
-  });
-
-  // ── Step 3: Run AI (the expensive step — gets its own 300 s window) ──────────
-  const { aiText, toolCallParts } = await context.run("run-ai", async () => {
-    if (statusMessageId) {
-      await editMessageText(
-        botToken,
-        telegramChatId,
-        statusMessageId,
-        "🛠 <b>Working with tools</b>\n\nCalling apps and planning the best answer..."
-      );
-    }
-    const stopTyping = startTypingHeartbeat(botToken, telegramChatId);
-    let composioTools: Record<string, unknown> = {};
-    try {
-      const session = await composio.create(ownerUserId, {
-        manageConnections: true,
-        multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
-      });
-      composioTools = await session.tools();
-    } catch (e) {
-      console.error("[TelegramWorkflow] Composio tools failed:", e);
-    }
-
-    const sessionTail = await getSessionTail(ownerUserId);
-    const promptSignature = JSON.stringify({
-      selectedChatModel: "google/gemini-3-flash-preview",
-      skipArtifacts: true,
-      surface: "telegram-workflow",
-    });
-
-    let cachedPrompt = await getCachedSystemPrompt({
-      userId: ownerUserId,
-      scope: "telegram",
-      signature: promptSignature,
-    });
-
-    if (!cachedPrompt) {
-      cachedPrompt = systemPrompt({
-        selectedChatModel: "google/gemini-3-flash-preview",
-        requestHints: {
-          latitude: undefined,
-          longitude: undefined,
-          city: undefined,
-          country: undefined,
-        },
-        sessionTail: [], // history is cached separately now
-        skipArtifacts: true,
-      });
-
-      await setCachedSystemPrompt({
-        userId: ownerUserId,
-        scope: "telegram",
-        signature: promptSignature,
-        prompt: cachedPrompt,
-      });
-    }
-
-    // Append session tail separately to the cached base prompt
-    const { sessionTailPrompt } = await import("@/lib/ai/prompts");
-    const corePrompt = `${cachedPrompt}${sessionTailPrompt(sessionTail ?? [])}`;
-
-    const allMessages = [
-      ...history,
-      { role: "user" as const, content: userText },
-    ];
-
-    const tools = buildEtlesTelegramTools({
-      userId: ownerUserId,
-      chatId,
-      baseUrl,
-      composioTools,
-    });
-
-    const { text, toolCalls } = await generateText({
-      model: getLanguageModel("google/gemini-3-flash-preview"),
-      system: corePrompt,
-      messages: allMessages,
-      stopWhen: stepCountIs(25),
-      tools,
-    }).finally(() => {
-      stopTyping();
-    });
-
-    // Serialise tool calls for Workflow state caching
-    const serialisedToolCalls =
-      toolCalls?.map((tc) => ({
-        type: "tool-call" as const,
-        toolCallId: tc.toolCallId,
-        toolName: tc.toolName,
-        args: (tc as any).args,
-      })) ?? [];
-
-    return { aiText: text, toolCallParts: serialisedToolCalls };
-  });
-
-  // ── Step 4: Persist assistant message + deliver to Telegram ─────────────────
-  try {
-    await context.run("save-and-send", async () => {
-      if (statusMessageId) {
-        await editMessageText(
-          botToken,
-          telegramChatId,
-          statusMessageId,
-          "✅ <b>Done</b>\n\nSending your response..."
+export const { POST } = serve<TelegramWorkflowPayload>(
+  async (context) => {
+    const sendFailure = async (message: string) => {
+      try {
+        await sendLongMessage(
+          context.requestPayload.botToken,
+          context.requestPayload.telegramChatId,
+          message
+        );
+      } catch (error) {
+        console.error(
+          "[TelegramWorkflow] Failed to send failure message:",
+          error
         );
       }
+    };
+    const {
+      ownerUserId,
+      botToken,
+      telegramChatId,
+      senderName,
+      userText,
+      baseUrl,
+    } = context.requestPayload;
+    const statusMessageId = await context.run("status-start", async () => {
+      return sendStatusMessage(
+        botToken,
+        telegramChatId,
+        "🤖 <b>Etles is on it</b>\n\nAnalyzing your request..."
+      );
+    });
+
+    // ── Step 1: Get / create DB chat, persist user message ──────────────────────
+    const chatId = await context.run("setup-chat", async () => {
+      const id = await getOrCreateChat(ownerUserId, telegramChatId, senderName);
+
       await saveMessages({
         messages: [
           {
             id: generateUUID(),
-            chatId,
-            role: "assistant",
-            parts: [{ type: "text" as const, text: aiText }, ...toolCallParts],
+            chatId: id,
+            role: "user",
+            parts: [{ type: "text" as const, text: userText }],
             attachments: [],
             createdAt: new Date(),
           },
         ] as any,
       });
 
-      if (aiText.trim()) {
-        await sendLongMessage(botToken, telegramChatId, aiText);
-      } else {
-        await sendFailure(
-          "I completed the request but did not receive a text response. Please try again."
+      await touchUserActivity(ownerUserId);
+
+      return id;
+    });
+
+    // ── Step 2: Load conversation history ───────────────────────────────────────
+    // Returned as plain JSON so Workflow can cache and replay the step.
+    const history = await context.run("load-history", async () => {
+      if (statusMessageId) {
+        await editMessageText(
+          botToken,
+          telegramChatId,
+          statusMessageId,
+          "🧠 <b>Etles is thinking</b>\n\nGathering conversation context..."
         );
       }
-
-      const recent = await getMessagesByChatId({ id: chatId });
-      const tail = recent
+      const dbMessages = await getMessagesByChatId({ id: chatId });
+      return dbMessages
         .filter((m) => m.role === "user" || m.role === "assistant")
-        .slice(-5)
         .map((m) => {
-          const textPart = (m.parts as { type: string; text?: string }[]).find(
-            (p) => p.type === "text"
+          const textPart = (m.parts as any[]).find(
+            (p: any) => p.type === "text"
           );
           return {
             role: m.role as "user" | "assistant",
-            text: textPart?.text ?? "",
+            content: textPart?.text ?? "",
           };
         })
-        .filter((m) => m.text.length > 0);
-      await saveSessionTail(ownerUserId, tail);
-      if (statusMessageId) {
-        await deleteMessage(botToken, telegramChatId, statusMessageId);
-      }
+        .filter((m) => m.content.length > 0);
     });
-  } catch (error) {
-    console.error("[TelegramWorkflow] Delivery failed:", error);
-    await sendFailure(
-      "I could not finish that request right now. Please try again in a moment."
-    );
-    throw error;
+
+    // ── Step 3: Run AI (the expensive step — gets its own 300 s window) ──────────
+    const { aiText, toolCallParts } = await context.run("run-ai", async () => {
+      if (statusMessageId) {
+        await editMessageText(
+          botToken,
+          telegramChatId,
+          statusMessageId,
+          "🛠 <b>Working with tools</b>\n\nCalling apps and planning the best answer..."
+        );
+      }
+      const stopTyping = startTypingHeartbeat(botToken, telegramChatId);
+      let composioTools: Record<string, unknown> = {};
+      try {
+        const session = await composio.create(ownerUserId, {
+          manageConnections: true,
+          multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
+        });
+        composioTools = await session.tools();
+      } catch (e) {
+        console.error("[TelegramWorkflow] Composio tools failed:", e);
+      }
+
+      const sessionTail = await getSessionTail(ownerUserId);
+      const promptSignature = JSON.stringify({
+        selectedChatModel: "google/gemini-3-flash-preview",
+        skipArtifacts: true,
+        surface: "telegram-workflow",
+      });
+
+      let cachedPrompt = await getCachedSystemPrompt({
+        userId: ownerUserId,
+        scope: "telegram",
+        signature: promptSignature,
+      });
+
+      if (!cachedPrompt) {
+        cachedPrompt = systemPrompt({
+          selectedChatModel: "google/gemini-3-flash-preview",
+          requestHints: {
+            latitude: undefined,
+            longitude: undefined,
+            city: undefined,
+            country: undefined,
+          },
+          sessionTail: [], // history is cached separately now
+          skipArtifacts: true,
+        });
+
+        await setCachedSystemPrompt({
+          userId: ownerUserId,
+          scope: "telegram",
+          signature: promptSignature,
+          prompt: cachedPrompt,
+        });
+      }
+
+      // Append session tail separately to the cached base prompt
+      const { sessionTailPrompt } = await import("@/lib/ai/prompts");
+      const corePrompt = `${cachedPrompt}${sessionTailPrompt(sessionTail ?? [])}`;
+
+      const allMessages = [
+        ...history,
+        { role: "user" as const, content: userText },
+      ];
+
+      const tools = buildEtlesTelegramTools({
+        userId: ownerUserId,
+        chatId,
+        baseUrl,
+        composioTools,
+      });
+
+      const { text, toolCalls } = await generateText({
+        model: getLanguageModel("google/gemini-3-flash-preview"),
+        system: corePrompt,
+        messages: allMessages,
+        stopWhen: stepCountIs(25),
+        tools,
+      }).finally(() => {
+        stopTyping();
+      });
+
+      // Serialise tool calls for Workflow state caching
+      const serialisedToolCalls =
+        toolCalls?.map((tc) => ({
+          type: "tool-call" as const,
+          toolCallId: tc.toolCallId,
+          toolName: tc.toolName,
+          args: (tc as any).args,
+        })) ?? [];
+
+      return { aiText: text, toolCallParts: serialisedToolCalls };
+    });
+
+    // ── Step 4: Persist assistant message + deliver to Telegram ─────────────────
+    try {
+      await context.run("save-and-send", async () => {
+        if (statusMessageId) {
+          await editMessageText(
+            botToken,
+            telegramChatId,
+            statusMessageId,
+            "✅ <b>Done</b>\n\nSending your response..."
+          );
+        }
+        await saveMessages({
+          messages: [
+            {
+              id: generateUUID(),
+              chatId,
+              role: "assistant",
+              parts: [
+                { type: "text" as const, text: aiText },
+                ...toolCallParts,
+              ],
+              attachments: [],
+              createdAt: new Date(),
+            },
+          ] as any,
+        });
+
+        if (aiText.trim()) {
+          await sendLongMessage(botToken, telegramChatId, aiText);
+        } else {
+          await sendFailure(
+            "I completed the request but did not receive a text response. Please try again."
+          );
+        }
+
+        const recent = await getMessagesByChatId({ id: chatId });
+        const tail = recent
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .slice(-5)
+          .map((m) => {
+            const textPart = (
+              m.parts as { type: string; text?: string }[]
+            ).find((p) => p.type === "text");
+            return {
+              role: m.role as "user" | "assistant",
+              text: textPart?.text ?? "",
+            };
+          })
+          .filter((m) => m.text.length > 0);
+        await saveSessionTail(ownerUserId, tail);
+        if (statusMessageId) {
+          await deleteMessage(botToken, telegramChatId, statusMessageId);
+        }
+      });
+    } catch (error) {
+      console.error("[TelegramWorkflow] Delivery failed:", error);
+      await sendFailure(
+        "I could not finish that request right now. Please try again in a moment."
+      );
+      throw error;
+    }
+  },
+  {
+    baseUrl: WORKFLOW_BASE_URL,
   }
-});
+);

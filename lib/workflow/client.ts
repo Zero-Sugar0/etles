@@ -16,13 +16,21 @@ import { Client as QStashClient } from "@upstash/qstash";
 import { Client } from "@upstash/workflow";
 
 const token = process.env.QSTASH_TOKEN;
-const appBaseUrl =
+const configuredBaseUrl =
   process.env.BASE_URL ||
   process.env.RENDER_EXTERNAL_URL ||
   (process.env.VERCEL_PROJECT_PRODUCTION_URL
     ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
     : undefined) ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+const isLoopbackUrl = (value: string) =>
+  /(^|:\/\/)(localhost|127(?:\.\d+){0,3}|0\.0\.0\.0|\[?::1\]?)(?::|\/|$)/i.test(
+    value
+  );
+const appBaseUrl =
+  configuredBaseUrl && !isLoopbackUrl(configuredBaseUrl)
+    ? configuredBaseUrl.replace(/\/$/, "")
+    : undefined;
 
 /**
  * Public base URL used as the workflow step-callback origin.
@@ -37,14 +45,12 @@ const appBaseUrl =
  * Prefer UPSTASH_WORKFLOW_URL (the documented global override — set it equal
  * to BASE_URL), then fall back to BASE_URL / RENDER_EXTERNAL_URL.
  */
-export const WORKFLOW_BASE_URL =
-  process.env.UPSTASH_WORKFLOW_URL ||
-  process.env.BASE_URL ||
-  process.env.RENDER_EXTERNAL_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : undefined) ||
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined);
+export const WORKFLOW_BASE_URL = (() => {
+  const candidate = process.env.UPSTASH_WORKFLOW_URL || appBaseUrl;
+  return candidate && !isLoopbackUrl(candidate)
+    ? candidate.replace(/\/$/, "")
+    : undefined;
+})();
 
 export function getWorkflowClient(): Client | null {
   if (!token) {

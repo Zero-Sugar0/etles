@@ -36,8 +36,6 @@ import { DocumentPreview } from "./document-preview";
 import {
   AgentActionCard,
   type AgentActionData,
-  AgentMessageBubble,
-  type AgentResultData,
   isResult,
   parseAgentMessage,
 } from "./elements/agent-action";
@@ -56,6 +54,7 @@ import {
 } from "./elements/tool";
 import { WorkflowProgressCard } from "./elements/workflow-step";
 import { ImageEditor } from "./image-editor";
+import { Skeleton } from "@/components/ui/skeleton";
 import { GeneratedImageCarousel } from "./generated-image-carousel";
 import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
@@ -317,15 +316,8 @@ const PurePreviewMessage = ({
                     >
                       {partEvent ? (
                         <EventCard event={partEvent} />
-                      ) : partAgent ? (
-                        isResult(partAgent) &&
-                        !(partAgent as AgentResultData).error ? (
-                          <AgentMessageBubble
-                            agent={partAgent as AgentResultData}
-                          />
-                        ) : (
-                          <AgentActionCard agent={partAgent} />
-                        )
+                      ) : partAgent && !isResult(partAgent) ? (
+                        <AgentActionCard agent={partAgent} />
                       ) : null}
                     </MessageContent>
                   )}
@@ -697,12 +689,46 @@ const PurePreviewMessage = ({
                 return null;
               }
 
+              const requestedCount = Number(
+                partAny.input?.count ?? partAny.input?.numberOfImages ?? 1
+              );
+              const total =
+                Number.isFinite(requestedCount) && requestedCount > 0
+                  ? Math.min(requestedCount, 12)
+                  : 1;
+              const progress =
+                state === "input-streaming"
+                  ? 18
+                  : state === "input-available"
+                    ? 27
+                    : 62;
+
               return (
                 <div className={widthClass} key={toolCallId}>
-                  <Tool
-                    className="w-full"
-                    defaultOpen={state !== "input-streaming"}
-                  >
+                  <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted/20 p-3 shadow-sm sm:p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-base font-semibold tracking-tight text-foreground">
+                          Image results ({total})
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Creating your variations
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                        Loading… {progress}%
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {Array.from({ length: total }, (_, index) => (
+                        <Skeleton
+                          className="aspect-[4/5] w-full rounded-2xl"
+                          key={`${toolCallId}-${index}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <Tool className="mt-2 w-full" defaultOpen={false}>
                     <ToolHeader state={state} type={type} />
                     <ToolContent>
                       {state === "input-available" && (
