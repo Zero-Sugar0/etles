@@ -13,3 +13,12 @@ test("normalizeMermaidChart preserves diagram content when no fence is present",
 
   assert.equal(normalizeMermaidChart(input), "flowchart LR\n  A[Start] --> B[End]");
 });
+
+test("normalizeMermaidChart expands compact Gitgraph commands into valid lines", () => {
+  const input = 'gitgraph     commit id: "Initial release"     branch feature     checkout feature     commit id: "Add dashboard"';
+
+  assert.equal(
+    normalizeMermaidChart(input),
+    'gitgraph\ncommit id: "Initial release"\nbranch feature\ncheckout feature\ncommit id: "Add dashboard"'
+  );
+});

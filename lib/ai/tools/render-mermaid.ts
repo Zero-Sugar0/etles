@@ -13,7 +13,20 @@ export function normalizeMermaidChart(input: string): string {
     .replace(/```\s*$/i, "")
     .trim();
 
-  return withoutFence
+  const normalized = withoutFence.replace(
+    /^(gitgraph|gitGraph)\s+(.+)$/is,
+    (_, type: string, commands: string) => {
+      const commandPattern = /\b(commit|branch|checkout|merge)\b(?=\s+(?:id|tag|type|order|parent|[A-Za-z0-9_"']))/gi;
+      const lines = commands
+        .replace(commandPattern, "\n$1")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+      return [type, ...lines].join("\n");
+    }
+  );
+
+  return normalized
     .replace(/\bend\s*\(\(/g, "finish((")
     .replace(/\bend\s*\[/g, "finish[")
     .replace(/\bend\s*\{/g, "finish{")
