@@ -25,26 +25,28 @@ type YahooFinancePayload = {
   delayed?: boolean;
 };
 
+const formatNumber = (value: number | null | undefined) =>
+  value == null
+    ? "—"
+    : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
 export function YahooFinanceDisplay({ data }: { data: YahooFinancePayload }) {
   const positive = (data.changePercent ?? 0) >= 0;
-  const price =
-    data.price == null
-      ? "—"
-      : data.price.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const price = formatNumber(data.price);
   const change =
     data.changePercent == null
       ? "—"
       : `${positive ? "+" : ""}${data.changePercent.toFixed(2)}%`;
 
   return (
-    <Card className="w-full max-w-2xl overflow-hidden border-border/70 bg-card/80 shadow-sm">
-      <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-border/50 px-4 py-3">
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+    <Card className="w-full min-w-0 max-w-2xl overflow-hidden border-border/70 bg-card/80 shadow-sm">
+      <CardHeader className="flex flex-col gap-3 border-b border-border/50 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <CandlestickChart aria-hidden="true" className="size-4" />
           </div>
           <div>
-            <CardTitle className="font-mono text-sm tracking-tight">
+            <CardTitle className="truncate font-mono text-sm tracking-tight">
               {data.symbol}
             </CardTitle>
             <p className="text-xs text-muted-foreground">
@@ -52,14 +54,14 @@ export function YahooFinanceDisplay({ data }: { data: YahooFinancePayload }) {
             </p>
           </div>
         </div>
-        <Badge variant="outline" className="font-mono text-[10px]">
+        <Badge variant="outline" className="w-fit font-mono text-[10px]">
           {data.delayed ? "Delayed" : "Live"}
         </Badge>
       </CardHeader>
-      <CardContent className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_150px]">
+      <CardContent className="grid min-w-0 gap-5 p-4 sm:grid-cols-[minmax(0,1fr)_150px]">
         <div className="min-w-0">
-          <div className="mb-2 flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-semibold tabular-nums">
+          <div className="mb-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+            <span className="font-mono text-2xl font-semibold tabular-nums sm:text-3xl">
               {price}
             </span>
             {data.currency && (
@@ -84,15 +86,20 @@ export function YahooFinanceDisplay({ data }: { data: YahooFinancePayload }) {
             </span>
           </div>
           <div
-            className="h-36 w-full"
+            className="h-40 w-full min-w-0 sm:h-44"
             role="img"
             aria-label={`${data.symbol} price chart for ${data.range}`}
           >
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={data.points}
-                margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
-              >
+            {data.points.length === 0 ? (
+              <div className="flex h-full items-center justify-center rounded-md border border-dashed border-border/70 text-xs text-muted-foreground">
+                No historical chart data available.
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={data.points}
+                  margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
+                >
                 <defs>
                   <linearGradient
                     id={`finance-fill-${data.symbol}`}
@@ -135,15 +142,16 @@ export function YahooFinanceDisplay({ data }: { data: YahooFinancePayload }) {
                   dot={false}
                   isAnimationActive={false}
                 />
-              </AreaChart>
-            </ResponsiveContainer>
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
-        <dl className="grid grid-cols-2 gap-3 self-start text-xs sm:grid-cols-1">
+        <dl className="grid grid-cols-2 gap-3 border-t border-border/50 pt-3 text-xs sm:grid-cols-1 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
           <div>
             <dt className="text-muted-foreground">Previous close</dt>
             <dd className="mt-1 font-mono tabular-nums">
-              {data.previousClose?.toFixed(2) ?? "—"}
+              {formatNumber(data.previousClose)}
             </dd>
           </div>
           <div>

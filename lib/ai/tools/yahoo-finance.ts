@@ -27,29 +27,61 @@ export const getYahooFinance = tool({
   }),
   execute: async ({ symbol, range }) => {
     const normalizedSymbol = symbol.trim().toUpperCase();
-    const url = new URL(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(normalizedSymbol)}`
-    );
-    url.searchParams.set("range", rangeMap[range]);
-    url.searchParams.set("interval", range === "1d" ? "5m" : "1d");
-    url.searchParams.set("includePrePost", "false");
-    url.searchParams.set("events", "div,splits");
+    const hosts = ["query1.finance.yahoo.com", "query2.finance.yahoo.com"];
+    let result: {
+      meta?: Record<string, unknown>;
+      timestamp?: number[];
+      indicators?: { quote?: Array<{ close?: Array<number | null> }> };
+    } | undefined;
+    let lastError = "";
 
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-      next: { revalidate: 60 },
-    });
+    for (const host of hosts) {
+      const url = new URL(
+        `https://${host}/v8/finance/chart/${encodeURIComponent(normalizedSymbol)}`
+      );
+      url.searchParams.set("range", rangeMap[range]);
+      url.searchParams.set("interval", range === "1d" ? "5m" : "1d");
+      url.searchParams.set("includePrePost", "false");
+      url.searchParams.set("events", "div,splits");
 
-    if (!response.ok) {
-      return { error: `Yahoo Finance could not load ${normalizedSymbol}.` };
+      try {
+        const response = await fetch(url, {
+          headers: {
+            Accept: "application/json",
+            "Accept-Language": "en-US,en;q=0.9",
+            "User-Agent": "Mozilla/5.0 (compatible; Etles/1.0; +https://etles.app)",
+          },
+          next: { revalidate: 60 },
+          signal: AbortSignal.timeout(10_000),
+        });
+        const payload = (await response.json().catch(() => null)) as {
+          chart?: {
+            error?: { description?: string } | null;
+            result?: Array<{
+              meta?: Record<string, unknown>;
+              timestamp?: number[];
+              indicators?: { quote?: Array<{ close?: Array<number | null> }> };
+            }>;
+          };
+        } | null;
+        const apiError = payload?.chart?.error?.description;
+        if (!response.ok || apiError) {
+          lastError = apiError || `HTTP ${response.status}`;
+          continue;
+        }
+        result = payload?.chart?.result?.[0];
+        if (result?.meta) break;
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : "Request failed";
+      }
     }
 
-    const payload = (await response.json()) as {
-      chart?: { result?: Array<{ meta?: Record<string, unknown>; timestamp?: number[]; indicators?: { quote?: Array<{ close?: Array<number | null> }> } }> };
-    };
-    const result = payload.chart?.result?.[0];
     if (!result?.meta) {
-      return { error: `No market data found for ${normalizedSymbol}.` };
+      return {
+        error: lastError
+          ? `Yahoo Finance could not load ${normalizedSymbol}: ${lastError}.`
+          : `No market data found for ${normalizedSymbol}.`,
+      };
     }
 
     const closes = result.indicators?.quote?.[0]?.close ?? [];
@@ -70,8 +102,14 @@ export const getYahooFinance = tool({
       exchange: result.meta.exchangeName ?? null,
       quoteType: result.meta.quoteType ?? null,
       marketState: result.meta.marketState ?? null,
-      price: result.meta.regularMarketPrice ?? null,
-      previousClose: result.meta.previousClose ?? null,
+      price:
+        typeof result.meta.regularMarketPrice === "number"
+          ? result.meta.regularMarketPrice
+          : points.at(-1)?.close ?? null,
+      previousClose:
+        typeof result.meta.previousClose === "number"
+          ? result.meta.previousClose
+          : points.at(-2)?.close ?? null,
       changePercent:
         typeof result.meta.regularMarketPrice === "number" &&
         typeof result.meta.previousClose === "number" &&

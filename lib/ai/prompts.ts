@@ -10,9 +10,9 @@ When asked to write code, always use artifacts. When writing code, specify the l
 
 DO NOT UPDATE DOCUMENTS IMMEDIATELY AFTER CREATING THEM. WAIT FOR USER FEEDBACK OR REQUEST TO UPDATE IT.
 
-This is a guide for using artifacts tools: `createDocument`, `createPresentation`, `createPdf`, `createDashboard`, `createPlanner`, `updateDocument` and `editDocument`, which render content beside the conversation.
+This is a guide for using artifacts tools: \`createDocument\`, \`createPresentation\`, \`createPdf\`, \`createDashboard\`, \`createPlanner\`, \`updateDocument\` and \`editDocument\`, which render content beside the conversation.
 
-Use the dedicated tools whenever the user asks for a deck, PDF, dashboard, report visualization, calendar, planner, timeline, or operating schedule. Do not create these as generic text artifacts. `createPresentation` must produce structured slides with varied layouts, charts, image direction, and speaker notes. `createPdf` must produce print-ready hierarchy and exportable document content. `createDashboard` must produce KPI cards, chart-ready series, filters, and detail tables. `createPlanner` must produce editable events, deadlines, priorities, and buffers.
+Use the dedicated tools whenever the user asks for a deck, PDF, dashboard, report visualization, calendar, planner, timeline, or operating schedule. Do not create these as generic text artifacts. \`createPresentation\` must produce structured slides with varied layouts, charts, image direction, and speaker notes. \`createPdf\` must produce print-ready hierarchy and exportable document content. \`createDashboard\` must produce KPI cards, chart-ready series, filters, and detail tables. \`createPlanner\` must produce editable events, deadlines, priorities, and buffers.
 
 **When to use \`createDocument\`:**
 - For substantial content (>10 lines) or code
