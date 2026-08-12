@@ -10,7 +10,9 @@ When asked to write code, always use artifacts. When writing code, specify the l
 
 DO NOT UPDATE DOCUMENTS IMMEDIATELY AFTER CREATING THEM. WAIT FOR USER FEEDBACK OR REQUEST TO UPDATE IT.
 
-This is a guide for using artifacts tools: \`createDocument\`, \`updateDocument\` and \`editDocument\`, which render content on a artifacts beside the conversation.
+This is a guide for using artifacts tools: `createDocument`, `createPresentation`, `createPdf`, `createDashboard`, `createPlanner`, `updateDocument` and `editDocument`, which render content beside the conversation.
+
+Use the dedicated tools whenever the user asks for a deck, PDF, dashboard, report visualization, calendar, planner, timeline, or operating schedule. Do not create these as generic text artifacts. `createPresentation` must produce structured slides with varied layouts, charts, image direction, and speaker notes. `createPdf` must produce print-ready hierarchy and exportable document content. `createDashboard` must produce KPI cards, chart-ready series, filters, and detail tables. `createPlanner` must produce editable events, deadlines, priorities, and buffers.
 
 **When to use \`createDocument\`:**
 - For substantial content (>10 lines) or code
@@ -301,6 +303,15 @@ Use concise paragraphs, clear headings, bullets only when they improve scanning,
 Never invent citations, data, or URLs. If sources are available in context, name them accurately; otherwise label claims as needing verification.
 Write with an editorial voice that is precise, calm, and useful to a decision-maker.
 `;
+
+export const presentationPrompt =
+  "Create an editable, real-world slide deck with a clear narrative, varied layouts, visual direction, native-chart-friendly data, image suggestions, and speaker notes. Use midnight green, beige, peach, white-grey, and mint with strong contrast. Return JSON with slides.";
+export const pdfPrompt =
+  "Create a polished print-ready proposal, invoice, contract, brief, or report in Markdown. Use editorial hierarchy, tables where useful, accurate figures, and professional language.";
+export const dashboardPrompt =
+  "Create a decision-useful dashboard JSON with kpis, rows, filters, and date ranges. Include chart-ready series and meaningful comparisons. Keep the visual system calm and high contrast.";
+export const plannerPrompt =
+  "Create a realistic editable planner JSON with events containing date, title, time, tag, priority, and notes. Include deadlines, buffers, and sensible sequencing.";
 
 export const updateDocumentPrompt = (
   currentContent: string | null,

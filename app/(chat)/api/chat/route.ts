@@ -31,6 +31,12 @@ import {
 import { getLanguageModel } from "@/lib/ai/providers";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
 import {
+  createDashboard,
+  createPdf,
+  createPlanner,
+  createPresentation,
+} from "@/lib/ai/tools/artifact-tools";
+import {
   getCollaborationStatus,
   spawnChildAgent,
   waitForChildAgents,
@@ -68,8 +74,6 @@ import { editDocument } from "@/lib/ai/tools/edit-document";
 import { generateImageTool } from "@/lib/ai/tools/generate-image";
 import { generateVideoTool } from "@/lib/ai/tools/generate-video";
 import { getWeather } from "@/lib/ai/tools/get-weather";
-import { getYahooFinance } from "@/lib/ai/tools/yahoo-finance";
-import { listUserMedia } from "@/lib/ai/tools/media-library";
 import {
   addGoal,
   deleteGoal,
@@ -85,6 +89,7 @@ import {
   searchKnowledgeGraph,
   upsertKnowledgeEntity,
 } from "@/lib/ai/tools/knowledge-graph";
+import { listUserMedia } from "@/lib/ai/tools/media-library";
 import {
   deleteMemory,
   recallLearningSignals,
@@ -147,6 +152,7 @@ import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { wikiIngest, wikiQuery } from "@/lib/ai/tools/wiki";
 import { withApproval } from "@/lib/ai/tools/with-approval";
+import { getYahooFinance } from "@/lib/ai/tools/yahoo-finance";
 import { guestRegex, isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,
@@ -526,6 +532,10 @@ export async function POST(request: Request) {
             "renderMermaid",
             "renderFlowchart",
             "createDocument",
+            "createPresentation",
+            "createPdf",
+            "createDashboard",
+            "createPlanner",
             "updateDocument",
             "editDocument",
             "requestSuggestions",
@@ -728,6 +738,26 @@ export async function POST(request: Request) {
               dataStream,
               modelId: selectedChatModel,
             }),
+            createPresentation: createPresentation({
+              session,
+              dataStream,
+              modelId: selectedChatModel,
+            }),
+            createPdf: createPdf({
+              session,
+              dataStream,
+              modelId: selectedChatModel,
+            }),
+            createDashboard: createDashboard({
+              session,
+              dataStream,
+              modelId: selectedChatModel,
+            }),
+            createPlanner: createPlanner({
+              session,
+              dataStream,
+              modelId: selectedChatModel,
+            }),
             updateDocument: updateDocument({
               session,
               dataStream,
@@ -742,8 +772,12 @@ export async function POST(request: Request) {
             // Memory tools (per-user Upstash Vector)
             saveMemory: saveMemory({ userId: session.user.id! }),
             recallMemory: recallMemory({ userId: session.user.id! }),
-            recordLearningSignal: recordLearningSignal({ userId: session.user.id! }),
-            recallLearningSignals: recallLearningSignals({ userId: session.user.id! }),
+            recordLearningSignal: recordLearningSignal({
+              userId: session.user.id!,
+            }),
+            recallLearningSignals: recallLearningSignals({
+              userId: session.user.id!,
+            }),
             searchPastConversations: searchPastConversations({
               userId: session.user.id!,
             }),
