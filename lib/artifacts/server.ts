@@ -2,6 +2,7 @@ import type { UIMessageStreamWriter } from "ai";
 import type { Session } from "next-auth";
 import { codeDocumentHandler } from "@/artifacts/code/server";
 import { imageDocumentHandler } from "@/artifacts/image/server";
+import { reportDocumentHandler } from "@/artifacts/report/server";
 import { sheetDocumentHandler } from "@/artifacts/sheet/server";
 import { textDocumentHandler } from "@/artifacts/text/server";
 import type { ArtifactKind } from "@/components/artifact";
@@ -99,6 +100,13 @@ export const documentHandlersByArtifactKind: DocumentHandler[] = [
   codeDocumentHandler,
   sheetDocumentHandler,
   imageDocumentHandler,
+  reportDocumentHandler,
 ];
 
-export const artifactKinds = ["text", "code", "sheet", "image"] as const;
+export const artifactKinds = [
+  "text",
+  "code",
+  "sheet",
+  "image",
+  "report",
+] as const;

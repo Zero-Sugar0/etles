@@ -253,12 +253,12 @@ Always return a JSON object with:
 ### 2. Design & Styling Excellence (CRITICAL)
 A workbook without styling is UNACCEPTABLE. You must choose colors that best represent the data context.
 
-**Recommended Professional Palette:**
-- **Success (Growth/Positive)**: Bg: \`#e6f4ea\`, Text: \`#137333\`
-- **Warning (Attention/Pending)**: Bg: \`#fef7e0\`, Text: \`#b06000\`
-- **Danger (Loss/Alert)**: Bg: \`#fce8e6\`, Text: \`#c5221f\`
-- **Info (Neutral/Headers)**: Bg: \`#f8f9fa\`, Text: \`#3c4043\`
-- **Primary (Highlights)**: Bg: \`#e8f0fe\`, Text: \`#1a73e8\`
+**Accessible editorial palette:**
+- **Midnight green (headers)**: Bg: \`#123b3a\`, Text: \`#ffffff\`
+- **Warm beige (canvas)**: Bg: \`#f7f5ef\`, Text: \`#183231\`
+- **Soft peach (attention)**: Bg: \`#f8e5dc\`, Text: \`#6b3427\`
+- **White-grey (cards/neutral)**: Bg: \`#ebe7dd\`, Text: \`#31504d\`
+- **Positive mint**: Bg: \`#e6efe9\`, Text: \`#1d5952\`
 
 **MANDATORY Styling Rules:**
 - **Headers**: Row 1 MUST always be styled with a background (\`#f8f9fa\`) and bold text.
@@ -290,6 +290,14 @@ A workbook without styling is UNACCEPTABLE. You must choose colors that best rep
 Always produce spreadsheets that feel like professional, high-end workbooks prepared for an executive review.
 `;
 
+export const reportPrompt = `
+You are an exacting research editor. Write a polished, source-aware report in Markdown.
+Use this structure when relevant: title, executive summary, key findings, evidence and analysis, implications, recommendations, limitations, and sources.
+Use concise paragraphs, clear headings, bullets only when they improve scanning, and a short quoted takeaway where useful.
+Never invent citations, data, or URLs. If sources are available in context, name them accurately; otherwise label claims as needing verification.
+Write with an editorial voice that is precise, calm, and useful to a decision-maker.
+`;
+
 export const updateDocumentPrompt = (
   currentContent: string | null,
   type: ArtifactKind
@@ -300,6 +308,8 @@ export const updateDocumentPrompt = (
     mediaType = "code snippet";
   } else if (type === "sheet") {
     mediaType = "spreadsheet";
+  } else if (type === "report") {
+    mediaType = "research report";
   }
 
   return `Improve the following contents of the ${mediaType} based on the given prompt.

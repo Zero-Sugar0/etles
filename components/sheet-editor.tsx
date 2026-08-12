@@ -4,7 +4,11 @@ import { useTheme } from "next-themes";
 import { parse, unparse } from "papaparse";
 import { memo, useEffect, useMemo, useState } from "react";
 import DataGrid, { type Column, textEditor } from "react-data-grid";
-import { isSheetData, type SheetData } from "@/lib/ai/tools/sheet-types";
+import {
+  isSheetData,
+  type SheetData,
+  type SheetStyle,
+} from "@/lib/ai/tools/sheet-types";
 import { cn } from "@/lib/utils";
 
 import "react-data-grid/lib/styles.css";
@@ -19,6 +23,31 @@ type SheetEditorProps = {
 
 const MIN_ROWS = 50;
 const MIN_COLS = 26;
+
+const SHEET_COLORS = {
+  canvas: "#f7f5ef",
+  panel: "#ebe7dd",
+  midnight: "#123b3a",
+  peach: "#f2c8b7",
+  ink: "#183231",
+  muted: "#647572",
+  line: "#c8d2ce",
+};
+
+function getReadableCellStyle(
+  style: SheetStyle[string] | undefined,
+  isHeader: boolean
+) {
+  const candidate = style;
+  return {
+    backgroundColor:
+      candidate?.backgroundColor ||
+      (isHeader ? SHEET_COLORS.midnight : undefined),
+    color: candidate?.color || (isHeader ? "#ffffff" : SHEET_COLORS.ink),
+    bold: candidate?.bold ?? isHeader,
+    textAlign: candidate?.textAlign || (isHeader ? "center" : "left"),
+  };
+}
 
 type SheetRow = {
   id: number;
@@ -222,7 +251,7 @@ const PureSpreadsheetEditor = ({
         const value = row[i.toString()];
         const isHeader = row.rowNumber === 1;
         const coord = indexToCoordinate(rowIdx, i);
-        const style = activeStyles[coord];
+        const style = getReadableCellStyle(activeStyles[coord], isHeader);
 
         const cellContent =
           typeof value === "string" && value.trim().startsWith("=")
@@ -232,14 +261,14 @@ const PureSpreadsheetEditor = ({
         return (
           <div
             className={cn("w-full h-full flex items-center px-2", {
-              "font-bold": isHeader || style?.bold,
+              "font-bold": style.bold,
             })}
             style={{
-              backgroundColor: style?.backgroundColor,
-              color: style?.color,
-              textAlign: style?.textAlign || (isHeader ? "center" : "left"),
+              backgroundColor: style.backgroundColor,
+              color: style.color,
+              textAlign: style.textAlign,
               justifyContent:
-                style?.textAlign === "center"
+                style.textAlign === "center"
                   ? "center"
                   : style?.textAlign === "right"
                     ? "flex-end"
@@ -253,10 +282,10 @@ const PureSpreadsheetEditor = ({
       width: 120,
       cellClass: (row: SheetRow) =>
         cn(
-          "border-t border-l border-zinc-200 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 p-0",
-          {
-            "bg-blue-50/50 dark:bg-blue-900/20": row.rowNumber === 1,
-          }
+          "border-t border-l p-0",
+          row.rowNumber === 1
+            ? "border-[#0f5c4d] bg-[#e6efe9]"
+            : "border-[#c8d2ce] bg-[#f7f5ef]"
         ),
       headerCellClass:
         "border-t border-l border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-500 font-normal text-xs",
@@ -283,22 +312,22 @@ const PureSpreadsheetEditor = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-zinc-950 min-h-0">
+    <div className="flex min-h-0 h-full flex-col bg-[#f7f5ef] text-[#183231]">
       {/* Excel-style Title Bar */}
-      <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 flex items-center justify-between shrink-0">
+      <div className="flex shrink-0 items-center justify-between border-b border-[#c8d2ce] bg-[#123b3a] px-4 py-3 text-white sm:px-6 sm:py-4">
         <div>
-          <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-100">
+          <h2 className="font-serif text-lg font-semibold tracking-tight text-white sm:text-xl">
             {sheetData.title}
           </h2>
           {status === "streaming" && (
-            <p className="text-xs text-blue-500 animate-pulse mt-1">
+            <p className="mt-1 text-xs text-[#f2c8b7] animate-pulse">
               Building comprehensive workbook...
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 text-xs text-zinc-500">
-          <span className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 rounded">
-            XLSX Mode
+        <div className="flex items-center gap-2 text-xs text-[#dce8e2]">
+          <span className="rounded-full border border-[#6e9b8b]/50 bg-[#1a5049] px-2.5 py-1 font-medium">
+            Workbook view
           </span>
         </div>
       </div>
@@ -328,7 +357,7 @@ const PureSpreadsheetEditor = ({
       </div>
 
       {/* Excel-style Tabs */}
-      <div className="h-10 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center px-4 gap-1">
+      <div className="flex h-11 items-center gap-1 overflow-x-auto border-t border-[#c8d2ce] bg-[#ebe7dd] px-3">
         <div className="flex items-center h-full mr-4 border-r border-zinc-200 dark:border-zinc-800 pr-4">
           <button className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded text-zinc-500">
             <svg
@@ -360,8 +389,8 @@ const PureSpreadsheetEditor = ({
             className={cn(
               "px-4 h-full flex items-center text-xs font-medium border-t-2 transition-colors",
               activeSheetIndex === idx
-                ? "bg-white dark:bg-zinc-950 border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                ? "border-[#f2a98f] bg-[#f7f5ef] text-[#123b3a]"
+                : "border-transparent text-[#647572] hover:bg-[#f7f5ef]/70"
             )}
             key={idx}
             onClick={() => setActiveSheetIndex(idx)}
