@@ -102,11 +102,11 @@ export const upsertKnowledgeEntity = ({ userId }: { userId: string }) =>
     inputSchema: z.object({
       entityId: z.string().optional(),
       name: z.string(),
-      entityType: z.string().default("concept"),
-      summary: z.string().default(""),
-      tags: z.array(z.string()).optional().default([]),
-      aliases: z.array(z.string()).optional().default([]),
-      facts: z.array(z.string()).optional().default([]),
+      entityType: z.string().optional(),
+      summary: z.string().optional(),
+      tags: z.array(z.string()).optional(),
+      aliases: z.array(z.string()).optional(),
+      facts: z.array(z.string()).optional(),
     }),
     execute: async ({
       entityId,
@@ -133,12 +133,12 @@ export const upsertKnowledgeEntity = ({ userId }: { userId: string }) =>
 
       const entity: GraphEntity = {
         id,
-        name,
-        entityType,
-        summary,
-        tags,
-        aliases,
-        facts,
+        name: name || existing?.name || "",
+        entityType: entityType ?? existing?.entityType ?? "concept",
+        summary: summary ?? existing?.summary ?? "",
+        tags: [...new Set([...(existing?.tags ?? []), ...(tags ?? [])])],
+        aliases: [...new Set([...(existing?.aliases ?? []), ...(aliases ?? [])])],
+        facts: [...new Set([...(existing?.facts ?? []), ...(facts ?? [])])],
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       };

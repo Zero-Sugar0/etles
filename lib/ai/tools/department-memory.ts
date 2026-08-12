@@ -17,6 +17,21 @@ function getDepartmentNamespace(userId: string, department: string) {
   return index.namespace(`dept-${department}-${userId}`);
 }
 
+function getSharedNamespace(userId: string) {
+  const index = new Index({
+    url: process.env.UPSTASH_VECTOR_REST_URL!,
+    token: process.env.UPSTASH_VECTOR_REST_TOKEN!,
+  });
+  return index.namespace(`shared-${userId}`);
+}
+
+const DEPARTMENTS = [
+  "executive_ops", "sales", "marketing", "engineering", "product", "finance",
+  "customer_service", "hr_people", "growth_analytics", "research_strategy",
+  "security", "legal_compliance", "content_creative", "supply_chain_ecommerce",
+  "partnerships_alliances", "general",
+] as const;
+
 export const readDepartmentMemory = ({
   userId,
   agentSlug,
@@ -40,13 +55,19 @@ export const readDepartmentMemory = ({
     execute: async ({ query, topK }) => {
       const department = getAgentDepartment(agentSlug);
       try {
-        const ns = getDepartmentNamespace(userId, department);
-        const results = await ns.query({
-          data: query,
-          topK,
-          includeMetadata: true,
-        });
-        const entries = results.map((r) => ({
+        // Search the department and user-wide shared memory. The all-department
+        // lookup also makes older entries discoverable before they are mirrored.
+        const results = await Promise.all(
+          DEPARTMENTS.map((name) =>
+            getDepartmentNamespace(userId, name)
+              .query({ data: query, topK, includeMetadata: true })
+              .catch(() => [])
+          )
+        );
+        const sharedResults = await getSharedNamespace(userId)
+          .query({ data: query, topK, includeMetadata: true })
+          .catch(() => []);
+        const entries = [...results.flat(), ...sharedResults].map((r) => ({
           key: (r.metadata as Record<string, string>)?.key ?? r.id,
           content: (r.metadata as Record<string, string>)?.content ?? "",
           savedBy: (r.metadata as Record<string, string>)?.savedBy ?? "unknown",
@@ -98,19 +119,26 @@ export const writeDepartmentMemory = ({
     execute: async ({ key, content, tags }) => {
       const department = getAgentDepartment(agentSlug);
       try {
-        const ns = getDepartmentNamespace(userId, department);
-        await ns.upsert({
-          id: key,
-          data: content,
-          metadata: {
-            key,
-            content,
-            department,
-            savedBy: agentSlug,
-            tags: (tags ?? []).join(","),
-            savedAt: new Date().toISOString(),
-          },
-        });
+        const metadata = {
+          key,
+          content,
+          department,
+          savedBy: agentSlug,
+          tags: (tags ?? []).join(","),
+          savedAt: new Date().toISOString(),
+        };
+        await Promise.all([
+          getDepartmentNamespace(userId, department).upsert({
+            id: key,
+            data: content,
+            metadata,
+          }),
+          getSharedNamespace(userId).upsert({
+            id: `${department}:${key}`,
+            data: content,
+            metadata,
+          }),
+        ]);
         return {
           success: true,
           department,

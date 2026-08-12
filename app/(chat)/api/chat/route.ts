@@ -87,7 +87,9 @@ import {
 } from "@/lib/ai/tools/knowledge-graph";
 import {
   deleteMemory,
+  recallLearningSignals,
   recallMemory,
+  recordLearningSignal,
   saveMemory,
   updateMemory,
 } from "@/lib/ai/tools/memory";
@@ -740,6 +742,8 @@ export async function POST(request: Request) {
             // Memory tools (per-user Upstash Vector)
             saveMemory: saveMemory({ userId: session.user.id! }),
             recallMemory: recallMemory({ userId: session.user.id! }),
+            recordLearningSignal: recordLearningSignal({ userId: session.user.id! }),
+            recallLearningSignals: recallLearningSignals({ userId: session.user.id! }),
             searchPastConversations: searchPastConversations({
               userId: session.user.id!,
             }),

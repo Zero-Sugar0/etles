@@ -2,6 +2,7 @@ import { Index } from "@upstash/vector";
 import { tool } from "ai";
 import { unstable_noStore as noStore } from "next/cache";
 import { z } from "zod";
+import { generateUUID } from "@/lib/utils";
 
 // Per-user memory stored in namespaced Upstash Vector index.
 // Each user gets their own namespace: `memory-{userId}`
@@ -216,6 +217,72 @@ export const deleteMemory = ({ userId }: { userId: string }) =>
         };
       } catch (error: any) {
         return { success: false, error: error.message };
+      }
+    },
+  });
+
+// Learning signals are append-only. They are deliberately kept separate from
+// durable user facts so feedback can improve future behavior without rewriting
+// or deleting memories that the user may still want to inspect.
+export const recordLearningSignal = ({ userId }: { userId: string }) =>
+  tool({
+    description:
+      "Record explicit user feedback or a confirmed outcome for future personalization. " +
+      "Use this after the user corrects you, accepts or rejects a preference, or confirms " +
+      "that a workflow worked. Do not infer sensitive preferences without confirmation.",
+    inputSchema: z.object({
+      signalType: z.enum(["correction", "preference", "accepted", "rejected", "outcome"]),
+      summary: z.string().min(1),
+      context: z.string().optional(),
+      confidence: z.number().min(0).max(1).optional().default(1),
+    }),
+    execute: async ({ signalType, summary, context, confidence }) => {
+      try {
+        const index = getMemoryIndex();
+        const ns = index.namespace(`learning-${userId}`);
+        const id = generateUUID();
+        const content = context ? `${summary}\nContext: ${context}` : summary;
+
+        await ns.upsert({
+          id,
+          data: content,
+          metadata: {
+            signalType,
+            summary,
+            context: context ?? "",
+            confidence,
+            recordedAt: new Date().toISOString(),
+          },
+        });
+
+        return { success: true, id, message: "Learning signal recorded." };
+      } catch (error: any) {
+        return { success: false, error: error.message };
+      }
+    },
+  });
+
+export const recallLearningSignals = ({ userId }: { userId: string }) =>
+  tool({
+    description:
+      "Recall confirmed user corrections, preferences, and workflow outcomes relevant to the current task.",
+    inputSchema: z.object({ query: z.string(), topK: z.number().min(1).max(10).optional().default(5) }),
+    execute: async ({ query, topK }) => {
+      try {
+        const index = getMemoryIndex();
+        const ns = index.namespace(`learning-${userId}`);
+        const results = await ns.query({ data: query, topK, includeMetadata: true });
+        return {
+          signals: results.map((r) => ({
+            signalType: (r.metadata as any)?.signalType,
+            summary: (r.metadata as any)?.summary,
+            context: (r.metadata as any)?.context,
+            confidence: (r.metadata as any)?.confidence,
+            recordedAt: (r.metadata as any)?.recordedAt,
+          })),
+        };
+      } catch (error: any) {
+        return { signals: [], error: error.message };
       }
     },
   });

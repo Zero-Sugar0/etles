@@ -69,7 +69,9 @@ import {
 } from "@/lib/ai/tools/knowledge-graph";
 import {
   deleteMemory,
+  recallLearningSignals,
   recallMemory,
+  recordLearningSignal,
   saveMemory,
   updateMemory,
 } from "@/lib/ai/tools/memory";
@@ -289,6 +291,8 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
     listUserMedia: listUserMedia({ userId }),
     saveMemory: saveMemory({ userId }),
     recallMemory: recallMemory({ userId }),
+    recordLearningSignal: recordLearningSignal({ userId }),
+    recallLearningSignals: recallLearningSignals({ userId }),
     updateMemory: updateMemory({ userId }),
     deleteMemory: deleteMemory({ userId }),
     launchMission: launchMission({ userId, chatId, baseUrl }),
@@ -498,6 +502,8 @@ Your department lead is **${departmentLeadName}**${departmentLeadSlug ? ` (${dep
 - If the task requires higher-level alignment, risk review, policy escalation, or long-term strategy, summarize the issue clearly for your department lead.
 - If you are uncertain about a decision, unresolved tradeoff, or recommendation, create a short escalation note for ${departmentLeadName}.
 - When the task is complete, include a concise report section with decisions made, assumptions, open issues, and whether ${departmentLeadName} should review before final handoff.
+- Search department memory and the user's knowledge graph before making decisions about known people, projects, companies, goals, or constraints. Write confirmed cross-department knowledge back through the shared memory tools.
+- When the user explicitly corrects you or confirms a preference or outcome, record it with `recordLearningSignal`. Recall relevant signals with `recallLearningSignals`; do not infer sensitive preferences.
 
 ## A2A Collaboration — Multi-Agent Orchestration
 

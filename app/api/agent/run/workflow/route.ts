@@ -55,7 +55,9 @@ import {
 } from "@/lib/ai/tools/knowledge-graph";
 import {
   deleteMemory,
+  recallLearningSignals,
   recallMemory,
+  recordLearningSignal,
   saveMemory,
   updateMemory,
 } from "@/lib/ai/tools/memory";
@@ -259,6 +261,8 @@ export const { POST } = serve<AgentRunWorkflowPayload>(async (context) => {
         getWeather,
         saveMemory: saveMemory({ userId }),
         recallMemory: recallMemory({ userId }),
+        recordLearningSignal: recordLearningSignal({ userId }),
+        recallLearningSignals: recallLearningSignals({ userId }),
         updateMemory: updateMemory({ userId }),
         deleteMemory: deleteMemory({ userId }),
         setReminder: setReminder({ userId, baseUrl: BASE_URL }),
