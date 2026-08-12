@@ -1,6 +1,7 @@
 import type { SlackAdapter } from "@chat-adapter/slack";
 import { stepCountIs, streamText } from "ai";
 import { type Chat, toAiMessages } from "chat";
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { BOT_SYSTEM_PROMPT, buildPlatformAgentTools } from "@/lib/bot-ai";
 import { saveChat, saveMessages } from "@/lib/db/queries";
@@ -62,8 +63,9 @@ async function handleFirstMessage(
 
   const tools = await buildPlatformAgentTools({ userId: ownerUserId, chatId });
 
+  const botModel = process.env.SUBAGENT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
   const response = await streamText({
-    model: getLanguageModel("google/gemini-2.5-flash"),
+    model: getLanguageModel(botModel),
     system: BOT_SYSTEM_PROMPT,
     prompt: message?.text || "",
     tools,
@@ -179,8 +181,9 @@ export function attachHandlers(
       chatId,
     });
 
+    const botModel = process.env.SUBAGENT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
     const response = await streamText({
-      model: getLanguageModel("google/gemini-2.5-flash"),
+      model: getLanguageModel(botModel),
       system: BOT_SYSTEM_PROMPT,
       messages: history,
       tools,

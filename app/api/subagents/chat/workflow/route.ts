@@ -9,7 +9,7 @@ import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import { getGoogleModel, getLanguageModel } from "@/lib/ai/providers";
+import { getLanguageModel } from "@/lib/ai/providers";
 import * as browserUseTools from "@/lib/ai/tools/browser-use";
 import * as daytonaTools from "@/lib/ai/tools/daytona";
 import * as daytonaBrowserTools from "@/lib/ai/tools/daytona-browser";
@@ -246,9 +246,7 @@ export const { POST } = serve<SubagentChatWorkflowPayload>(async (context) => {
 
     const subagentModel =
       process.env.SUBAGENT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
-    const model = subagentModel.startsWith("google/")
-      ? getGoogleModel(subagentModel)
-      : getLanguageModel(subagentModel);
+    const model = getLanguageModel(subagentModel);
 
     // Convert ChatMessage[] to model messages format
     const { convertToModelMessages } = await import("ai");

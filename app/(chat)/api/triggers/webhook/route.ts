@@ -44,8 +44,10 @@ import { generateUUID } from "@/lib/utils";
 // Config
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+
 const COMPOSIO_WEBHOOK_SECRET = process.env.COMPOSIO_WEBHOOK_SECRET ?? "";
-const MODEL = "google/gemini-3-flash";
+const MODEL = process.env.SUBAGENT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Composio webhook payload shape

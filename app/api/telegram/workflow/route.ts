@@ -17,7 +17,7 @@ import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
 import { buildEtlesTelegramTools } from "@/lib/ai/build-etles-telegram-tools";
 import { systemPrompt } from "@/lib/ai/prompts";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { getLanguageModel, getTelegramModel } from "@/lib/ai/providers";
 import {
   getChatById,
   getMessagesByChatId,
@@ -200,9 +200,10 @@ export const { POST } = serve<TelegramWorkflowPayload>(
         console.error("[TelegramWorkflow] Composio tools failed:", e);
       }
 
+      const telegramModel = getTelegramModel();
       const sessionTail = await getSessionTail(ownerUserId);
       const promptSignature = JSON.stringify({
-        selectedChatModel: "google/gemini-3-flash-preview",
+        selectedChatModel: telegramModel.modelId,
         skipArtifacts: true,
         surface: "telegram-workflow",
       });
@@ -215,7 +216,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(
 
       if (!cachedPrompt) {
         cachedPrompt = systemPrompt({
-          selectedChatModel: "google/gemini-3-flash-preview",
+          selectedChatModel: telegramModel.modelId,
           requestHints: {
             latitude: undefined,
             longitude: undefined,
@@ -251,7 +252,7 @@ export const { POST } = serve<TelegramWorkflowPayload>(
       });
 
       const { text, toolCalls } = await generateText({
-        model: getLanguageModel("google/gemini-3-flash-preview"),
+        model: telegramModel,
         system: corePrompt,
         messages: allMessages,
         stopWhen: stepCountIs(25),

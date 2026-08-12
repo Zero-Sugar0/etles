@@ -216,9 +216,7 @@ async function runInlineSubagentChat(params: {
         "@/lib/agent/subagent-definitions"
       );
       const { DEFAULT_CHAT_MODEL } = await import("@/lib/ai/models");
-      const { getGoogleModel, getLanguageModel } = await import(
-        "@/lib/ai/providers"
-      );
+      const { getLanguageModel } = await import("@/lib/ai/providers");
       const memTools = await import("@/lib/ai/tools/memory");
       const schedTools = await import("@/lib/ai/tools/schedule");
 
@@ -273,9 +271,7 @@ async function runInlineSubagentChat(params: {
 
       const subagentModel =
         process.env.SUBAGENT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
-      const model = subagentModel.startsWith("google/")
-        ? getGoogleModel(subagentModel)
-        : getLanguageModel(subagentModel);
+      const model = getLanguageModel(subagentModel);
 
       const modelMessages = await convertToModelMessages(messages as any);
 

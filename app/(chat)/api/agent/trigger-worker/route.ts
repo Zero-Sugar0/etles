@@ -12,7 +12,7 @@ import { Index } from "@upstash/vector";
 import { generateText, stepCountIs } from "ai";
 import { type NextRequest, NextResponse } from "next/server";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { getBackgroundModel } from "@/lib/ai/providers";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import {
   deleteMemory,
@@ -266,7 +266,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   });
 
   const result = await generateText({
-    model: getLanguageModel("google/gemini-3-flash"),
+    model: getBackgroundModel(),
     system: buildSystemPrompt(agent.systemPrompt, triggerName, memoryContext),
     prompt: taskPrompt,
     tools,

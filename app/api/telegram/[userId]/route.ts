@@ -18,7 +18,8 @@ import { generateText, stepCountIs } from "ai";
 import { after } from "next/server";
 import { buildEtlesTelegramTools } from "@/lib/ai/build-etles-telegram-tools";
 import { systemPrompt } from "@/lib/ai/prompts";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { getLanguageModel, getTelegramModel } from "@/lib/ai/providers";
+import { updateApprovalDecision } from "@/lib/ai/tools/background-approval";
 import {
   getBotIntegration,
   getChatById,
@@ -33,6 +34,7 @@ import {
 } from "@/lib/prompt-cache";
 import { getSessionTail, saveSessionTail } from "@/lib/session-tail";
 import {
+  answerCallbackQuery,
   deleteMessage,
   editMessageText,
   sendLongMessage,
@@ -77,6 +79,12 @@ interface TelegramMessage {
 
 interface TelegramUpdate {
   message?: TelegramMessage;
+  callback_query?: {
+    id: string;
+    from: TelegramUser;
+    message?: TelegramMessage;
+    data?: string;
+  };
   update_id: number;
 }
 
@@ -94,6 +102,7 @@ export async function POST(
     process.env.TELEGRAM_SECRET_TOKEN &&
     secretToken !== process.env.TELEGRAM_SECRET_TOKEN
   ) {
+    console.warn(`[Telegram] Secret token mismatch for user ${ownerUserId}`);
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -104,26 +113,51 @@ export async function POST(
     return new Response("Bad Request", { status: 400 });
   }
 
-  const msg = update.message;
-  const cq = (update as any).callback_query;
+  const integration = await getBotIntegration({
+    userId: ownerUserId,
+    platform: "telegram",
+  });
+  if (!integration) {
+    console.error(`[Telegram] No integration found for owner ${ownerUserId}`);
+    return new Response("OK", { status: 200 });
+  }
 
-  // If it's a callback query, forward to the callback handler
+  const botToken = integration.botToken;
+  const baseUrl = process.env.BASE_URL || new URL(request.url).origin;
+
+  const cq = update.callback_query;
   if (cq) {
-    const callbackUrl = `${process.env.BASE_URL || new URL(request.url).origin}/api/telegram/callback/${ownerUserId}`;
     after(async () => {
-      await fetch(callbackUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-telegram-bot-api-secret-token":
-            request.headers.get("x-telegram-bot-api-secret-token") || "",
-        },
-        body: JSON.stringify(update),
-      });
+      try {
+        if (cq.data) {
+          const data = String(cq.data);
+          const [action, approvalId] = data.split(":");
+          if ((action === "approve" || action === "reject") && approvalId) {
+            await updateApprovalDecision(
+              ownerUserId,
+              approvalId,
+              action === "approve" ? "approved" : "rejected"
+            );
+
+            if (cq.id && botToken) {
+              await answerCallbackQuery(
+                botToken,
+                cq.id,
+                action === "approve"
+                  ? "✅ Action approved! Agent resuming..."
+                  : "❌ Action rejected."
+              );
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[Telegram] Error processing callback query:", err);
+      }
     });
     return new Response("OK", { status: 200 });
   }
 
+  const msg = update.message;
   if (!msg?.text) {
     return new Response("OK", { status: 200 });
   }
@@ -134,18 +168,6 @@ export async function POST(
     msg.from?.username ||
     "Telegram user";
   const userText = msg.text.trim();
-
-  const integration = await getBotIntegration({
-    userId: ownerUserId,
-    platform: "telegram",
-  });
-  if (!integration) {
-    console.error(`[Telegram] No integration for owner ${ownerUserId}`);
-    return new Response("OK", { status: 200 });
-  }
-
-  const botToken = integration.botToken;
-  const baseUrl = process.env.BASE_URL || new URL(request.url).origin;
 
   // Return 200 immediately — all work happens in after()
   after(async () => {
@@ -168,7 +190,7 @@ export async function POST(
         await sendLongMessage(
           botToken,
           telegramChatId,
-          "✅ **Integration status**\n\nBot is connected and responding. Your keys are stored correctly.\n\nIf you're not getting AI responses, check:\n• BASE_URL must be a public URL (not localhost)\n• Use ngrok for local development"
+          "✅ **Integration status**\n\nBot is connected and responding. Your keys are stored correctly."
         );
         return;
       }
@@ -281,18 +303,18 @@ export async function POST(
             userText,
             baseUrl,
           });
-          if (triggered) {
-            return; // Workflow will handle the rest
+          if (triggered?.workflowRunId) {
+            return; // Workflow successfully triggered and running
           }
         } catch (e) {
           console.error(
-            "[Telegram] Failed to trigger workflow, falling back:",
+            "[Telegram] Failed to trigger workflow, falling back to inline routeMessage:",
             e
           );
         }
       }
 
-      // ── Fallback: run inline (original behaviour, no Workflow configured) ───
+      // ── Fallback: run inline (no Workflow or workflow trigger returned null) ──
       await routeMessage({
         ownerUserId,
         botToken,
@@ -395,9 +417,10 @@ async function routeMessage({
     console.error("[Telegram] Failed to load Composio tools:", e);
   }
 
+  const telegramModel = getTelegramModel();
   const sessionTail = await getSessionTail(ownerUserId);
   const promptSignature = JSON.stringify({
-    selectedChatModel: "google/gemini-2.5-flash",
+    selectedChatModel: telegramModel.modelId,
     requestHints: {
       latitude: undefined,
       longitude: undefined,
@@ -415,7 +438,7 @@ async function routeMessage({
   });
   if (!cachedPrompt) {
     cachedPrompt = systemPrompt({
-      selectedChatModel: "google/gemini-2.5-flash",
+      selectedChatModel: telegramModel.modelId,
       requestHints: {
         latitude: undefined,
         longitude: undefined,
@@ -449,7 +472,7 @@ async function routeMessage({
   const stopTyping = startTypingHeartbeat(botToken, telegramChatId);
 
   const { text: aiText, toolCalls } = await generateText({
-    model: getLanguageModel("google/gemini-2.5-flash"),
+    model: telegramModel,
     system: cachedPrompt,
     messages: allMessages,
     stopWhen: stepCountIs(25),

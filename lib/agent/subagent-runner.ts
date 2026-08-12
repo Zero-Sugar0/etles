@@ -33,7 +33,8 @@ import {
 import { seedBusinessFramework } from "@/lib/agent/seed-business-framework";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
 import { notifySubAgentHandoffToMainAgent } from "@/lib/agent/subagent-handoff-notify";
-import { getGoogleModel, getLanguageModel } from "@/lib/ai/providers";
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { getLanguageModel } from "@/lib/ai/providers";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
 import * as browserUseTools from "@/lib/ai/tools/browser-use";
 import {
@@ -611,10 +612,8 @@ You now have the full capability to run truly multi-agent operations. Use this p
 Execute the task now. Summarize what you did in your final response.`;
 
   const subagentModel =
-    process.env.SUBAGENT_MODEL?.trim() || "minimax/minimax-m3";
-  const model = subagentModel.startsWith("google/")
-    ? getGoogleModel(subagentModel)
-    : getLanguageModel(subagentModel);
+    process.env.SUBAGENT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
+  const model = getLanguageModel(subagentModel);
 
   try {
     const userContent: any[] = [{ type: "text", text: `Task: ${promptTask}` }];
