@@ -15,6 +15,17 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
       prompt: title,
       schema: z.object({
         title: z.string().describe("The main title of the spreadsheet"),
+        theme: z
+          .enum([
+            "editorial",
+            "ocean",
+            "forest",
+            "sunset",
+            "lavender",
+            "midnight",
+          ])
+          .optional()
+          .describe("The visual theme for the workbook"),
         sheets: z.array(
           z.object({
             name: z.string().describe("Sheet name"),
@@ -63,6 +74,17 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
       prompt: description,
       schema: z.object({
         title: z.string().describe("The main title of the spreadsheet"),
+        theme: z
+          .enum([
+            "editorial",
+            "ocean",
+            "forest",
+            "sunset",
+            "lavender",
+            "midnight",
+          ])
+          .optional()
+          .describe("The visual theme for the workbook"),
         sheets: z.array(
           z.object({
             name: z.string().describe("Sheet name"),

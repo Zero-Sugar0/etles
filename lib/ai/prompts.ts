@@ -249,6 +249,7 @@ Always return a JSON object with:
         - \`color\`: Text color string.
         - \`bold\`: boolean
         - \`textAlign\`: "left" | "center" | "right"
+- \`theme\`: Choose one visual theme for the workbook: \`editorial\`, \`ocean\`, \`forest\`, \`sunset\`, \`lavender\`, or \`midnight\`.
 
 ### 2. Design & Styling Excellence (CRITICAL)
 A workbook without styling is UNACCEPTABLE. You must choose colors that best represent the data context.
@@ -261,9 +262,10 @@ A workbook without styling is UNACCEPTABLE. You must choose colors that best rep
 - **Positive mint**: Bg: \`#e6efe9\`, Text: \`#1d5952\`
 
 **MANDATORY Styling Rules:**
-- **Headers**: Row 1 MUST always be styled with a background (\`#f8f9fa\`) and bold text.
+- **Headers**: Row 1 MUST always be styled with a strong theme-appropriate background and bold text.
 - **Dynamic Highlights**: Use colors based on the *meaning* of the data. 
 - **Readability**: Always ensure high contrast.
+- **Color variety**: Use the selected theme consistently, with a restrained accent color for totals, warnings, and positive statuses.
 - **Workbook Completeness**: Use multiple sheets and descriptive titles.
 
 ## Example of requested output:

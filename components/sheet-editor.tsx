@@ -1,13 +1,13 @@
 "use client";
 
-import { useTheme } from "next-themes";
 import { parse, unparse } from "papaparse";
-import { memo, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, memo, useEffect, useMemo, useState } from "react";
 import DataGrid, { type Column, textEditor } from "react-data-grid";
 import {
   isSheetData,
   type SheetData,
   type SheetStyle,
+  type SheetTheme,
 } from "@/lib/ai/tools/sheet-types";
 import { cn } from "@/lib/utils";
 
@@ -24,26 +24,107 @@ type SheetEditorProps = {
 const MIN_ROWS = 50;
 const MIN_COLS = 26;
 
-const SHEET_COLORS = {
-  canvas: "#f7f5ef",
-  panel: "#ebe7dd",
-  midnight: "#123b3a",
-  peach: "#f2c8b7",
-  ink: "#183231",
-  muted: "#647572",
-  line: "#c8d2ce",
+type SheetPalette = {
+  canvas: string;
+  panel: string;
+  header: string;
+  headerText: string;
+  ink: string;
+  muted: string;
+  line: string;
+  accent: string;
 };
+
+const SHEET_PALETTES: Record<SheetTheme, SheetPalette> = {
+  editorial: {
+    canvas: "#fbfaf7",
+    panel: "#f0ede5",
+    header: "#123b3a",
+    headerText: "#ffffff",
+    ink: "#183231",
+    muted: "#647572",
+    line: "#c8d2ce",
+    accent: "#e27d60",
+  },
+  ocean: {
+    canvas: "#f5fbff",
+    panel: "#e5f1f8",
+    header: "#075985",
+    headerText: "#ffffff",
+    ink: "#12324a",
+    muted: "#55758b",
+    line: "#b8d4e4",
+    accent: "#0e7490",
+  },
+  forest: {
+    canvas: "#f7fbf7",
+    panel: "#e4f0e5",
+    header: "#166534",
+    headerText: "#ffffff",
+    ink: "#173b25",
+    muted: "#5d7863",
+    line: "#bfd5c2",
+    accent: "#ca8a04",
+  },
+  sunset: {
+    canvas: "#fffaf7",
+    panel: "#fbe9df",
+    header: "#9a3412",
+    headerText: "#ffffff",
+    ink: "#4a2419",
+    muted: "#8a6255",
+    line: "#ebc7b7",
+    accent: "#c2410c",
+  },
+  lavender: {
+    canvas: "#fbfaff",
+    panel: "#eeeafd",
+    header: "#5b21b6",
+    headerText: "#ffffff",
+    ink: "#302451",
+    muted: "#72678e",
+    line: "#d5c9ef",
+    accent: "#be185d",
+  },
+  midnight: {
+    canvas: "#17202b",
+    panel: "#202c3a",
+    header: "#0f172a",
+    headerText: "#f8fafc",
+    ink: "#e5edf5",
+    muted: "#9fb0c0",
+    line: "#405164",
+    accent: "#38bdf8",
+  },
+};
+
+function getSheetPalette(theme?: SheetTheme): SheetPalette {
+  return SHEET_PALETTES[theme ?? "editorial"];
+}
+
+function getContrastColor(background: string, fallback: string): string {
+  const hex = background.replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(hex)) {
+    return fallback;
+  }
+  const [r, g, b] = [0, 2, 4].map((offset) =>
+    Number.parseInt(hex.slice(offset, offset + 2), 16)
+  );
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.62 ? "#17202b" : "#ffffff";
+}
 
 function getReadableCellStyle(
   style: SheetStyle[string] | undefined,
-  isHeader: boolean
+  isHeader: boolean,
+  palette: SheetPalette
 ) {
   const candidate = style;
+  const backgroundColor =
+    candidate?.backgroundColor || (isHeader ? palette.header : palette.canvas);
   return {
-    backgroundColor:
-      candidate?.backgroundColor ||
-      (isHeader ? SHEET_COLORS.midnight : undefined),
-    color: candidate?.color || (isHeader ? "#ffffff" : SHEET_COLORS.ink),
+    backgroundColor,
+    color: candidate?.color || getContrastColor(backgroundColor, palette.ink),
     bold: candidate?.bold ?? isHeader,
     textAlign: candidate?.textAlign || (isHeader ? "center" : "left"),
   };
@@ -124,8 +205,6 @@ const PureSpreadsheetEditor = ({
   saveContent,
   status,
 }: SheetEditorProps) => {
-  const { resolvedTheme } = useTheme();
-
   // 1. Parse JSON or CSV
   const sheetData = useMemo<SheetData>(() => {
     try {
@@ -133,7 +212,9 @@ const PureSpreadsheetEditor = ({
       if (isSheetData(parsed)) {
         return parsed;
       }
-    } catch {}
+    } catch {
+      // Streamed JSON may be incomplete while the artifact is still updating.
+    }
 
     // Fallback for plain CSV or streaming JSON that hasn't closed yet
     if (content.trim().startsWith("{")) {
@@ -147,7 +228,9 @@ const PureSpreadsheetEditor = ({
             sheets: [{ name: "Sheet1", csv: "" }],
           };
         }
-      } catch {}
+      } catch {
+        // Fall back to the empty sheet while streamed JSON is incomplete.
+      }
     }
 
     return {
@@ -163,11 +246,13 @@ const PureSpreadsheetEditor = ({
     if (activeSheetIndex >= sheetData.sheets.length) {
       setActiveSheetIndex(0);
     }
-  }, [sheetData.sheets.length]);
+  }, [activeSheetIndex, sheetData.sheets.length]);
 
   const activeSheet = sheetData.sheets[activeSheetIndex];
   const activeCsv = activeSheet?.csv ?? "";
   const activeStyles = activeSheet?.styles ?? {};
+  const palette = getSheetPalette(sheetData.theme);
+  const isDarkTheme = sheetData.theme === "midnight";
 
   const parseData = useMemo(() => {
     if (!activeCsv) {
@@ -239,8 +324,8 @@ const PureSpreadsheetEditor = ({
       width: 50,
       renderCell: ({ rowIdx }: { rowIdx: number }) => rowIdx + 1,
       cellClass:
-        "border-t border-r bg-zinc-50 dark:bg-zinc-950 text-zinc-500 text-xs flex items-center justify-center",
-      headerCellClass: "border-t border-r bg-zinc-100 dark:bg-zinc-900",
+        "border-t border-r text-muted-foreground text-xs flex items-center justify-center",
+      headerCellClass: "border-t border-r",
     };
 
     const dataColumns = Array.from({ length: MIN_COLS }, (_, i) => ({
@@ -251,7 +336,11 @@ const PureSpreadsheetEditor = ({
         const value = row[i.toString()];
         const isHeader = row.rowNumber === 1;
         const coord = indexToCoordinate(rowIdx, i);
-        const style = getReadableCellStyle(activeStyles[coord], isHeader);
+        const style = getReadableCellStyle(
+          activeStyles[coord],
+          isHeader,
+          palette
+        );
 
         const cellContent =
           typeof value === "string" && value.trim().startsWith("=")
@@ -260,9 +349,12 @@ const PureSpreadsheetEditor = ({
 
         return (
           <div
-            className={cn("w-full h-full flex items-center px-2", {
-              "font-bold": style.bold,
-            })}
+            className={cn(
+              "flex h-full w-full items-center overflow-hidden px-2 whitespace-nowrap text-ellipsis",
+              {
+                "font-bold": style.bold,
+              }
+            )}
             style={{
               backgroundColor: style.backgroundColor,
               color: style.color,
@@ -279,20 +371,23 @@ const PureSpreadsheetEditor = ({
           </div>
         );
       },
-      width: 120,
-      cellClass: (row: SheetRow) =>
-        cn(
-          "border-t border-l p-0",
-          row.rowNumber === 1
-            ? "border-[#0f5c4d] bg-[#e6efe9]"
-            : "border-[#c8d2ce] bg-[#f7f5ef]"
-        ),
-      headerCellClass:
-        "border-t border-l border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-500 font-normal text-xs",
+      width: Math.min(
+        280,
+        Math.max(
+          120,
+          ...localRows
+            .slice(0, 40)
+            .map((row) =>
+              String(row[i.toString()] ?? "").length > 24 ? 220 : 120
+            )
+        )
+      ),
+      cellClass: "border-t border-l bg-transparent p-0",
+      headerCellClass: "border-t border-l bg-transparent font-medium text-xs",
     }));
 
     return [rowNumberColumn, ...dataColumns];
-  }, [localRows, activeStyles]);
+  }, [activeStyles, localRows, palette]);
 
   const handleRowsChange = (newRows: SheetRow[]) => {
     setLocalRows(newRows);
@@ -312,21 +407,37 @@ const PureSpreadsheetEditor = ({
   };
 
   return (
-    <div className="flex min-h-0 h-full flex-col bg-[#f7f5ef] text-[#183231]">
+    <div
+      className="flex min-h-0 h-full flex-col"
+      style={{
+        backgroundColor: palette.canvas,
+        color: palette.ink,
+      }}
+    >
       {/* Excel-style Title Bar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-[#c8d2ce] bg-[#123b3a] px-4 py-3 text-white sm:px-6 sm:py-4">
+      <div
+        className="flex shrink-0 items-center justify-between border-b px-4 py-3 sm:px-6 sm:py-4"
+        style={{
+          backgroundColor: palette.header,
+          borderColor: palette.line,
+          color: palette.headerText,
+        }}
+      >
         <div>
-          <h2 className="font-serif text-lg font-semibold tracking-tight text-white sm:text-xl">
+          <h2 className="font-serif text-lg font-semibold tracking-tight sm:text-xl">
             {sheetData.title}
           </h2>
           {status === "streaming" && (
-            <p className="mt-1 text-xs text-[#f2c8b7] animate-pulse">
+            <p className="mt-1 animate-pulse text-xs opacity-80">
               Building comprehensive workbook...
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 text-xs text-[#dce8e2]">
-          <span className="rounded-full border border-[#6e9b8b]/50 bg-[#1a5049] px-2.5 py-1 font-medium">
+        <div className="flex items-center gap-2 text-xs opacity-90">
+          <span
+            className="rounded-full border px-2.5 py-1 font-medium"
+            style={{ borderColor: palette.line }}
+          >
             Workbook view
           </span>
         </div>
@@ -336,7 +447,7 @@ const PureSpreadsheetEditor = ({
       <div className="flex-1 min-h-0">
         <DataGrid
           className={cn(
-            resolvedTheme === "dark" ? "rdg-dark" : "rdg-light",
+            isDarkTheme ? "rdg-dark" : "rdg-light",
             "h-full border-none text-sm"
           )}
           columns={columns}
@@ -345,21 +456,44 @@ const PureSpreadsheetEditor = ({
             sortable: true,
           }}
           enableVirtualization
+          headerRowHeight={36}
           onCellClick={(args) => {
             if (args.column.key !== "rowNumber") {
               args.selectCell(true);
             }
           }}
           onRowsChange={handleRowsChange}
+          rowHeight={38}
           rows={localRows}
-          style={{ height: "100%" }}
+          style={
+            {
+              "--rdg-background-color": palette.canvas,
+              "--rdg-header-background-color": palette.panel,
+              "--rdg-color": palette.ink,
+              "--rdg-border-color": palette.line,
+              "--rdg-row-hover-background-color": palette.panel,
+              height: "100%",
+            } as CSSProperties
+          }
         />
       </div>
 
       {/* Excel-style Tabs */}
-      <div className="flex h-11 items-center gap-1 overflow-x-auto border-t border-[#c8d2ce] bg-[#ebe7dd] px-3">
-        <div className="flex items-center h-full mr-4 border-r border-zinc-200 dark:border-zinc-800 pr-4">
-          <button className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded text-zinc-500">
+      <div
+        className="flex h-11 items-center gap-1 overflow-x-auto border-t px-3"
+        style={{
+          backgroundColor: palette.panel,
+          borderColor: palette.line,
+        }}
+      >
+        <div
+          className="mr-4 flex h-full items-center border-r pr-4"
+          style={{ borderColor: palette.line }}
+        >
+          <button
+            className="rounded p-1 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+            type="button"
+          >
             <svg
               fill="none"
               height="12"
@@ -371,7 +505,10 @@ const PureSpreadsheetEditor = ({
               <path d="M15 18l-6-6 6-6" />
             </svg>
           </button>
-          <button className="p-1 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded text-zinc-500">
+          <button
+            className="rounded p-1 text-zinc-500 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+            type="button"
+          >
             <svg
               fill="none"
               height="12"
@@ -387,18 +524,29 @@ const PureSpreadsheetEditor = ({
         {sheetData.sheets.map((sheet, idx) => (
           <button
             className={cn(
-              "px-4 h-full flex items-center text-xs font-medium border-t-2 transition-colors",
-              activeSheetIndex === idx
-                ? "border-[#f2a98f] bg-[#f7f5ef] text-[#123b3a]"
-                : "border-transparent text-[#647572] hover:bg-[#f7f5ef]/70"
+              "flex h-full items-center border-t-2 px-4 text-xs font-medium transition-colors",
+              activeSheetIndex === idx ? "font-semibold" : "opacity-70"
             )}
-            key={idx}
+            key={sheet.name}
             onClick={() => setActiveSheetIndex(idx)}
+            style={
+              activeSheetIndex === idx
+                ? {
+                    backgroundColor: palette.canvas,
+                    borderColor: palette.accent,
+                    color: palette.ink,
+                  }
+                : { borderColor: "transparent", color: palette.muted }
+            }
+            type="button"
           >
             {sheet.name}
           </button>
         ))}
-        <button className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200">
+        <button
+          className="p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+          type="button"
+        >
           <svg
             fill="none"
             height="14"

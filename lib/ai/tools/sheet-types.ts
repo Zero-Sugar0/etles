@@ -7,6 +7,14 @@ export interface SheetStyle {
   };
 }
 
+export type SheetTheme =
+  | "editorial"
+  | "ocean"
+  | "forest"
+  | "sunset"
+  | "lavender"
+  | "midnight";
+
 export interface Sheet {
   csv: string;
   name: string;
@@ -16,6 +24,7 @@ export interface Sheet {
 export interface SheetData {
   activeSheetIndex?: number;
   sheets: Sheet[];
+  theme?: SheetTheme;
   title: string;
 }
 
