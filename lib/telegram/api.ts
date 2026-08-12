@@ -338,6 +338,19 @@ function stripHtml(text: string): string {
   return text.replace(/<[^>]+>/g, "");
 }
 
+function normalizeInlineHtmlMarkup(text: string): string {
+  return text
+    .replace(/<\s*(?:strong|b)\s*>/gi, "**")
+    .replace(/<\s*\/\s*(?:strong|b)\s*>/gi, "**")
+    .replace(/<\s*(?:em|i)\s*>/gi, "*")
+    .replace(/<\s*\/\s*(?:em|i)\s*>/gi, "*")
+    .replace(/<\s*(?:del|s)\s*>/gi, "~~")
+    .replace(/<\s*\/\s*(?:del|s)\s*>/gi, "~~")
+    .replace(/<\s*u\s*>/gi, "__")
+    .replace(/<\s*\/\s*u\s*>/gi, "__")
+    .replace(/<\s*br\s*\/?>/gi, "\n");
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Core markdown → Telegram HTML converter
 // ─────────────────────────────────────────────────────────────────────────────
@@ -471,7 +484,7 @@ function inlineMarkdownToTelegramHtml(text: string): string {
   // ── Step 1: escape all raw text upfront (THE critical fix) ───────────────
   // After this, all & < > " in the original text are safe entities.
   // Everything we produce below is deliberate HTML, not user content.
-  let s = escapeHtml(text);
+  let s = escapeHtml(normalizeInlineHtmlMarkup(text));
 
   // Undo escaping of our code-block sentinels (they contain no unsafe chars,
   // but escapeHtml is paranoid and we want them intact for Pass 4).
