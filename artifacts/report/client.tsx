@@ -75,7 +75,7 @@ export const reportArtifact = new Artifact<"report", Record<string, never>>({
     "Useful for polished research reports, briefs, memos, and written analysis.",
   initialize: () => null,
   onStreamPart: ({ setArtifact, streamPart }) => {
-    if (streamPart.type === "data-textDelta") {
+    if (streamPart.type === "data-reportDelta") {
       setArtifact((draft) => ({
         ...draft,
         content: draft.content + streamPart.data,

@@ -15,7 +15,7 @@ export const reportDocumentHandler = createDocumentHandler<"report">({
     for await (const delta of result.textStream) {
       draftContent += delta;
       dataStream.write({
-        type: "data-textDelta",
+        type: "data-reportDelta",
         data: delta,
         transient: true,
       });
@@ -32,7 +32,7 @@ export const reportDocumentHandler = createDocumentHandler<"report">({
     for await (const delta of result.textStream) {
       draftContent += delta;
       dataStream.write({
-        type: "data-textDelta",
+        type: "data-reportDelta",
         data: delta,
         transient: true,
       });
