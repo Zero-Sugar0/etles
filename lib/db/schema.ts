@@ -115,7 +115,9 @@ export const document = pgTable(
     createdAt: timestamp("createdAt").notNull(),
     title: text("title").notNull(),
     content: text("content"),
-    kind: varchar("text", { enum: ["text", "code", "image", "sheet"] })
+    kind: varchar("text", {
+      enum: ["text", "code", "image", "sheet", "report"],
+    })
       .notNull()
       .default("text"),
     userId: uuid("userId")
@@ -288,13 +290,19 @@ export type CampaignQueueItem = InferSelectModel<typeof campaignQueue>;
 
 export const agentSchedule = pgTable("AgentSchedule", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
-  userId: uuid("userId").notNull().references(() => user.id),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
   agentSlug: varchar("agentSlug", { length: 128 }).notNull(),
   department: varchar("department", { length: 128 }),
   title: text("title").notNull(),
   message: text("message").notNull(),
   kind: varchar("kind", { enum: ["reminder", "cron"] }).notNull(),
-  status: varchar("status", { enum: ["active", "paused", "cancelled", "completed", "failed"] }).notNull().default("active"),
+  status: varchar("status", {
+    enum: ["active", "paused", "cancelled", "completed", "failed"],
+  })
+    .notNull()
+    .default("active"),
   cron: varchar("cron", { length: 128 }),
   timezone: varchar("timezone", { length: 64 }).notNull().default("UTC"),
   startsAt: timestamp("startsAt"),
@@ -313,8 +321,12 @@ export type AgentSchedule = InferSelectModel<typeof agentSchedule>;
 
 export const agentScheduleEvent = pgTable("AgentScheduleEvent", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
-  scheduleId: uuid("scheduleId").notNull().references(() => agentSchedule.id),
-  userId: uuid("userId").notNull().references(() => user.id),
+  scheduleId: uuid("scheduleId")
+    .notNull()
+    .references(() => agentSchedule.id),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
   eventKey: varchar("eventKey", { length: 255 }).notNull(),
   type: varchar("type", { length: 32 }).notNull(),
   metadata: json("metadata").notNull().default({}),
