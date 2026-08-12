@@ -47,6 +47,12 @@
       "skillPath": "skills/copywriting/SKILL.md",
       "computedHash": "cb9761b92e140cd68c1de6397c51dd9952da198382abfdbf26589ef26f6572b4"
     },
+    "extract-design-system": {
+      "source": "arvindrk/extract-design-system",
+      "sourceType": "github",
+      "skillPath": "skills/extract-design-system/SKILL.md",
+      "computedHash": "c66852c6bc6e0267dbcc9651fa698701387fc11c5058104bc33e67f495936f7e"
+    },
     "faceless-explainer": {
       "source": "heygen-com/hyperframes",
       "sourceType": "github",

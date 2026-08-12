@@ -334,6 +334,21 @@ function escapeHtmlAttr(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 }
 
+/** Escape dynamic text before placing it inside Telegram HTML messages. */
+export function escapeTelegramHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;");
+}
+
+/** Render a live progress update using Telegram's supported HTML entities. */
+export function formatTelegramProgress(label: string): string {
+  const cleanLabel = label.replace(/[.…]+$/u, "").trim();
+  return `<b>Working</b>\n\n${escapeTelegramHtml(cleanLabel)}…`;
+}
+
 function stripHtml(text: string): string {
   return text.replace(/<[^>]+>/g, "");
 }

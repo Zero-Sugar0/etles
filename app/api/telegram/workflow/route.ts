@@ -34,6 +34,7 @@ import { getSessionTail, saveSessionTail } from "@/lib/session-tail";
 import {
   deleteMessage,
   editMessageText,
+  formatTelegramProgress,
   sendLongMessage,
   sendStatusMessage,
   startTypingHeartbeat,
@@ -490,12 +491,12 @@ export const { POST } = serve<TelegramWorkflowPayload>(
           if (statusMessageId && stepToolCalls && stepToolCalls.length > 0) {
             const label = toolLabel(stepToolCalls[0].toolName);
             try {
-              await editMessageText(
-                botToken,
-                telegramChatId,
-                statusMessageId,
-                `${label}…`
-              );
+            await editMessageText(
+              botToken,
+              telegramChatId,
+              statusMessageId,
+              formatTelegramProgress(label)
+            );
             } catch {
               // Non-fatal — the status message update failing should never
               // stop the AI from producing a response.

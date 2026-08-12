@@ -18,7 +18,7 @@ import { generateText, stepCountIs } from "ai";
 import { after } from "next/server";
 import { buildEtlesTelegramTools } from "@/lib/ai/build-etles-telegram-tools";
 import { systemPrompt } from "@/lib/ai/prompts";
-import { getLanguageModel, getTelegramModel } from "@/lib/ai/providers";
+import { getTelegramModel } from "@/lib/ai/providers";
 import { updateApprovalDecision } from "@/lib/ai/tools/background-approval";
 import {
   getBotIntegration,
@@ -37,11 +37,13 @@ import {
   answerCallbackQuery,
   deleteMessage,
   editMessageText,
+  formatTelegramProgress,
   sendLongMessage,
   sendStatusMessage,
   sendTypingAction,
   startTypingHeartbeat,
 } from "@/lib/telegram/api";
+import { toolLabel } from "@/lib/telegram/tool-labels";
 import { touchUserActivity } from "@/lib/user-activity";
 import { generateUUID } from "@/lib/utils";
 import {
@@ -78,13 +80,13 @@ interface TelegramMessage {
 }
 
 interface TelegramUpdate {
-  message?: TelegramMessage;
   callback_query?: {
     id: string;
     from: TelegramUser;
     message?: TelegramMessage;
     data?: string;
   };
+  message?: TelegramMessage;
   update_id: number;
 }
 
@@ -227,9 +229,9 @@ export async function POST(
           );
           if (crons.length > 0) {
             msg += "\n**Active/Recurring Jobs:**\n";
-            crons.forEach((job: any) => {
+            for (const job of crons) {
               msg += `• ${job.task}${job.cron ? ` (${job.cron})` : ""}\n`;
-            });
+            }
           } else {
             msg += "\nNo active jobs scheduled.";
           }
@@ -255,7 +257,7 @@ export async function POST(
             if (!ids || ids.length === 0) {
               goalsText += "You have no goals set.";
             } else {
-              const goalsTextBlocks = [];
+              const goalsTextBlocks: string[] = [];
               for (const id of ids) {
                 const goalStr = await redis.get<string>(
                   `goals:${ownerUserId}:item:${id}`
@@ -477,6 +479,24 @@ async function routeMessage({
     messages: allMessages,
     stopWhen: stepCountIs(25),
     tools,
+    onStepFinish: async ({ toolCalls: stepToolCalls }) => {
+      if (statusMessageId && stepToolCalls) {
+        const lastToolCall = stepToolCalls.at(-1);
+        if (lastToolCall) {
+          const label = toolLabel(lastToolCall.toolName);
+          try {
+            await editMessageText(
+              botToken,
+              telegramChatId,
+              statusMessageId,
+              formatTelegramProgress(label)
+            );
+          } catch {
+            // Progress is best-effort; never interrupt the response.
+          }
+        }
+      }
+    },
   }).finally(() => {
     stopTyping();
   });

@@ -37,4 +37,4 @@
 - The wiki is for craft knowledge — how to do great work — not architecture or codebase notes.
 
 ---
-*Index last updated: 2026-08-10*
+*Index last updated: 2026-08-12*

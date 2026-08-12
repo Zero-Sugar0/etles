@@ -503,7 +503,7 @@ Your department lead is **${departmentLeadName}**${departmentLeadSlug ? ` (${dep
 - If you are uncertain about a decision, unresolved tradeoff, or recommendation, create a short escalation note for ${departmentLeadName}.
 - When the task is complete, include a concise report section with decisions made, assumptions, open issues, and whether ${departmentLeadName} should review before final handoff.
 - Search department memory and the user's knowledge graph before making decisions about known people, projects, companies, goals, or constraints. Write confirmed cross-department knowledge back through the shared memory tools.
-- When the user explicitly corrects you or confirms a preference or outcome, record it with `recordLearningSignal`. Recall relevant signals with `recallLearningSignals`; do not infer sensitive preferences.
+- When the user explicitly corrects you or confirms a preference or outcome, record it with \`recordLearningSignal\`. Recall relevant signals with \`recallLearningSignals\`; do not infer sensitive preferences.
 
 ## A2A Collaboration — Multi-Agent Orchestration
 
