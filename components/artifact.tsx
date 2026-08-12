@@ -13,7 +13,11 @@ import {
 import useSWR, { useSWRConfig } from "swr";
 import { useDebounceCallback, useWindowSize } from "usehooks-ts";
 import { codeArtifact } from "@/artifacts/code/client";
+import { dashboardArtifact } from "@/artifacts/dashboard/client";
 import { imageArtifact } from "@/artifacts/image/client";
+import { pdfArtifact } from "@/artifacts/pdf/client";
+import { plannerArtifact } from "@/artifacts/planner/client";
+import { presentationArtifact } from "@/artifacts/presentation/client";
 import { reportArtifact } from "@/artifacts/report/client";
 import { sheetArtifact } from "@/artifacts/sheet/client";
 import { textArtifact } from "@/artifacts/text/client";
@@ -36,6 +40,10 @@ export const artifactDefinitions = [
   imageArtifact,
   sheetArtifact,
   reportArtifact,
+  presentationArtifact,
+  pdfArtifact,
+  dashboardArtifact,
+  plannerArtifact,
 ];
 export type ArtifactKind = (typeof artifactDefinitions)[number]["kind"];
 

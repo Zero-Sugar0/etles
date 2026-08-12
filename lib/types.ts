@@ -1,6 +1,7 @@
 import type { InferUITool, UIMessage } from "ai";
 import { z } from "zod";
 import type { ArtifactKind } from "@/components/artifact";
+import type { createDashboard, createPdf, createPlanner, createPresentation } from "./ai/tools/artifact-tools";
 import type { createDocument } from "./ai/tools/create-document";
 import type { getWeather } from "./ai/tools/get-weather";
 import type { renderChart } from "./ai/tools/render-chart";
@@ -31,6 +32,10 @@ type renderFlowchartTool = InferUITool<typeof renderFlowchart>;
 export type ChatTools = {
   getWeather: weatherTool;
   createDocument: createDocumentTool;
+  createPresentation: InferUITool<ReturnType<typeof createPresentation>>;
+  createPdf: InferUITool<ReturnType<typeof createPdf>>;
+  createDashboard: InferUITool<ReturnType<typeof createDashboard>>;
+  createPlanner: InferUITool<ReturnType<typeof createPlanner>>;
   updateDocument: updateDocumentTool;
   requestSuggestions: requestSuggestionsTool;
   renderChart: renderChartTool;
@@ -43,6 +48,10 @@ export type CustomUIDataTypes = {
   imageDelta: string;
   sheetDelta: string;
   reportDelta: string;
+  presentationDelta: string;
+  pdfDelta: string;
+  dashboardDelta: string;
+  plannerDelta: string;
   codeDelta: string;
   suggestion: Suggestion;
   appendMessage: string;
