@@ -156,7 +156,7 @@ export function MermaidDisplay({
         </p>
       ) : null}
 
-      <div className="min-h-[160px] w-full overflow-x-auto rounded-lg border border-border/60 bg-background/70 p-3 sm:p-5">
+      <div className="min-h-[160px] w-full min-w-0 overflow-x-auto overscroll-x-contain rounded-lg border border-border/60 bg-background/70 p-2 sm:p-5">
         {isLoading ? (
           <div className="flex min-h-[120px] flex-col items-center justify-center gap-2 py-8">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -185,7 +185,7 @@ export function MermaidDisplay({
           </div>
         ) : svg ? (
           <div
-            className="mermaid-rendered min-w-max"
+            className="mermaid-rendered min-w-0 w-full"
             // biome-ignore lint/security/noDangerouslySetInnerHtml: mermaid generates safe SVG
             dangerouslySetInnerHTML={{ __html: svg }}
             ref={containerRef}
@@ -206,6 +206,17 @@ export function MermaidDisplay({
           max-width: 100%;
           overflow: visible;
           min-width: 0;
+        }
+
+        .mermaid-rendered :global(svg) {
+          width: 100%;
+          max-width: none;
+        }
+
+        @media (max-width: 640px) {
+          .mermaid-rendered :global(svg) {
+            min-width: 560px;
+          }
         }
 
         .mermaid-rendered :global(.node rect),
