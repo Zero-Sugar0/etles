@@ -4,7 +4,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import type { UIArtifact } from "@/components/artifact";
@@ -97,6 +97,58 @@ export function Chat({
     currentModelIdRef.current = currentModelId;
   }, [currentModelId]);
 
+  const sendAutomaticallyWhen = useCallback(
+    ({ messages: currentMessages }: { messages: ChatMessage[] }) => {
+      const lastMessage = currentMessages.at(-1);
+      return (
+        lastMessage?.parts?.some(
+          (part) =>
+            part &&
+            typeof part === "object" &&
+            "state" in part &&
+            part.state === "approval-responded" &&
+            "approval" in part &&
+            (part.approval as { approved?: boolean })?.approved === true
+        ) ?? false
+      );
+    },
+    []
+  );
+
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport({
+        api: "/api/chat",
+        fetch: fetchWithErrorHandlers,
+        prepareSendMessagesRequest(request) {
+          const lastMessage = request.messages.at(-1);
+          const isToolApprovalContinuation =
+            lastMessage?.role !== "user" ||
+            (lastMessage?.parts?.some((part) => {
+              if (!part || typeof part !== "object") {
+                return false;
+              }
+              const state = (part as { state?: string }).state;
+              return state === "approval-responded" || state === "output-denied";
+            }) ??
+              false);
+
+          return {
+            body: {
+              id: request.id,
+              ...(isToolApprovalContinuation
+                ? { messages: request.messages }
+                : { message: lastMessage }),
+              selectedChatModel: currentModelIdRef.current,
+              selectedVisibilityType: visibilityType,
+              ...request.body,
+            },
+          };
+        },
+      }),
+    [visibilityType]
+  );
+
   const {
     messages,
     setMessages,
@@ -110,49 +162,8 @@ export function Chat({
     id,
     messages: initialMessages,
     generateId: generateUUID,
-    sendAutomaticallyWhen: ({ messages: currentMessages }) => {
-      const lastMessage = currentMessages.at(-1);
-      const shouldContinue =
-        lastMessage?.parts?.some(
-          (part) =>
-            part &&
-            typeof part === "object" &&
-            "state" in part &&
-            part.state === "approval-responded" &&
-            "approval" in part &&
-            (part.approval as { approved?: boolean })?.approved === true
-        ) ?? false;
-      return shouldContinue;
-    },
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      fetch: fetchWithErrorHandlers,
-      prepareSendMessagesRequest(request) {
-        const lastMessage = request.messages.at(-1);
-        const isToolApprovalContinuation =
-          lastMessage?.role !== "user" ||
-          (lastMessage?.parts?.some((part) => {
-            if (!part || typeof part !== "object") {
-              return false;
-            }
-            const state = (part as { state?: string }).state;
-            return state === "approval-responded" || state === "output-denied";
-          }) ??
-            false);
-
-        return {
-          body: {
-            id: request.id,
-            ...(isToolApprovalContinuation
-              ? { messages: request.messages }
-              : { message: lastMessage }),
-            selectedChatModel: currentModelIdRef.current,
-            selectedVisibilityType: visibilityType,
-            ...request.body,
-          },
-        };
-      },
-    }),
+    sendAutomaticallyWhen,
+    transport,
     onData: (dataPart) => {
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
 

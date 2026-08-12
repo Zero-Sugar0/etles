@@ -91,6 +91,29 @@ export const generateImageTool = ({
       editReferenceImageUrl,
       modelId: explicitModelId,
     }) => {
+      const artifactId = generateUUID();
+
+      dataStream?.write({
+        type: "data-kind",
+        data: "image",
+        transient: true,
+      });
+      dataStream?.write({
+        type: "data-id",
+        data: artifactId,
+        transient: true,
+      });
+      dataStream?.write({
+        type: "data-title",
+        data: prompt,
+        transient: true,
+      });
+      dataStream?.write({
+        type: "data-clear",
+        data: null,
+        transient: true,
+      });
+
       try {
         const modelId = resolveImageModelId(provider, explicitModelId);
 
@@ -153,6 +176,17 @@ export const generateImageTool = ({
           throw new Error("No image data found in response");
         }
 
+        dataStream?.write({
+          type: "data-imageDelta",
+          data: base64Image,
+          transient: true,
+        });
+        dataStream?.write({
+          type: "data-finish",
+          data: null,
+          transient: true,
+        });
+
         // Upload directly to Vercel blob using generic UUID
         const buffer = Buffer.from(base64Image, "base64");
         const filename = `gemini-images/${generateUUID()}.png`;
@@ -171,7 +205,10 @@ export const generateImageTool = ({
             source: "generated",
             prompt,
           }).catch((err) => {
-            console.error("[generateImageTool] Failed to save generated image to userMedia:", err);
+            console.error(
+              "[generateImageTool] Failed to save generated image to userMedia:",
+              err
+            );
           });
         }
 
@@ -189,6 +226,12 @@ export const generateImageTool = ({
         };
       } catch (error) {
         console.error("Image generation failed:", error);
+
+        dataStream?.write({
+          type: "data-finish",
+          data: null,
+          transient: true,
+        });
 
         return {
           error: "Failed to generate image.",

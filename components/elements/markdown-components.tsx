@@ -1,7 +1,9 @@
 "use client";
 
 import { type ComponentProps, isValidElement } from "react";
+import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 import { cn } from "@/lib/utils";
+import { ChartDisplay } from "./chart-display";
 import { MermaidDisplay } from "./mermaid-display";
 
 function textFromChildren(children: unknown): string {
@@ -33,6 +35,31 @@ function isMermaidSource(source: string, className?: string): boolean {
   );
 }
 
+function parseChartSource(
+  source: string,
+  className?: string
+): ChartToolPayload | null {
+  if (!className?.includes("language-chart")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(source) as Partial<ChartToolPayload>;
+    if (
+      typeof parsed.chartType !== "string" ||
+      !Array.isArray(parsed.labels) ||
+      !Array.isArray(parsed.series) ||
+      parsed.series.length === 0 ||
+      parsed.labels.length === 0
+    ) {
+      return null;
+    }
+    return parsed as ChartToolPayload;
+  } catch {
+    return null;
+  }
+}
+
 export const markdownComponents = {
   p: ({ children }: ComponentProps<"p">) => (
     <div className="mb-4 last:mb-0">{children}</div>
@@ -62,6 +89,10 @@ export const markdownComponents = {
   },
   code: ({ children, className, ...props }: ComponentProps<"code">) => {
     const source = textFromChildren(children);
+    const chart = parseChartSource(source, className);
+    if (chart) {
+      return <ChartDisplay spec={chart} />;
+    }
     if (isMermaidSource(source, className)) {
       return <MermaidDisplay chart={source.trim()} />;
     }

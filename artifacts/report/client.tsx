@@ -1,5 +1,7 @@
 import { toast } from "sonner";
+import { Streamdown } from "streamdown";
 import { Artifact } from "@/components/create-artifact";
+import { markdownComponents } from "@/components/elements/markdown-components";
 import { CopyIcon, DownloadIcon, RedoIcon, UndoIcon } from "@/components/icons";
 
 function downloadReport(content: string, title: string) {
@@ -10,63 +12,6 @@ function downloadReport(content: string, title: string) {
   anchor.download = `${title.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "report"}.md`;
   anchor.click();
   URL.revokeObjectURL(url);
-}
-
-function renderMarkdown(content: string) {
-  return content.split("\n").map((line) => {
-    if (line.startsWith("# ")) {
-      return (
-        <h1
-          className="font-serif text-3xl font-semibold tracking-tight text-[#123b3a]"
-          key={line}
-        >
-          {line.slice(2)}
-        </h1>
-      );
-    }
-    if (line.startsWith("## ")) {
-      return (
-        <h2
-          className="mt-8 border-b border-[#c8d2ce] pb-2 font-serif text-xl font-semibold text-[#123b3a]"
-          key={line}
-        >
-          {line.slice(3)}
-        </h2>
-      );
-    }
-    if (line.startsWith("### ")) {
-      return (
-        <h3 className="mt-5 font-semibold text-[#1d5952]" key={line}>
-          {line.slice(4)}
-        </h3>
-      );
-    }
-    if (line.startsWith("> ")) {
-      return (
-        <blockquote
-          className="my-4 border-l-4 border-[#f2a98f] bg-[#f8e5dc] px-4 py-3 text-[#31504d]"
-          key={line}
-        >
-          {line.slice(2)}
-        </blockquote>
-      );
-    }
-    if (line.startsWith("- ")) {
-      return (
-        <li className="ml-5 list-disc leading-7 text-[#31504d]" key={line}>
-          {line.slice(2)}
-        </li>
-      );
-    }
-    if (!line.trim()) {
-      return <div className="h-3" key={line} />;
-    }
-    return (
-      <p className="leading-7 text-[#31504d]" key={line}>
-        {line}
-      </p>
-    );
-  });
 }
 
 export const reportArtifact = new Artifact<"report", Record<string, never>>({
@@ -102,7 +47,12 @@ export const reportArtifact = new Artifact<"report", Record<string, never>>({
             Report
           </span>
         </div>
-        <div className="space-y-1">{renderMarkdown(content)}</div>
+        <Streamdown
+          className="report-markdown text-[#31504d] [&_a]:font-medium [&_a]:text-[#1d5952] [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-[#e7ebe5] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.9em] [&_h1]:font-serif [&_h1]:text-3xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h1]:text-[#123b3a] [&_h2]:mt-8 [&_h2]:border-b [&_h2]:border-[#c8d2ce] [&_h2]:pb-2 [&_h2]:font-serif [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#123b3a] [&_h3]:mt-5 [&_h3]:font-semibold [&_h3]:text-[#1d5952] [&_li]:leading-7 [&_ol]:my-4 [&_ol]:pl-6 [&_p]:leading-7 [&_strong]:font-semibold [&_table]:text-[#31504d] [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6"
+          components={markdownComponents as any}
+        >
+          {content}
+        </Streamdown>
       </div>
     </article>
   ),

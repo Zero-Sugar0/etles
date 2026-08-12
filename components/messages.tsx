@@ -17,8 +17,9 @@ import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
-import { Greeting } from "./greeting";
+import { ExpandableContent } from "./elements/expandable-content";
 import { Response } from "./elements/response";
+import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
 import { Button } from "./ui/button";
 
@@ -217,9 +218,13 @@ function AgentActivityGroup({
                     </div>
                     {openId === task.id && (
                       <div className="max-w-full overflow-hidden px-11 pb-4 text-xs leading-relaxed text-muted-foreground [&_h1]:mb-2 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:mb-1 [&_h3]:text-xs [&_h3]:font-semibold [&_li]:my-0.5 [&_ol]:my-2 [&_p]:my-1.5 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:p-2 [&_ul]:my-2">
-                        <Response>
-                          {task.result?.text || task.result?.error || task.task}
-                        </Response>
+                        <ExpandableContent maxLines={6}>
+                          <Response>
+                            {task.result?.text ||
+                              task.result?.error ||
+                              task.task}
+                          </Response>
+                        </ExpandableContent>
                       </div>
                     )}
                   </div>

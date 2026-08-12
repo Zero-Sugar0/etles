@@ -289,7 +289,7 @@ const PurePreviewMessage = ({
                   {conversationalText.trim() && (
                     <MessageContent
                       className={cn({
-                        "ml-auto w-fit min-w-[32px] max-w-full break-words rounded-2xl rounded-br-md border border-primary/15 bg-foreground px-3.5 py-2.5 text-left text-[13px] text-background leading-relaxed shadow-sm":
+                        "ml-auto w-fit min-w-[32px] max-w-full break-words rounded-2xl rounded-br-md border border-border/60 bg-secondary px-3.5 py-2.5 text-left text-[13px] text-secondary-foreground leading-relaxed shadow-sm":
                           message.role === "user",
                         "w-full bg-transparent px-0 py-0 text-left text-[13px] leading-relaxed":
                           message.role === "assistant",
@@ -297,7 +297,13 @@ const PurePreviewMessage = ({
                       data-testid="message-content"
                     >
                       {message.role === "user" ? (
-                        <ExpandableContent>
+                        <ExpandableContent
+                          fadeFromClassName={
+                            message.role === "user"
+                              ? "from-secondary"
+                              : undefined
+                          }
+                        >
                           <div className="whitespace-pre-wrap">
                             {conversationalText}
                           </div>
