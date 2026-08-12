@@ -377,6 +377,76 @@ export async function getChatById({ id }: { id: string }) {
   }
 }
 
+/** Find a chat by its platform thread identifier (e.g. "telegram:{userId}:{chatId}"). */
+export async function getChatByPlatformThreadId({
+  platformThreadId,
+}: {
+  platformThreadId: string;
+}) {
+  try {
+    const [found] = await db
+      .select()
+      .from(chat)
+      .where(eq(chat.platformThreadId, platformThreadId))
+      .limit(1);
+    return found ?? null;
+  } catch (error) {
+    console.error("[getChatByPlatformThreadId] error:", error);
+    return null;
+  }
+}
+
+/**
+ * Returns the user's most recently created chat that is NOT already linked to
+ * another platform thread (so we don't hijack a chat that belongs to a
+ * different Telegram user or another integration).
+ */
+export async function getLatestChatByUserId({
+  userId,
+}: {
+  userId: string;
+}): Promise<Chat | null> {
+  if (!isValidUUID(userId)) return null;
+  try {
+    const [latest] = await db
+      .select()
+      .from(chat)
+      .where(
+        and(
+          eq(chat.userId, userId),
+          // Exclude chats already owned by a platform thread
+          sql`${chat.platformThreadId} IS NULL`
+        )
+      )
+      .orderBy(desc(chat.createdAt))
+      .limit(1);
+    return latest ?? null;
+  } catch (error) {
+    console.error("[getLatestChatByUserId] error:", error);
+    return null;
+  }
+}
+
+/** Stamp a platformThreadId onto an existing chat row. */
+export async function linkChatToPlatform({
+  chatId,
+  platformThreadId,
+}: {
+  chatId: string;
+  platformThreadId: string;
+}) {
+  try {
+    await db
+      .update(chat)
+      .set({ platformThreadId })
+      .where(eq(chat.id, chatId));
+  } catch (error) {
+    console.error("[linkChatToPlatform] error:", error);
+  }
+}
+
+
+
 export async function saveMessages({ messages }: { messages: DBMessage[] }) {
   try {
     return await db.insert(message).values(messages).onConflictDoNothing();

@@ -19,7 +19,9 @@ import { buildEtlesTelegramTools } from "@/lib/ai/build-etles-telegram-tools";
 import { systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel, getTelegramModel } from "@/lib/ai/providers";
 import {
-  getChatById,
+  getChatByPlatformThreadId,
+  getLatestChatByUserId,
+  linkChatToPlatform,
   getMessagesByChatId,
   saveChat,
   saveMessages,
@@ -59,41 +61,267 @@ const redis =
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function redisChatKey(ownerUserId: string, telegramChatId: number): string {
-  return `tg:chat:${ownerUserId}:${telegramChatId}`;
-}
-
+/**
+ * Option A — Unified chat memory.
+ *
+ * Resolution order:
+ * 1. Redis cache hit → verify it still exists in DB.
+ * 2. DB lookup by platformThreadId → already linked.
+ * 3. User's most recent unlinked web chat → re-link it so Telegram
+ *    continues right where the web conversation left off.
+ * 4. Create a brand-new chat and link it.
+ *
+ * The Redis cache is kept for speed; the DB is the source of truth.
+ */
 async function getOrCreateChat(
   ownerUserId: string,
   telegramChatId: number,
   senderName: string
 ): Promise<string> {
+  const threadId = `telegram:${ownerUserId}:${telegramChatId}`;
+  const cacheKey = `tg:chat:${ownerUserId}:${telegramChatId}`;
+
+  // 1. Fast path: Redis cache
   if (redis) {
-    const key = redisChatKey(ownerUserId, telegramChatId);
-    const cached = await redis.get<string>(key);
+    const cached = await redis.get<string>(cacheKey);
     if (cached) {
-      const chat = await getChatById({ id: cached });
-      if (chat) {
-        return cached;
-      }
+      const existing = await getChatByPlatformThreadId({
+        platformThreadId: threadId,
+      });
+      if (existing?.id === cached) return cached;
+      // Cache is stale — fall through
     }
   }
 
+  // 2. DB lookup for an already-linked chat
+  const linked = await getChatByPlatformThreadId({ platformThreadId: threadId });
+  if (linked) {
+    if (redis) await redis.set(cacheKey, linked.id, { ex: 60 * 60 * 24 * 90 });
+    return linked.id;
+  }
+
+  // 3. Option A: adopt the user's most recent web chat
+  const latestWebChat = await getLatestChatByUserId({ userId: ownerUserId });
+  if (latestWebChat) {
+    await linkChatToPlatform({ chatId: latestWebChat.id, platformThreadId: threadId });
+    if (redis) await redis.set(cacheKey, latestWebChat.id, { ex: 60 * 60 * 24 * 90 });
+    return latestWebChat.id;
+  }
+
+  // 4. No web chat exists — create one
   const chatId = generateUUID();
   await saveChat({
     id: chatId,
     userId: ownerUserId,
     title: `Telegram: ${senderName}`,
     visibility: "private",
-    platformThreadId: `telegram:${ownerUserId}:${telegramChatId}`,
+    platformThreadId: threadId,
   });
+  if (redis) await redis.set(cacheKey, chatId, { ex: 60 * 60 * 24 * 90 });
+  return chatId;
+}
 
-  if (redis) {
-    const key = redisChatKey(ownerUserId, telegramChatId);
-    await redis.set(key, chatId, { ex: 60 * 60 * 24 * 90 });
+// ── Internal tool labels (camelCase — these are from lib/ai/tools) ─────────────
+const INTERNAL_TOOL_LABELS: Record<string, string> = {
+  // Memory
+  saveMemory: "🧠 Saving to memory",
+  recallMemory: "🧠 Recalling from memory",
+  updateMemory: "🧠 Updating memory",
+  deleteMemory: "🧠 Deleting a memory",
+  searchPastConversations: "🔎 Searching conversation history",
+  // Knowledge graph
+  upsertKnowledgeEntity: "🕸 Updating knowledge graph",
+  addKnowledgeRelation: "🕸 Linking knowledge entities",
+  getKnowledgeEntity: "🕸 Looking up knowledge graph",
+  searchKnowledgeGraph: "🕸 Searching knowledge graph",
+  deleteKnowledgeEntity: "🕸 Removing from knowledge graph",
+  deleteKnowledgeRelation: "🕸 Removing knowledge relation",
+  // Goals & planning
+  addGoal: "🎯 Adding a goal",
+  updateGoal: "🎯 Updating a goal",
+  logGoalProgress: "🎯 Logging goal progress",
+  listGoals: "🎯 Checking goals",
+  deleteGoal: "🎯 Removing a goal",
+  createPlan: "🗺 Creating a plan",
+  addPlanTask: "🗺 Adding a task to plan",
+  updatePlanTask: "🗺 Updating a plan task",
+  listPlans: "🗺 Reviewing plans",
+  cancelPlan: "🗺 Cancelling a plan",
+  deletePlan: "🗺 Deleting a plan",
+  // Search
+  tavilySearch: "🔍 Searching the web",
+  tavilyExtract: "🔍 Extracting web content",
+  tavilyCrawl: "🔍 Crawling a website",
+  tavilyMap: "🔍 Mapping a website",
+  // Scheduling
+  setReminder: "⏰ Setting a reminder",
+  setCronJob: "⏰ Scheduling a recurring task",
+  listSchedules: "⏰ Checking your schedules",
+  deleteSchedule: "⏰ Removing a schedule",
+  deleteReminder: "⏰ Removing a reminder",
+  // Sub-agents & missions
+  delegateToSubAgent: "🤝 Delegating to a sub-agent",
+  getSubAgentResult: "🤝 Checking sub-agent result",
+  listSubAgents: "🤝 Listing sub-agents",
+  launchMission: "🚀 Launching a mission",
+  getMissionStatus: "🚀 Checking mission status",
+  // Sandbox / code
+  createSandbox: "🖥 Creating a sandbox",
+  listSandboxes: "🖥 Listing sandboxes",
+  deleteSandbox: "🖥 Removing a sandbox",
+  executeCommand: "💻 Running a command",
+  runCode: "💻 Executing code",
+  listFiles: "📁 Listing files",
+  readFile: "📄 Reading a file",
+  writeFile: "✏️ Writing a file",
+  createDirectory: "📁 Creating a directory",
+  searchFiles: "🔎 Searching files",
+  replaceInFiles: "✏️ Editing files",
+  gitClone: "🐙 Cloning a repo",
+  gitStatus: "🐙 Checking git status",
+  gitCommit: "🐙 Committing changes",
+  gitPush: "🐙 Pushing to git",
+  gitPull: "🐙 Pulling from git",
+  gitBranch: "🐙 Managing git branches",
+  getPreviewLink: "🔗 Getting preview link",
+  runBackgroundProcess: "⚙️ Running a background process",
+  lspDiagnostics: "🔍 Checking code diagnostics",
+  archiveSandbox: "🖥 Archiving sandbox",
+  // Browser
+  browserUseRunTask: "🌐 Running browser task",
+  browserUseStartTask: "🌐 Starting browser task",
+  browserUseGetTask: "🌐 Checking browser task",
+  browserSetup: "🌐 Setting up browser",
+  browserNavigate: "🌐 Navigating to a page",
+  browserInteract: "🌐 Interacting with page",
+  browserExtract: "🌐 Extracting page content",
+  browserScreenshot: "📸 Taking screenshot",
+  // Twilio
+  twilioSendSMS: "📱 Sending an SMS",
+  twilioMakeCall: "📞 Making a phone call",
+  twilioWhatsAppSendMessage: "💬 Sending a WhatsApp message",
+  // Cloud
+  awsS3: "☁️ Working with S3",
+  awsEC2: "☁️ Working with EC2",
+  awsLambda: "☁️ Running Lambda",
+  gcpStorage: "☁️ Working with GCP Storage",
+  gcpFunctions: "☁️ Running Cloud Functions",
+  azureStorage: "☁️ Working with Azure Storage",
+  // Databases
+  postgresQuery: "🗄 Querying PostgreSQL",
+  mysqlQuery: "🗄 Querying MySQL",
+  mongodbQuery: "🗄 Querying MongoDB",
+  // Proactive
+  activateHeartbeat: "💓 Setting up heartbeat",
+  setMorningBriefingTime: "🌅 Scheduling morning briefing",
+  getAgentSystemStatus: "⚙️ Checking system status",
+  // Misc
+  getWeather: "🌤 Checking the weather",
+  wikiQuery: "📚 Querying knowledge base",
+  wikiIngest: "📚 Ingesting to knowledge base",
+  readAgentSkill: "🛠 Reading agent skill",
+  setupTrigger: "⚡ Setting up a trigger",
+  listActiveTriggers: "⚡ Listing active triggers",
+  removeTrigger: "⚡ Removing a trigger",
+  // Legal
+  analyzeContract: "📜 Analysing contract",
+  compareContracts: "📜 Comparing contracts",
+  extractClauses: "📜 Extracting clauses",
+  complianceCheck: "📜 Checking compliance",
+  redlineContract: "📜 Redlining contract",
+};
+
+/**
+ * Composio tools arrive as TOOLKIT_ACTION_NAME (all caps, underscores).
+ * We derive a human-friendly label from the toolkit prefix.
+ */
+const COMPOSIO_TOOLKIT_LABELS: Record<string, string> = {
+  GMAIL: "📧 Gmail",
+  GOOGLECALENDAR: "📅 Google Calendar",
+  GOOGLEDRIVE: "📁 Google Drive",
+  GOOGLEDOCS: "📄 Google Docs",
+  GOOGLESHEETS: "📊 Google Sheets",
+  GOOGLETASKS: "✅ Google Tasks",
+  GOOGLECONTACTS: "👤 Google Contacts",
+  GOOGLEMEET: "📹 Google Meet",
+  GOOGLESEARCH: "🔍 Google Search",
+  GITHUB: "🐙 GitHub",
+  GITLAB: "🐙 GitLab",
+  SLACK: "💬 Slack",
+  NOTION: "📒 Notion",
+  DISCORD: "💬 Discord",
+  TWITTER: "🐦 Twitter / X",
+  TWITTEROAUTH: "🐦 Twitter / X",
+  LINKEDIN: "💼 LinkedIn",
+  HUBSPOT: "🎯 HubSpot",
+  SALESFORCE: "☁️ Salesforce",
+  PIPEDRIVE: "🎯 Pipedrive",
+  STRIPE: "💳 Stripe",
+  SHOPIFY: "🛍 Shopify",
+  AIRTABLE: "📊 Airtable",
+  ASANA: "✅ Asana",
+  JIRA: "🐛 Jira",
+  TRELLO: "📋 Trello",
+  CLICKUP: "✅ ClickUp",
+  ZOOM: "📹 Zoom",
+  CALENDLY: "📅 Calendly",
+  DROPBOX: "📦 Dropbox",
+  ONEDRIVE: "📦 OneDrive",
+  FIGMA: "🎨 Figma",
+  LINEAR: "📋 Linear",
+  ZENDESK: "🎧 Zendesk",
+  INTERCOM: "💬 Intercom",
+  MAILCHIMP: "📧 Mailchimp",
+  TYPEFORM: "📝 Typeform",
+  WEBFLOW: "🌐 Webflow",
+  WORDPRESS: "📝 WordPress",
+  REDDIT: "📱 Reddit",
+  YOUTUBE: "▶️ YouTube",
+  SPOTIFY: "🎵 Spotify",
+  WHATSAPP: "💬 WhatsApp",
+  TELEGRAM: "✈️ Telegram",
+  TWILIO: "📱 Twilio",
+  SENDGRID: "📧 SendGrid",
+  POSTMARK: "📧 Postmark",
+  PAGERDUTY: "🚨 PagerDuty",
+  DATADOG: "📊 Datadog",
+  SENTRY: "🐛 Sentry",
+  VERCEL: "▲ Vercel",
+  NETLIFY: "🌐 Netlify",
+  AWS: "☁️ AWS",
+  GCP: "☁️ Google Cloud",
+  AZURE: "☁️ Azure",
+  SNOWFLAKE: "❄️ Snowflake",
+  SUPABASE: "🗄 Supabase",
+  MONGODB: "🍃 MongoDB",
+  POSTGRES: "🐘 PostgreSQL",
+  MYSQL: "🗄 MySQL",
+  REDIS: "🔴 Redis",
+  OPENAI: "🤖 OpenAI",
+  ANTHROPIC: "🤖 Anthropic",
+};
+
+function toolLabel(toolName: string): string {
+  // 1. Exact match — internal tools (camelCase)
+  if (toolName in INTERNAL_TOOL_LABELS) {
+    return `${INTERNAL_TOOL_LABELS[toolName]}…`;
   }
 
-  return chatId;
+  // 2. Composio convention: TOOLKIT_ACTION_NAME (all caps, underscores)
+  //    Extract the toolkit prefix and look it up.
+  if (toolName === toolName.toUpperCase() && toolName.includes("_")) {
+    const prefix = toolName.split("_")[0];
+    if (prefix in COMPOSIO_TOOLKIT_LABELS) {
+      const action = toolName
+        .slice(prefix.length + 1)
+        .toLowerCase()
+        .replace(/_/g, " ");
+      return `${COMPOSIO_TOOLKIT_LABELS[prefix]}: ${action}…`;
+    }
+  }
+
+  // 3. Generic fallback — humanise whatever the tool name is
+  return `🔧 ${toolName.replace(/_/g, " ")}…`;
 }
 
 // ── Workflow ──────────────────────────────────────────────────────────────────
@@ -257,6 +485,23 @@ export const { POST } = serve<TelegramWorkflowPayload>(
         messages: allMessages,
         stopWhen: stepCountIs(25),
         tools,
+        onStepFinish: async ({ toolCalls: stepToolCalls }) => {
+          // Update the status message with what the AI just did
+          if (statusMessageId && stepToolCalls && stepToolCalls.length > 0) {
+            const label = toolLabel(stepToolCalls[0].toolName);
+            try {
+              await editMessageText(
+                botToken,
+                telegramChatId,
+                statusMessageId,
+                `${label}…`
+              );
+            } catch {
+              // Non-fatal — the status message update failing should never
+              // stop the AI from producing a response.
+            }
+          }
+        },
       }).finally(() => {
         stopTyping();
       });
@@ -274,66 +519,61 @@ export const { POST } = serve<TelegramWorkflowPayload>(
     });
 
     // ── Step 4: Persist assistant message + deliver to Telegram ─────────────────
-    try {
-      await context.run("save-and-send", async () => {
-        if (statusMessageId) {
-          await editMessageText(
-            botToken,
-            telegramChatId,
-            statusMessageId,
-            "✅ <b>Done</b>\n\nSending your response..."
-          );
-        }
-        await saveMessages({
-          messages: [
-            {
-              id: generateUUID(),
-              chatId,
-              role: "assistant",
-              parts: [
-                { type: "text" as const, text: aiText },
-                ...toolCallParts,
-              ],
-              attachments: [],
-              createdAt: new Date(),
-            },
-          ] as any,
-        });
-
-        if (aiText.trim()) {
-          await sendLongMessage(botToken, telegramChatId, aiText);
-        } else {
-          await sendFailure(
-            "I completed the request but did not receive a text response. Please try again."
-          );
-        }
-
-        const recent = await getMessagesByChatId({ id: chatId });
-        const tail = recent
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .slice(-5)
-          .map((m) => {
-            const textPart = (
-              m.parts as { type: string; text?: string }[]
-            ).find((p) => p.type === "text");
-            return {
-              role: m.role as "user" | "assistant",
-              text: textPart?.text ?? "",
-            };
-          })
-          .filter((m) => m.text.length > 0);
-        await saveSessionTail(ownerUserId, tail);
-        if (statusMessageId) {
-          await deleteMessage(botToken, telegramChatId, statusMessageId);
-        }
+    // NOTE: Do NOT wrap context.run() in try/catch — @upstash/workflow throws
+    // WorkflowAbort after each step intentionally. Catching it causes false
+    // "Delivery failed" errors and workflow cancellation.
+    await context.run("save-and-send", async () => {
+      if (statusMessageId) {
+        await editMessageText(
+          botToken,
+          telegramChatId,
+          statusMessageId,
+          "✅ <b>Done</b>\n\nSending your response..."
+        );
+      }
+      await saveMessages({
+        messages: [
+          {
+            id: generateUUID(),
+            chatId,
+            role: "assistant",
+            parts: [
+              { type: "text" as const, text: aiText },
+              ...toolCallParts,
+            ],
+            attachments: [],
+            createdAt: new Date(),
+          },
+        ] as any,
       });
-    } catch (error) {
-      console.error("[TelegramWorkflow] Delivery failed:", error);
-      await sendFailure(
-        "I could not finish that request right now. Please try again in a moment."
-      );
-      throw error;
-    }
+
+      if (aiText.trim()) {
+        await sendLongMessage(botToken, telegramChatId, aiText);
+      } else {
+        await sendFailure(
+          "I completed the request but did not receive a text response. Please try again."
+        );
+      }
+
+      const recent = await getMessagesByChatId({ id: chatId });
+      const tail = recent
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .slice(-5)
+        .map((m) => {
+          const textPart = (
+            m.parts as { type: string; text?: string }[]
+          ).find((p) => p.type === "text");
+          return {
+            role: m.role as "user" | "assistant",
+            text: textPart?.text ?? "",
+          };
+        })
+        .filter((m) => m.text.length > 0);
+      await saveSessionTail(ownerUserId, tail);
+      if (statusMessageId) {
+        await deleteMessage(botToken, telegramChatId, statusMessageId);
+      }
+    });
   },
   {
     baseUrl: WORKFLOW_BASE_URL,
