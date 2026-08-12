@@ -56,6 +56,12 @@ jobs:
       - name: Run database migrations
         run: pnpm db:migrate
 
+      - name: Build Next.js application
+        run: pnpm build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET || 'e2e-test-only-secret-8f3a47b6c92d1e05a7b4c6d2f9e1a3b5' }}
+
       - name: Run Playwright tests
         run: pnpm test
 

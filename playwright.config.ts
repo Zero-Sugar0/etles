@@ -44,9 +44,9 @@ export default defineConfig({
   },
 
   /* Configure global timeout for each test */
-  timeout: 240 * 1000, // 120 seconds
+  timeout: process.env.CI ? 60 * 1000 : 120 * 1000,
   expect: {
-    timeout: 240 * 1000,
+    timeout: process.env.CI ? 15 * 1000 : 30 * 1000,
   },
 
   /* Configure projects */
@@ -58,47 +58,17 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
       },
     },
-
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
-
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
-
-    /* Test against mobile viewports. */
-    // {
-    //   name: 'Mobile Chrome',
-    //   use: { ...devices['Pixel 5'] },
-    // },
-    // {
-    //   name: 'Mobile Safari',
-    //   use: { ...devices['iPhone 12'] },
-    // },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
   ],
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: "pnpm dev",
+    command: process.env.CI ? "pnpm start" : "pnpm dev",
     url: `${baseURL}/ping`,
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,
     env: {
       /*
-       * Guarantee a non-empty AUTH_SECRET for the spawned dev server.
+       * Guarantee a non-empty AUTH_SECRET for the spawned server.
        * In CI, GitHub Actions passes `secrets.AUTH_SECRET` which resolves
        * to an empty string when the repository secret is unset, causing
        * NextAuth to throw "MissingSecret" on every /api/auth request.
