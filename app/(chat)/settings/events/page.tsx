@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { LoaderIcon } from "@/components/icons";
 import { SidebarToggle } from "@/components/sidebar-toggle";
@@ -40,6 +40,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  findToolkit,
+  formatActionDescriptor,
+  getCachedToolkits,
+  normalizeToolkitSlug,
+  preloadToolkitLogos,
+  resolveToolkitLogoSrc,
+  type ToolkitInfo,
+} from "@/lib/toolkit-logos";
 import { cn } from "@/lib/utils";
 
 type TriggerDefinition = {
@@ -116,11 +125,14 @@ export default function EventsPage() {
   const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [toolkits, setToolkits] = useState<ToolkitInfo[]>(
+    () => getCachedToolkits() ?? []
+  );
   const itemsPerPage = 10;
 
   const router = useRouter();
 
-  async function fetchTriggers() {
+  const fetchTriggers = useCallback(async () => {
     setIsTriggersLoading(true);
     try {
       const res = await fetch("/api/triggers", { cache: "no-store" });
@@ -135,9 +147,9 @@ export default function EventsPage() {
     } finally {
       setIsTriggersLoading(false);
     }
-  }
+  }, []);
 
-  async function fetchEvents(manual = false) {
+  const fetchEvents = useCallback(async (manual = false) => {
     if (manual) {
       setIsRefreshing(true);
     }
@@ -158,16 +170,17 @@ export default function EventsPage() {
         setIsRefreshing(false);
       }
     }
-  }
+  }, []);
 
   useEffect(() => {
     fetchTriggers();
     fetchEvents();
+    preloadToolkitLogos().then(setToolkits);
 
     // Poll for new events
     const interval = setInterval(() => fetchEvents(false), 10_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchEvents, fetchTriggers]);
 
   async function handleCreateTrigger() {
     if (!selectedTrigger) {
@@ -213,15 +226,17 @@ export default function EventsPage() {
       }
       toast.success("Unsubscribed successfully");
       await fetchTriggers();
-    } catch (error: any) {
+    } catch (_error: any) {
       toast.error("Failed to unsubscribe");
     } finally {
       setIsActionLoading(null);
     }
   }
 
-  const getAppIcon = (app: string, size = 20) => {
-    const appLower = app.toLowerCase();
+  const getAppIcon = (app: string, size = 20, toolName?: string) => {
+    const appLower = normalizeToolkitSlug(app || toolName || "");
+    const composioToolkit = findToolkit(toolkits, appLower);
+    const logoSrc = composioToolkit?.logo || resolveToolkitLogoSrc(appLower);
     const logoMap: Record<string, string> = {
       agentmail: "/logos/agentmail.jpeg",
       asana: "/logos/asana.svg",
@@ -252,21 +267,25 @@ export default function EventsPage() {
       zoom: "/logos/zoom.svg",
     };
 
-    if (logoMap[appLower]) {
+    if (logoMap[appLower] || composioToolkit?.logo || logoSrc) {
       return (
         <div
-          className="relative shrink-0"
+          className="relative shrink-0 overflow-hidden rounded-[7px] bg-background/80 p-1"
           style={{ width: size, height: size }}
         >
           <Image
-            alt={`${app} logo`}
+            alt={`${composioToolkit?.name || app || "Connected app"} logo`}
             className={cn(
               "object-contain",
               (appLower === "notion" || appLower === "github") &&
                 "invert dark:invert-0"
             )}
             fill
-            src={logoMap[appLower]}
+            onError={(event) => {
+              event.currentTarget.style.display = "none";
+            }}
+            src={composioToolkit?.logo || logoMap[appLower] || logoSrc}
+            unoptimized={Boolean(composioToolkit?.logo)}
           />
         </div>
       );
@@ -300,6 +319,26 @@ export default function EventsPage() {
         trigger.slug.toLowerCase().includes(query)
     );
   }, [availableTriggers, searchQuery]);
+
+  const eventStats = useMemo(() => {
+    const processed = eventLogs.filter(
+      (event) => event.status === "processed"
+    ).length;
+    const failed = eventLogs.filter(
+      (event) => event.status === "failed"
+    ).length;
+    const toolkitCount = new Set(
+      eventLogs.map((event) =>
+        normalizeToolkitSlug(event.triggerSlug.split("_")[0] ?? "")
+      )
+    ).size;
+    return { total: eventLogs.length, processed, failed, toolkitCount };
+  }, [eventLogs]);
+
+  const getEventAction = (slug: string) => {
+    const parts = slug.split("_");
+    return formatActionDescriptor(parts.slice(1).join("_") || slug);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -335,7 +374,7 @@ export default function EventsPage() {
               </h1>
             </div>
             <p className="text-muted-foreground text-[11px] sm:text-[13px] line-clamp-1 ml-9 sm:ml-10">
-              Real-time event streams monitoring.
+              Watch connected apps turn into agent actions.
             </p>
           </div>
 
@@ -381,6 +420,7 @@ export default function EventsPage() {
                         <button
                           className="absolute right-2 sm:right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-muted rounded-md"
                           onClick={() => setSearchQuery("")}
+                          type="button"
                         >
                           <X className="size-3.5 sm:size-4" />
                         </button>
@@ -480,6 +520,7 @@ export default function EventsPage() {
                           className="flex items-center gap-1.5 sm:gap-2.5 p-2 sm:p-2.5 rounded-[12px] sm:rounded-[16px] border border-border/50 bg-muted/30 hover:bg-accent/10 active:bg-accent/20 transition-all text-left group"
                           key={t.slug}
                           onClick={() => setSelectedTrigger(t)}
+                          type="button"
                         >
                           <div className="size-7 sm:size-9 md:size-10 rounded-[8px] sm:rounded-[10px] bg-background flex items-center justify-center border border-border shadow-inner shrink-0">
                             {getAppIcon(t.app, 16)}
@@ -528,7 +569,26 @@ export default function EventsPage() {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start pb-20">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+          {[
+            ["Events received", eventStats.total, "Last 50 records"],
+            ["Processed", eventStats.processed, "Agent-ready"],
+            ["Failed", eventStats.failed, "Needs attention"],
+            ["Toolkits", eventStats.toolkitCount, "Composio apps"],
+          ].map(([label, value, detail]) => (
+            <Card className="border-border/70 bg-card/60" key={label}>
+              <CardHeader className="gap-1 p-3 sm:p-4">
+                <CardDescription className="text-[10px] uppercase tracking-[0.14em]">
+                  {label}
+                </CardDescription>
+                <CardTitle className="text-xl sm:text-2xl">{value}</CardTitle>
+                <p className="text-[10px] text-muted-foreground">{detail}</p>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 lg:grid-cols-12 pb-20">
           {/* Active Subscriptions Section */}
           <div className="lg:col-span-4 space-y-3 sm:space-y-4">
             <div className="flex items-center justify-between px-1 sm:px-2">
@@ -584,15 +644,25 @@ export default function EventsPage() {
                     <div key={triggerId || idx}>
                       <Card className="border-border bg-card shadow-sm hover:bg-muted/50 transition-colors group rounded-2xl relative overflow-hidden">
                         <CardHeader className="p-2 sm:p-3 flex flex-row items-center gap-2 sm:gap-3 space-y-0 text-foreground">
-                          <div className="size-7 sm:size-9 rounded-[10px] bg-background flex items-center justify-center border border-border shadow-sm shrink-0">
-                            {getAppIcon(def?.app || "", 16)}
+                          <div className="size-8 sm:size-10 rounded-[10px] bg-background flex items-center justify-center border border-border shadow-sm shrink-0">
+                            {getAppIcon(def?.app || "", 18, t.triggerSlug)}
                           </div>
                           <div className="flex-1 min-w-0">
                             <CardTitle className="text-[12px] sm:text-[14px] font-semibold truncate text-foreground/90">
                               {displaySlug}
                             </CardTitle>
-                            <CardDescription className="text-[10px] sm:text-[12px] truncate text-muted-foreground mt-0 font-normal flex items-center gap-1">
-                              <span className="inline-block size-1 rounded-full bg-emerald-500/50" />
+                            <CardDescription className="text-[10px] sm:text-[12px] truncate text-muted-foreground mt-0 font-normal flex items-center gap-1.5">
+                              <span className="inline-block size-1.5 rounded-full bg-emerald-500/70" />
+                              {findToolkit(toolkits, def?.app || "")?.name ||
+                                def?.app ||
+                                "Composio trigger"}
+                              <span className="text-muted-foreground/60">
+                                ·
+                              </span>
+                              {getEventAction(t.triggerSlug)}
+                              <span className="text-muted-foreground/60">
+                                ·
+                              </span>
                               ID: {triggerId?.slice(0, 8) ?? "N/A"}
                             </CardDescription>
                           </div>
@@ -672,7 +742,7 @@ export default function EventsPage() {
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3 sm:gap-5">
-                    {paginatedLogs.map((event, idx) => {
+                    {paginatedLogs.map((event) => {
                       const rawSlug = event.triggerSlug || "";
                       const triggerDef = availableTriggers.find(
                         (a) => a.slug.toLowerCase() === rawSlug.toLowerCase()
@@ -694,11 +764,12 @@ export default function EventsPage() {
                               isExpanded && "ring-1 ring-primary/20 bg-muted/50"
                             )}
                           >
-                            <div
-                              className="p-2 sm:p-3 flex items-center gap-2 sm:gap-3 cursor-pointer select-none relative z-20"
+                            <button
+                              className="w-full p-2 sm:p-3 flex items-center gap-2 sm:gap-3 cursor-pointer select-none relative z-20 text-left"
                               onClick={() =>
                                 setExpandedEventId(isExpanded ? null : event.id)
                               }
+                              type="button"
                             >
                               <div className="size-8 sm:size-10 rounded-[10px] bg-background border border-border flex items-center justify-center shadow-inner shrink-0">
                                 {getAppIcon(triggerDef?.app || "", 16)}
@@ -764,7 +835,7 @@ export default function EventsPage() {
                                   />
                                 )}
                               </div>
-                            </div>
+                            </button>
 
                             {isExpanded && (
                               <div className="border-t border-border bg-muted/30 relative z-10">
