@@ -3,6 +3,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useState } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { parseSubAgentHandoffMarker } from "@/lib/agent/sub-agent-handoff-markers";
 import { decodeWorkflowProgress } from "@/lib/agent/workflow-progress";
 import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
@@ -53,15 +54,13 @@ import {
   ToolOutput,
 } from "./elements/tool";
 import { WorkflowProgressCard } from "./elements/workflow-step";
-import { ImageEditor } from "./image-editor";
-import { Skeleton } from "@/components/ui/skeleton";
+import { YahooFinanceDisplay } from "./elements/yahoo-finance-display";
 import { GeneratedImageCarousel } from "./generated-image-carousel";
 import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
-import { YahooFinanceDisplay } from "./elements/yahoo-finance-display";
 
 const PurePreviewMessage = ({
   addToolApprovalResponse,
@@ -221,8 +220,6 @@ const PurePreviewMessage = ({
                   "state" in part && part.state === "streaming";
                 return (
                   <MessageReasoning
-                    isLoading={isLoading || isStreaming}
-                    key={key}
                     durationMs={
                       typeof (part as any).durationMs === "number"
                         ? (part as any).durationMs
@@ -230,6 +227,8 @@ const PurePreviewMessage = ({
                           ? (part as any).metadata.durationMs
                           : undefined
                     }
+                    isLoading={isLoading || isStreaming}
+                    key={key}
                     reasoning={part.text}
                   />
                 );
@@ -649,13 +648,18 @@ const PurePreviewMessage = ({
 
               if (state === "output-available") {
                 const out = partAny.output;
-                const imageOutputs = Array.isArray(out?.images)
-                  ? out.images.filter(
-                      (image: any) => typeof image?.url === "string"
+                const imageOutputs = Array.from(
+                  new Map(
+                    (Array.isArray(out?.images)
+                      ? out.images
+                      : out?.url
+                        ? [out]
+                        : []
                     )
-                  : out?.url
-                    ? [out]
-                    : [];
+                      .filter((image: any) => typeof image?.url === "string")
+                      .map((image: any) => [image.url, image])
+                  ).values()
+                );
                 if (
                   out &&
                   typeof out === "object" &&
@@ -664,9 +668,10 @@ const PurePreviewMessage = ({
                 ) {
                   return (
                     <div
-                      className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-600 text-sm dark:bg-red-950/40 dark:text-red-400"
+                      className="w-fit max-w-full rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-destructive text-xs sm:text-sm"
                       key={toolCallId}
                     >
+                      <span className="font-medium">Image unavailable.</span>{" "}
                       {String((out as { error: unknown }).error)}
                     </div>
                   );
@@ -705,30 +710,25 @@ const PurePreviewMessage = ({
 
               return (
                 <div className={widthClass} key={toolCallId}>
-                  <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted/20 p-3 shadow-sm sm:p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-base font-semibold tracking-tight text-foreground">
-                          Image results ({total})
+                  <div className="w-fit max-w-full overflow-hidden rounded-xl border border-border/70 bg-muted/20 p-2.5 shadow-sm">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="size-16 shrink-0 rounded-lg sm:size-20" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold tracking-tight text-foreground">
+                          Generating image
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          Creating your variations
+                          {total > 1
+                            ? `${total} variations`
+                            : "Preparing your preview"}
                         </p>
+                        <span className="mt-1 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                          Loading… {progress}%
+                        </span>
                       </div>
-                      <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                        Loading… {progress}%
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {Array.from({ length: total }, (_, index) => (
-                        <Skeleton
-                          className="aspect-[4/5] w-full rounded-2xl"
-                          key={`${toolCallId}-${index}`}
-                        />
-                      ))}
                     </div>
                   </div>
-                  <Tool className="mt-2 w-full" defaultOpen={false}>
+                  <Tool className="mt-2 w-fit max-w-full" defaultOpen={false}>
                     <ToolHeader state={state} type={type} />
                     <ToolContent>
                       {state === "input-available" && (
@@ -821,7 +821,7 @@ const PurePreviewMessage = ({
                     className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-500 dark:bg-red-950/50"
                     key={toolCallId}
                   >
-                    Error creating document: {String(part.output.error)}
+                    Error updating document: {String(part.output.error)}
                   </div>
                 );
               }
@@ -908,14 +908,26 @@ const PurePreviewMessage = ({
               const planId = planOutput?.id ?? planOutput?.planId;
               const latestPlanIndex = planId
                 ? message.parts.reduce((latest, candidate, candidateIndex) => {
-                    if (!candidate || typeof candidate !== "object") return latest;
+                    if (!candidate || typeof candidate !== "object") {
+                      return latest;
+                    }
                     const candidateType = (candidate as any).type as string;
-                    if (!candidateType?.startsWith("tool-")) return latest;
-                    const candidatePlan = (candidate as any).output?.plan ?? (candidate as any).result?.plan ?? (candidate as any).input;
-                    return candidatePlan?.id === planId || candidatePlan?.planId === planId ? candidateIndex : latest;
+                    if (!candidateType?.startsWith("tool-")) {
+                      return latest;
+                    }
+                    const candidatePlan =
+                      (candidate as any).output?.plan ??
+                      (candidate as any).result?.plan ??
+                      (candidate as any).input;
+                    return candidatePlan?.id === planId ||
+                      candidatePlan?.planId === planId
+                      ? candidateIndex
+                      : latest;
                   }, -1)
                 : index;
-              if (latestPlanIndex !== index) return null;
+              if (latestPlanIndex !== index) {
+                return null;
+              }
               const planTasks = Array.isArray(planOutput?.tasks)
                 ? planOutput.tasks
                 : [];
@@ -927,7 +939,11 @@ const PurePreviewMessage = ({
                 return null;
               }
               return (
-                <Plan className="w-full max-w-2xl" defaultOpen key={planId ? `plan-${planId}` : key}>
+                <Plan
+                  className="w-full max-w-2xl"
+                  defaultOpen
+                  key={planId ? `plan-${planId}` : key}
+                >
                   <PlanHeader>
                     <div className="min-w-0">
                       <PlanTitle>{String(planOutput.title)}</PlanTitle>
@@ -947,11 +963,16 @@ const PurePreviewMessage = ({
                           key={task.id ?? `${planOutput.title}-${taskIndex}`}
                         >
                           <span className="mt-0.5 text-muted-foreground">
-                            {task.status === "completed" ? "✓" : task.status === "cancelled" ? "×" : "○"}
+                            {task.status === "completed"
+                              ? "✓"
+                              : task.status === "cancelled"
+                                ? "×"
+                                : "○"}
                           </span>
                           <span
                             className={cn(
-                              (task.status === "completed" || task.status === "cancelled") &&
+                              (task.status === "completed" ||
+                                task.status === "cancelled") &&
                                 "text-muted-foreground line-through"
                             )}
                           >
