@@ -26,7 +26,7 @@ export function DashboardArtifact({
     { label: "Active pipeline", value: "128", change: "+14" },
   ];
   return (
-    <div className="min-h-full bg-[#f7f5ef] p-5 text-[#183231] sm:p-8">
+    <div className="min-h-full bg-[#f0ece3] p-5 text-[#19312e] sm:p-8">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -56,11 +56,19 @@ export function DashboardArtifact({
             </Button>
           </div>
         </div>
-        <div className="mt-7 grid gap-4 md:grid-cols-3">
+        <div className="mt-7 grid gap-4 md:grid-cols-3 lg:grid-cols-4">
           {kpis.map(
-            (kpi: { label: string; value: string; change?: string }) => (
+            (
+              kpi: {
+                label: string;
+                value: string;
+                change?: string;
+                target?: string;
+              },
+              index: number
+            ) => (
               <div
-                className="rounded-2xl border border-[#c8d2ce] bg-white p-5 shadow-sm"
+                className={`rounded-2xl border border-black/10 p-5 shadow-sm ${index % 3 === 0 ? "bg-[#fffdf8]" : index % 3 === 1 ? "bg-[#e3efe8]" : "bg-[#f8e3da]"}`}
                 key={kpi.label}
               >
                 <div className="flex justify-between text-xs uppercase tracking-wider text-[#647572]">
@@ -111,9 +119,9 @@ export function DashboardArtifact({
             <div className="mt-5 grid gap-3">
               {["All regions", "All channels", "All owners"].map((label) => (
                 <button
-                  type="button"
                   className="flex items-center justify-between rounded-xl bg-[#f7f5ef] px-4 py-3 text-left text-sm"
                   key={label}
+                  type="button"
                 >
                   {label}
                   <span className="text-[#647572]">⌄</span>
@@ -122,6 +130,43 @@ export function DashboardArtifact({
             </div>
           </section>
         </div>
+        {data.rows?.length ? (
+          <section className="mt-6 overflow-hidden rounded-2xl border border-black/10 bg-[#fffdf8]">
+            <div className="border-b border-black/10 px-5 py-4">
+              <h2 className="font-serif text-xl">Detail view</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-[#e3efe8] text-xs uppercase tracking-wider text-[#65746f]">
+                  <tr>
+                    {Object.keys(data.rows[0]).map((key: string) => (
+                      <th className="px-5 py-3" key={key}>
+                        {key}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.rows.slice(0, 8).map((row: Record<string, string>) => (
+                    <tr
+                      className="border-t border-black/5"
+                      key={JSON.stringify(row)}
+                    >
+                      {Object.entries(row).map(([key, value]) => (
+                        <td
+                          className="px-5 py-3"
+                          key={`${key}-${String(value)}`}
+                        >
+                          {String(value)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

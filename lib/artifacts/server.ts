@@ -28,6 +28,10 @@ export type CreateDocumentCallbackProps = {
   dataStream: UIMessageStreamWriter<ChatMessage>;
   session: Session;
   modelId?: string;
+  prompt?: string;
+  audience?: string;
+  style?: string;
+  data?: Record<string, unknown>;
 };
 
 export type UpdateDocumentCallbackProps = {
@@ -58,6 +62,10 @@ export function createDocumentHandler<T extends ArtifactKind>(config: {
         dataStream: args.dataStream,
         session: args.session,
         modelId: args.modelId,
+        prompt: args.prompt,
+        audience: args.audience,
+        style: args.style,
+        data: args.data,
       });
 
       if (args.session?.user?.id) {

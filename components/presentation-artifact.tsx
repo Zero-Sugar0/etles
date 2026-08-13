@@ -10,12 +10,15 @@ import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 
 const palette = {
-  midnight: "#123b3a",
-  beige: "#f7f5ef",
-  peach: "#f2c8b7",
-  mint: "#e6efe9",
-  ink: "#183231",
-  muted: "#647572",
+  midnight: "#173f3a",
+  forest: "#255e52",
+  beige: "#f6f2e9",
+  paper: "#fffdf8",
+  peach: "#efb39f",
+  mint: "#b9d8c8",
+  gold: "#d6ad61",
+  ink: "#19312e",
+  muted: "#65746f",
 };
 
 type Slide = {
@@ -49,7 +52,7 @@ export function PresentationArtifact({
     }
   }, [content]);
   return (
-    <div className="min-h-full bg-[#ebe7dd] p-4 text-[#183231] sm:p-8">
+    <div className="min-h-full bg-[#f0ece3] p-4 text-[#19312e] sm:p-8">
       <div className="mx-auto flex max-w-6xl items-center justify-between pb-5">
         <div>
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#647572]">
@@ -69,7 +72,7 @@ export function PresentationArtifact({
       <div className="grid gap-6 lg:grid-cols-2">
         {slides.map((slide, index) => (
           <article
-            className={`relative aspect-video overflow-hidden rounded-2xl border border-[#c8d2ce] p-7 shadow-sm ${index % 3 === 0 ? "bg-[#123b3a] text-white" : index % 3 === 1 ? "bg-[#f7f5ef]" : "bg-[#f2c8b7]"}`}
+            className={`group relative aspect-video overflow-hidden rounded-[1.35rem] border border-black/10 p-7 shadow-[0_16px_40px_rgba(25,49,46,0.12)] transition-transform hover:-translate-y-1 ${index % 4 === 0 ? "bg-[#173f3a] text-white" : index % 4 === 1 ? "bg-[#fffdf8]" : index % 4 === 2 ? "bg-[#efb39f]" : "bg-[#b9d8c8]"}`}
             key={slide.title || `slide-${index}`}
           >
             <div className="flex h-full flex-col justify-between">
@@ -106,7 +109,15 @@ export function PresentationArtifact({
                     <ImageIcon className="size-4" /> {slide.visual}
                   </div>
                 ) : (
-                  <div className="h-10 w-28 rounded-full border border-current/20 bg-current/10" />
+                  <div className="flex h-14 w-32 items-end gap-1 rounded-xl border border-current/15 bg-current/10 p-2">
+                    {[32, 56, 44, 76, 62].map((height) => (
+                      <span
+                        className="flex-1 rounded-t-sm bg-current/50"
+                        key={`chart-bar-${height}`}
+                        style={{ height: `${height}%` }}
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

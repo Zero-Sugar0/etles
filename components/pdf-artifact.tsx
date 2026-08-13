@@ -13,9 +13,10 @@ export function PdfArtifact({
   onDownload?: () => void;
 }) {
   return (
-    <div className="min-h-full bg-[#ebe7dd] p-5 sm:p-10">
-      <div className="mx-auto max-w-3xl overflow-hidden rounded-sm border border-[#c8d2ce] bg-white shadow-xl">
-        <header className="bg-[#123b3a] px-8 py-8 text-white sm:px-12">
+    <div className="min-h-full bg-[#dedbd2] p-5 sm:p-10 print:bg-white print:p-0">
+      <div className="mx-auto max-w-3xl overflow-hidden rounded-sm border border-black/10 bg-[#fffdf8] shadow-[0_24px_70px_rgba(35,44,40,0.18)] print:shadow-none">
+        <header className="relative overflow-hidden bg-[#173f3a] px-8 py-10 text-white sm:px-12">
+          <div className="absolute -right-10 -top-16 size-48 rounded-full border-[22px] border-[#efb39f]/40" />
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#dce8e2]">
@@ -42,7 +43,24 @@ export function PdfArtifact({
             if (!line.trim()) {
               return <div className="h-3" key={line} />;
             }
-            return <p key={line}>{line.replace(/^[-*] /, "")}</p>;
+            if (/^[-*] /.test(line)) {
+              return (
+                <li className="ml-5 list-disc" key={line}>
+                  {line.slice(2)}
+                </li>
+              );
+            }
+            if (line.startsWith("> ")) {
+              return (
+                <blockquote
+                  className="border-l-4 border-[#efb39f] bg-[#f8e3da] px-4 py-3 text-[#5d4036]"
+                  key={line}
+                >
+                  {line.slice(2)}
+                </blockquote>
+              );
+            }
+            return <p key={line}>{line}</p>;
           })}
         </main>
         <footer className="flex items-center justify-between border-t border-[#c8d2ce] bg-[#f7f5ef] px-8 py-4 text-xs text-[#647572] sm:px-12">

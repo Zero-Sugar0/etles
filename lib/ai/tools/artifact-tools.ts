@@ -11,8 +11,24 @@ const fixed =
       ...base,
       description: `Create a dedicated ${label} artifact. Use this instead of a generic document when the user asks for a ${label}.`,
       inputSchema: z.object({
-        title: z.string().min(1),
+        title: z
+          .string()
+          .min(1)
+          .describe("A concise human-readable artifact title"),
+        prompt: z
+          .string()
+          .min(10)
+          .describe("The user's complete content and design brief"),
         kind: z.literal(kind).default(kind),
+        audience: z
+          .string()
+          .optional()
+          .describe("Who will use or read this artifact"),
+        style: z.string().optional().describe("Visual or editorial direction"),
+        data: z
+          .record(z.string(), z.unknown())
+          .optional()
+          .describe("Structured data, metrics, events, or source material"),
       }),
     };
   };
