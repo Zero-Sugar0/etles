@@ -31,6 +31,7 @@ type Slide = {
 export function PresentationArtifact({
   content,
   onDownload,
+  onSaveContent,
 }: {
   content: string;
   onDownload?: () => void;

@@ -16,6 +16,7 @@ export function PdfArtifact({
   content,
   title = "Client document",
   onDownload,
+  onSaveContent,
 }: {
   content: string;
   title?: string;

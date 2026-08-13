@@ -12,6 +12,7 @@ const bars = [42, 68, 51, 82, 63, 91, 74, 96];
 export function DashboardArtifact({
   content,
   onDownload,
+  onSaveContent,
 }: {
   content: string;
   onDownload?: () => void;
