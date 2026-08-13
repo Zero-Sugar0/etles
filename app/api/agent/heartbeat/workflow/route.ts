@@ -18,6 +18,7 @@ import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
 import { getBackgroundModel } from "@/lib/ai/providers";
 import { getActiveGoalsSnapshot } from "@/lib/ai/tools/goals";
+import { searchKnowledgeGraph } from "@/lib/ai/tools/knowledge-graph";
 import { searchFreshNews } from "@/lib/ai/tools/tavily-search";
 import {
   getActiveAgentTasksByChatId,
@@ -75,9 +76,25 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
         .join("\n");
       const weeklyBrief = (synthesis[0]?.metadata as any)?.content ?? "";
 
-      return { memoryLines, weeklyBrief };
+      const [goals, graph] = await Promise.all([
+        getActiveGoalsSnapshot(userId, 5),
+        searchKnowledgeGraph({ userId }).execute?.(
+          {
+            query: "user identity priorities projects people commitments risks",
+            limit: 8,
+          },
+          {} as never
+        ),
+      ]);
+
+      return {
+        memoryLines,
+        weeklyBrief,
+        goals,
+        graph: graph ?? { success: false, results: [] },
+      };
     } catch {
-      return { memoryLines: "", weeklyBrief: "" };
+      return { memoryLines: "", weeklyBrief: "", goals: [], graph: { results: [] } };
     }
   });
 
@@ -129,7 +146,13 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
     try {
       const result = await generateText({
         model: getBackgroundModel(),
-        system: `You are Etles's background intelligence scanner. Your ONLY job is to check the user's calendar, email, and tasks for anything urgent or time-sensitive in the next 24 hours.
+        system: `You are Etles's background intelligence scanner. Before deciding anything, inspect the connected tools available to you.
+
+You MUST attempt these checks when the relevant Composio tools are available:
+1. Gmail or email: retrieve the user's 3 most recent relevant emails, prioritising unread, starred, deadlines, requests, and replies.
+2. Google Calendar or calendar: retrieve events in the next 24 hours, with special attention to the next 4 hours, conflicts, and preparation needs.
+3. Connected task/project tools: retrieve overdue and due-soon work.
+If a connection or tool is unavailable, skip it without guessing and report that it was not connected. Never claim an email or event was checked unless a tool returned it.
 
 Return a JSON object with this exact shape:
 {
@@ -137,14 +160,15 @@ Return a JSON object with this exact shape:
 "hasNews": boolean,
   "urgentSummary": "1-3 sentence plain text summary if urgent, empty string if not",
 "items": ["item1", "item2"],
-"news": [{"headline":"...","source":"...","url":"...","publishedAt":"...","whyItMatters":"..."}]
+"news": [{"headline":"...","source":"...","url":"...","publishedAt":"...","whyItMatters":"..."}],
+"connectionSuggestions": [{"service":"Gmail","why":"...","help":"..."}]
 }
 
 Check: upcoming calendar events (next 4 hours), unread high-priority emails, overdue tasks.
 Also review the supplied current-news results. Include news only when it is relevant and published within the last 48 hours. Never invent headlines, dates, sources, URLs, or implications. Set hasNews true only when at least one supplied result is genuinely useful to this user, even if it is not urgent.
 Be selective — only flag genuinely urgent items. If nothing urgent, set hasUrgentItems: false.
 Return ONLY the JSON object, no other text.`,
-        prompt: `Current date/time: ${new Date().toISOString()}\n\nUser context:\n${memoryContext.memoryLines}\n\nOpen tasks:\n${contextData.openTasks.join("\n") || "None"}\n\nFresh news search results (use only supplied URLs):\n${JSON.stringify(news)}\n\nCheck for urgent items now.`,
+        prompt: `Current date/time: ${new Date().toISOString()}\n\nKnown user memory:\n${memoryContext.memoryLines}\n\nActive goals:\n${JSON.stringify(memoryContext.goals)}\n\nKnowledge graph context:\n${JSON.stringify(memoryContext.graph)}\n\nOpen tasks:\n${contextData.openTasks.join("\n") || "None"}\n\nAvailable Composio tools (use these to inspect connected services):\n${Object.keys(composioTools).join(", ") || "None"}\n\nFresh news search results (use only supplied URLs):\n${JSON.stringify(news)}\n\nNow perform the required email, calendar, and task checks before deciding.`,
         tools: composioTools as any,
         stopWhen: stepCountIs(5),
       });
@@ -156,11 +180,12 @@ Return ONLY the JSON object, no other text.`,
         urgentSummary: string;
         items: string[];
         news: Array<{ headline: string; source: string; url: string; publishedAt?: string; whyItMatters: string }>;
+        connectionSuggestions: Array<{ service: string; why: string; help: string }>;
       };
     } catch (error) {
       // Never let a model/tool failure crash the heartbeat — degrade gracefully.
       console.error("[Heartbeat] check-signals failed:", error);
-      return { hasUrgentItems: false, hasNews: false, urgentSummary: "", items: [], news: [] };
+      return { hasUrgentItems: false, hasNews: false, urgentSummary: "", items: [], news: [], connectionSuggestions: [] };
     }
   });
 
@@ -277,7 +302,7 @@ Return ONLY the JSON object, no other text.`,
       system: `You are Etles, the user's proactive AI chief of staff. You're reaching out because something important needs their attention.
 
 Write a SHORT, direct Telegram message (max 6 sentences). No fluff. Lead with the concrete item and recommended next action. If news is included, name the source and link the supplied URL; never present an old or unverified item as breaking news. Do not repeat generic check-in language. Use Telegram HTML formatting only: <b>bold</b>, <i>italic</i>, and <a href="URL">source</a>.`,
-      prompt: `Current date/time: ${new Date().toISOString()}\n\nUrgent items detected:\n${signals.urgentSummary}\n\nDetails:\n${signals.items.join("\n")}\n\nVerified fresh news candidates:\n${JSON.stringify(signals.news ?? [])}\n\nWeekly context:\n${memoryContext.weeklyBrief}`,
+      prompt: `Current date/time: ${new Date().toISOString()}\n\nUrgent items detected:\n${signals.urgentSummary}\n\nDetails:\n${signals.items.join("\n")}\n\nVerified fresh news candidates:\n${JSON.stringify(signals.news ?? [])}\n\nConnection suggestions:\n${JSON.stringify(signals.connectionSuggestions ?? [])}\n\nKnown user context:\n${JSON.stringify({ goals: memoryContext.goals, graph: memoryContext.graph })}\n\nWeekly context:\n${memoryContext.weeklyBrief}`,
     });
     return text.trim();
   });

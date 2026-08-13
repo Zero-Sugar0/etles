@@ -1,5 +1,6 @@
 import { tool } from "ai";
-import { execFile } from "child_process";
+import { exec, execFile } from "child_process";
+import { unlink, writeFile } from "fs/promises";
 import { promisify } from "util";
 import { z } from "zod";
 
@@ -7,6 +8,7 @@ import { z } from "zod";
 // All GCP tools use the gcloud CLI. Ensure gcloud is installed and authenticated.
 
 const execFileAsync = promisify(execFile);
+const execAsync = promisify(exec);
 
 async function runGCloud(args: string[]): Promise<any> {
   const { stdout, stderr } = await execFileAsync(
@@ -232,14 +234,17 @@ export const gcpStorage = ({ userId }: { userId: string }) =>
             } else {
               // Write content to temp file and upload
               const tmpFile = `/tmp/gcs_upload_${Date.now()}`;
-              await execAsync(`echo ${JSON.stringify(content)} > ${tmpFile}`);
-              await runGCloud([
-                "storage",
-                "cp",
-                tmpFile,
-                `gs://${bucket}/${object}`,
-              ]);
-              await execAsync(`rm -f ${tmpFile}`);
+              await writeFile(tmpFile, content, "utf8");
+              try {
+                await runGCloud([
+                  "storage",
+                  "cp",
+                  tmpFile,
+                  `gs://${bucket}/${object}`,
+                ]);
+              } finally {
+                await unlink(tmpFile).catch(() => undefined);
+              }
             }
             return {
               success: true,
