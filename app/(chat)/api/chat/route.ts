@@ -11,6 +11,10 @@ import {
   stepCountIs,
   streamText,
 } from "ai";
+import {
+  patchAccumulatedParts,
+  sanitizeDanglingToolCalls,
+} from "@/lib/ai/sanitize-messages";
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
@@ -130,6 +134,7 @@ import {
   readScratchpad,
   writeScratchpad,
 } from "@/lib/ai/tools/scratchpad";
+import { getSecretsVaultTools } from "@/lib/ai/tools/secrets-vault";
 import { searchPastConversations } from "@/lib/ai/tools/search-history";
 import {
   delegateToSubAgent,
@@ -331,9 +336,13 @@ export async function POST(request: Request) {
       }
     }
 
-    const uiMessages = isToolApprovalFlow
+    // Sanitize history: inject synthetic tool-results for any dangling tool-calls
+    // that were left in the DB when a previous stream was interrupted mid-flight.
+    // Without this the Vercel AI Gateway returns 400 "No tool output found".
+    const rawUiMessages = isToolApprovalFlow
       ? (messages as ChatMessage[])
       : [...convertToUIMessages(messagesFromDb), message as ChatMessage];
+    const uiMessages = sanitizeDanglingToolCalls(rawUiMessages);
 
     const { longitude, latitude, city, country } = geolocation(request);
 
@@ -369,7 +378,11 @@ export async function POST(request: Request) {
       capabilities?.reasoning === true ||
       modelConfig?.features.reasoning === true;
 
-    const modelMessages = await convertToModelMessages(uiMessages);
+    // Layer 1: SDK-level escape hatch – drop any tool-calls that still lack
+    // a result after sanitizeDanglingToolCalls (belt-and-suspenders).
+    const modelMessages = await convertToModelMessages(uiMessages, {
+      ignoreIncompleteToolCalls: true,
+    });
 
     let composioTools: Record<string, any> = {};
     if (session?.user?.id && !isGuest) {
@@ -459,13 +472,16 @@ export async function POST(request: Request) {
       if (!assistantMessageId || accumulatedParts.length === 0) {
         return;
       }
+      // Layer 3: Patch any dangling tool-calls before writing to the DB.
+      // This prevents future requests from loading corrupted history.
+      const safeParts = patchAccumulatedParts(accumulatedParts);
       try {
         await upsertMessages({
           messages: [
             {
               id: assistantMessageId,
               role: "assistant",
-              parts: accumulatedParts,
+              parts: safeParts,
               createdAt: new Date(),
               attachments: [],
               chatId: id,
@@ -542,6 +558,10 @@ export async function POST(request: Request) {
             "readScratchpad",
             "writeScratchpad",
             "clearScratchpad",
+            "saveSecret",
+            "getSecret",
+            "listSecrets",
+            "deleteSecret",
             "saveMemory",
             "recallMemory",
             "searchPastConversations",
@@ -705,6 +725,7 @@ export async function POST(request: Request) {
               userId: session.user.id!,
               keyId: id,
             }),
+            ...getSecretsVaultTools({ userId: session.user.id! }),
             generateImage: generateImageTool({
               userId: session.user.id,
               dataStream,

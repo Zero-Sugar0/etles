@@ -20,14 +20,26 @@ function getDaytona(): Daytona {
   });
 }
 
-async function findUserSandbox(userId: string, sandboxId: string) {
+import { getPinnedDaytonaSandboxId } from "./daytona";
+
+async function findUserSandbox(userId: string, sandboxId?: string) {
   const daytona = getDaytona();
-  const sandbox = await daytona.get(sandboxId);
+  let targetId = sandboxId;
+
+  if (!targetId || targetId === "default" || targetId === "pinned") {
+    targetId = (await getPinnedDaytonaSandboxId(userId)) || undefined;
+  }
+
+  if (!targetId) {
+    return null;
+  }
+
+  const sandbox = await daytona.get(targetId);
   if (!sandbox) {
     return null;
   }
   const labels = (sandbox as any).labels as Record<string, string> | undefined;
-  if (labels?.etles_user_id && labels.etles_user_id !== userId) {
+  if (!labels || labels.etles_user_id !== userId) {
     return null;
   }
   return sandbox;
@@ -85,6 +97,9 @@ export const browserSetup = ({ userId }: { userId: string }) =>
           };
         }
 
+        // Ensure persistent browser profile directory exists
+        await sandbox.process.executeCommand("mkdir -p /home/daytona/.browser-profiles");
+
         // Start VNC desktop for visual/screenshot operations
         try {
           await sandbox.computerUse.start();
@@ -95,7 +110,7 @@ export const browserSetup = ({ userId }: { userId: string }) =>
         return {
           success: true,
           message:
-            "Browser ready. Playwright + Chromium installed, VNC desktop started.",
+            "Browser ready. Playwright + Chromium installed, persistent browser profiles initialized, VNC desktop started.",
         };
       } catch (error: any) {
         return { success: false, error: error?.message ?? String(error) };
@@ -142,17 +157,21 @@ export const browserNavigate = ({ userId }: { userId: string }) =>
         }
 
         const script = `
+const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright');
 (async () => {
+  const statePath = '/home/daytona/.browser-profiles/${sessionId}-state.json';
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
   const browser = await chromium.launch({ headless: true });
-  const ctx = await browser.newContext({ storageState: '/tmp/${sessionId}-state.json' }).catch(() => browser.newContext());
+  const ctx = await browser.newContext({ storageState: fs.existsSync(statePath) ? statePath : undefined }).catch(() => browser.newContext());
   const page = await ctx.newPage();
   await page.goto(${JSON.stringify(url)}, { waitUntil: 'domcontentloaded', timeout: 30000 });
   ${waitForSelector ? `await page.waitForSelector(${JSON.stringify(waitForSelector)}, { timeout: 10000 }).catch(() => {});` : ""}
   const title = await page.title();
   const finalUrl = page.url();
   const text = await page.evaluate(() => document.body?.innerText?.slice(0, 8000) ?? '');
-  await ctx.storageState({ path: '/tmp/${sessionId}-state.json' }).catch(() => {});
+  await ctx.storageState({ path: statePath }).catch(() => {});
   await browser.close();
   console.log(JSON.stringify({ title, url: finalUrl, text }));
 })();`;
@@ -300,17 +319,21 @@ export const browserInteract = ({ userId }: { userId: string }) =>
           .join("\n  ");
 
         const script = `
+const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright');
 (async () => {
+  const statePath = '/home/daytona/.browser-profiles/${sessionId}-state.json';
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
   const browser = await chromium.launch({ headless: true });
-  const ctx = await browser.newContext({ storageState: '/tmp/${sessionId}-state.json' }).catch(() => browser.newContext());
+  const ctx = await browser.newContext({ storageState: fs.existsSync(statePath) ? statePath : undefined }).catch(() => browser.newContext());
   const page = await ctx.newPage();
   ${url ? `await page.goto(${JSON.stringify(url)}, { waitUntil: 'domcontentloaded', timeout: 30000 });` : ""}
   ${steps}
   const title = await page.title();
   const finalUrl = page.url();
   const text = await page.evaluate(() => document.body?.innerText?.slice(0, 4000) ?? '');
-  await ctx.storageState({ path: '/tmp/${sessionId}-state.json' }).catch(() => {});
+  await ctx.storageState({ path: statePath }).catch(() => {});
   await browser.close();
   console.log(JSON.stringify({ title, url: finalUrl, text, actionsCompleted: ${actions.length} }));
 })();`;
@@ -403,10 +426,14 @@ export const browserExtract = ({ userId }: { userId: string }) =>
         }
 
         const script = `
+const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright');
 (async () => {
+  const statePath = '/home/daytona/.browser-profiles/${sessionId}-state.json';
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
   const browser = await chromium.launch({ headless: true });
-  const ctx = await browser.newContext({ storageState: '/tmp/${sessionId}-state.json' }).catch(() => browser.newContext());
+  const ctx = await browser.newContext({ storageState: fs.existsSync(statePath) ? statePath : undefined }).catch(() => browser.newContext());
   const page = await ctx.newPage();
   await page.goto(${JSON.stringify(url)}, { waitUntil: 'domcontentloaded', timeout: 30000 });
   ${waitForSelector ? `await page.waitForSelector(${JSON.stringify(waitForSelector)}, { timeout: 10000 }).catch(() => {});` : ""}
@@ -511,7 +538,7 @@ const { chromium } = require('playwright');
 
   result.pageTitle = await page.title();
   result.pageUrl = page.url();
-  await ctx.storageState({ path: '/tmp/${sessionId}-state.json' }).catch(() => {});
+  await ctx.storageState({ path: statePath }).catch(() => {});
   await browser.close();
   console.log(JSON.stringify(result));
 })();`;
@@ -556,8 +583,9 @@ export const browserMultiTab = ({ userId }: { userId: string }) =>
         .describe(
           "CSS selector to extract from each page instead of full text. E.g. 'article', 'main', '.price'"
         ),
+      sessionId: z.string().optional().default("browser-session"),
     }),
-    execute: async ({ sandboxId, urls, extractSelector }) => {
+    execute: async ({ sandboxId, urls, extractSelector, sessionId }) => {
       try {
         const sandbox = await findUserSandbox(userId, sandboxId);
         if (!sandbox) {
@@ -565,15 +593,20 @@ export const browserMultiTab = ({ userId }: { userId: string }) =>
         }
 
         const script = `
+const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright');
 (async () => {
+  const statePath = '/home/daytona/.browser-profiles/${sessionId}-state.json';
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
   const browser = await chromium.launch({ headless: true });
+  const ctx = await browser.newContext({ storageState: fs.existsSync(statePath) ? statePath : undefined }).catch(() => browser.newContext());
   const urls = ${JSON.stringify(urls)};
   const sel = ${JSON.stringify(extractSelector ?? null)};
 
   const results = await Promise.all(urls.map(async (url) => {
     try {
-      const page = await browser.newPage();
+      const page = await ctx.newPage();
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
       const title = await page.title();
       const text = sel
@@ -586,6 +619,7 @@ const { chromium } = require('playwright');
     }
   }));
 
+  await ctx.storageState({ path: statePath }).catch(() => {});
   await browser.close();
   console.log(JSON.stringify(results));
 })();`;
@@ -642,10 +676,14 @@ export const browserUploadFile = ({ userId }: { userId: string }) =>
         }
 
         const script = `
+const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright');
 (async () => {
+  const statePath = '/home/daytona/.browser-profiles/${sessionId}-state.json';
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
   const browser = await chromium.launch({ headless: true });
-  const ctx = await browser.newContext({ storageState: '/tmp/${sessionId}-state.json' }).catch(() => browser.newContext());
+  const ctx = await browser.newContext({ storageState: fs.existsSync(statePath) ? statePath : undefined }).catch(() => browser.newContext());
   const page = await ctx.newPage();
   await page.goto(${JSON.stringify(url)}, { waitUntil: 'domcontentloaded', timeout: 30000 });
   const [fileChooser] = await Promise.all([
@@ -653,7 +691,7 @@ const { chromium } = require('playwright');
     page.locator(${JSON.stringify(fileInputSelector)}).click(),
   ]);
   await fileChooser.setFiles(${JSON.stringify(filePath)});
-  await ctx.storageState({ path: '/tmp/${sessionId}-state.json' }).catch(() => {});
+  await ctx.storageState({ path: statePath }).catch(() => {});
   await browser.close();
   console.log(JSON.stringify({ success: true, message: 'File uploaded: ${filePath}' }));
 })();`;

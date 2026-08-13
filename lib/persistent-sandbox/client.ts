@@ -118,8 +118,9 @@ export async function getOrCreatePersistentSandbox(
 }
 
 /**
- * One-time setup when a sandbox is first created for a user.
- * Installs common tools and creates the workspace directory structure.
+ * One-time setup when a sandbox is created/resumed for a user.
+ * Installs common tools and creates directory structure.
+ * Secrets are NOT auto-written to disk files; they are retrieved dynamically when requested.
  */
 async function bootstrapSandbox(
   sandbox: Sandbox,
@@ -134,7 +135,7 @@ async function bootstrapSandbox(
     // Write a README so the agent knows what this is
     await sandbox.files.write(
       "/home/user/.etles/README.md",
-      `# Etles Persistent Sandbox\n\nThis is your personal persistent sandbox managed by Etles.\n\nAll files in /home/user/workspace and /home/user/projects persist across sessions.\n\nCreated: ${new Date().toISOString()}\nUser: ${userId}\n`
+      `# Etles Persistent Sandbox\n\nThis is your personal persistent computer managed by Etles.\n\nAll files in /home/user/workspace and /home/user/projects persist across sessions.\n\nCreated: ${new Date().toISOString()}\nUser: ${userId}\n`
     );
 
     // Install uv (fast Python package manager) and common tools

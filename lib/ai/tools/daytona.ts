@@ -29,7 +29,33 @@ function getDaytona(): Daytona {
   });
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+import { Redis } from "@upstash/redis";
+
+function getRedis(): Redis | null {
+  if (
+    !process.env.UPSTASH_REDIS_REST_URL ||
+    !process.env.UPSTASH_REDIS_REST_TOKEN
+  ) {
+    return null;
+  }
+  return new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  });
+}
+
+export async function getPinnedDaytonaSandboxId(userId: string): Promise<string | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  return redis.get<string>(`agent:daytona:sandbox:${userId}`);
+}
+
+export async function pinUserDaytonaSandboxId(userId: string, sandboxId: string): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    await redis.set(`agent:daytona:sandbox:${userId}`, sandboxId, { ex: 60 * 60 * 24 * 30 }); // 30 days
+  }
+}
 
 /** Labels used to scope sandboxes to a specific user. */
 function userLabels(userId: string) {
@@ -37,15 +63,25 @@ function userLabels(userId: string) {
 }
 
 /** Find an existing sandbox for this user by sandboxId, verified to belong to the user. */
-async function findUserSandbox(userId: string, sandboxId: string) {
+async function findUserSandbox(userId: string, sandboxId?: string) {
   const daytona = getDaytona();
-  const sandbox = await daytona.get(sandboxId);
+  let targetId = sandboxId;
+
+  if (!targetId || targetId === "default" || targetId === "pinned") {
+    targetId = (await getPinnedDaytonaSandboxId(userId)) || undefined;
+  }
+
+  if (!targetId) {
+    return null;
+  }
+
+  const sandbox = await daytona.get(targetId);
   if (!sandbox) {
     return null;
   }
-  // Verify ownership via labels
+  // Verify strict ownership via labels
   const labels = (sandbox as any).labels as Record<string, string> | undefined;
-  if (labels?.etles_user_id && labels.etles_user_id !== userId) {
+  if (!labels || labels.etles_user_id !== userId) {
     return null;
   }
   return sandbox;
@@ -134,11 +170,11 @@ export const createSandbox = ({ userId }: { userId: string }) =>
           ...(image ? { image } : { language: language ?? "typescript" }),
           labels: userLabels(userId),
           autoStopInterval: autoStopMinutes ?? 30,
-          // Ephemeral: auto-delete after stopped for 2 hours to keep costs low
-          autoDeleteInterval: 120,
           ...(resources && { resources }),
           ...(envVars && { envVars }),
         } as any);
+
+        await pinUserDaytonaSandboxId(userId, sandbox.id);
 
         let cloneResult: string | undefined;
 
