@@ -1,14 +1,17 @@
 import { streamText } from "ai";
 import { getLanguageModel } from "@/lib/ai/providers";
+import { plannerPrompt } from "@/lib/ai/prompts";
 import { createDocumentHandler } from "@/lib/artifacts/server";
 export const plannerDocumentHandler = createDocumentHandler({
   kind: "planner",
-  onCreateDocument: async ({ title, dataStream, modelId }) => {
+  onCreateDocument: async ({ title, dataStream, modelId, prompt, audience, style, data }) => {
     const r = streamText({
       model: getLanguageModel(modelId ?? "google/gemini-2.5-flash"),
-      system:
-        "Return ONLY valid JSON with an events array. Each event has date,title,time,tag. Make it realistic and editable.",
-      prompt: `Build a planner titled ${title}.`,
+      system: plannerPrompt,
+      prompt: `${prompt ?? `Build a planner titled ${title}.`}
+Audience: ${audience ?? "the user"}
+Style: ${style ?? "clear and calm"}
+Source data: ${JSON.stringify(data ?? {})}`,
     });
     let c = "";
     for await (const d of r.textStream) {
@@ -20,7 +23,8 @@ export const plannerDocumentHandler = createDocumentHandler({
   onUpdateDocument: async ({ document, description, dataStream, modelId }) => {
     const r = streamText({
       model: getLanguageModel(modelId ?? "google/gemini-2.5-flash"),
-      prompt: `${description}\n${document.content}`,
+      system: plannerPrompt,
+      prompt: `${description}\nReturn ONLY updated valid JSON.\n${document.content}`,
     });
     let c = "";
     for await (const d of r.textStream) {

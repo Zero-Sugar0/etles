@@ -1,7 +1,7 @@
 // Curated list of top models from Vercel AI Gateway
 //lib/ai/models.ts
 
-export const DEFAULT_CHAT_MODEL = "xai/grok-4.1-fast-reasoning";
+export const DEFAULT_CHAT_MODEL = "openai/gpt-5.6-luna";
 
 export type ImageModelProvider = "google" | "openai" | "bytedance" | "xai";
 export type VideoModelProvider = "google" | "bytedance" | "xai" | "minimax";

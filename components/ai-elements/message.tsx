@@ -316,7 +316,8 @@ export const MessageResponse = memo(
         className
       )}
       components={markdownComponents as any}
-      plugins={{ math: createMathPlugin({ singleDollarTextMath: true }) }}
+      // Currency values such as $13.3B are prose, not inline math.
+      plugins={{ math: createMathPlugin({ singleDollarTextMath: false }) }}
       {...props}
     />
   ),

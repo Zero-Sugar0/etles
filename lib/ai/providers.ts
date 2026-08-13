@@ -127,14 +127,15 @@ export function getTitleModel() {
  * Returns a model safe for structured output (streamObject / generateObject).
  * Configurable via ARTIFACT_MODEL or SUBAGENT_MODEL env vars. Defaults to DEFAULT_CHAT_MODEL.
  */
-export function getArtifactModel(_modelId?: string) {
+export function getArtifactModel(modelId?: string) {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("artifact-model");
   }
 
-  const modelId =
+  const resolvedModelId =
+    modelId?.trim() ||
     process.env.ARTIFACT_MODEL?.trim() ||
     process.env.SUBAGENT_MODEL?.trim() ||
     DEFAULT_CHAT_MODEL;
-  return getLanguageModel(modelId);
+  return getLanguageModel(resolvedModelId);
 }

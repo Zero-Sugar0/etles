@@ -19,7 +19,8 @@ export function Response({ className, children, ...props }: ResponseProps) {
       components={{
         ...(markdownComponents as any),
       }}
-      plugins={{ math: createMathPlugin({ singleDollarTextMath: true }) }}
+      // Do not parse ordinary currency values as inline math.
+      plugins={{ math: createMathPlugin({ singleDollarTextMath: false }) }}
       {...props}
     >
       {children}

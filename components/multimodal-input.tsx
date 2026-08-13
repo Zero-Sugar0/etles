@@ -798,6 +798,8 @@ function PureMultimodalInput({
                 onModelChange={onModelChange}
                 selectedModelId={selectedModelId}
               />
+              {/* Agent mode is temporarily hidden while the workflow surface is being consolidated. */}
+              {/*
               <Button
                 className={cn(
                   "h-8 gap-1.5 rounded-lg px-2.5 text-xs transition-all duration-300",
@@ -814,6 +816,7 @@ function PureMultimodalInput({
                 <BotIcon />
                 Agent
               </Button>
+              */}
             </PromptInputTools>
 
             <div className="flex items-center gap-1 sm:gap-2">

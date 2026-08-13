@@ -20,7 +20,9 @@ export function RichArtifactMarkdown({
         className
       )}
       components={markdownComponents as never}
-      plugins={{ math: createMathPlugin({ singleDollarTextMath: true }) }}
+      // Dollar amounts are common in dashboards and reports. Treating every
+      // `$...$` pair as inline math corrupts values such as `$13.3B`.
+      plugins={{ math: createMathPlugin({ singleDollarTextMath: false }) }}
     >
       {children}
     </Streamdown>

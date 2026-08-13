@@ -1,14 +1,17 @@
 import { streamText } from "ai";
+import { dashboardPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
 export const dashboardDocumentHandler = createDocumentHandler({
   kind: "dashboard",
-  onCreateDocument: async ({ title, dataStream, modelId }) => {
+  onCreateDocument: async ({ title, dataStream, modelId, prompt, audience, style, data }) => {
     const r = streamText({
       model: getLanguageModel(modelId ?? "google/gemini-2.5-flash"),
-      system:
-        "Return ONLY valid JSON with kpis [{label,value,change}], rows, and filters. Design decision-useful business analytics.",
-      prompt: `Build a dashboard titled ${title} with realistic structure.`,
+      system: dashboardPrompt,
+      prompt: `${prompt ?? `Build a dashboard titled ${title}.`}
+Audience: ${audience ?? "business decision makers"}
+Style: ${style ?? "clean, high-contrast, scannable"}
+Source data: ${JSON.stringify(data ?? {})}`,
     });
     let c = "";
     for await (const d of r.textStream) {
@@ -24,7 +27,8 @@ export const dashboardDocumentHandler = createDocumentHandler({
   onUpdateDocument: async ({ document, description, dataStream, modelId }) => {
     const r = streamText({
       model: getLanguageModel(modelId ?? "google/gemini-2.5-flash"),
-      prompt: `${description}\n${document.content}`,
+      system: dashboardPrompt,
+      prompt: `${description}\nReturn ONLY updated valid JSON.\n${document.content}`,
     });
     let c = "";
     for await (const d of r.textStream) {
