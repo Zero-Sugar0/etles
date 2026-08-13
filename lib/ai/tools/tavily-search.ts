@@ -43,6 +43,54 @@ async function tavilyPost<T>(
   return res.json() as Promise<T>;
 }
 
+export type FreshNewsResult = {
+  title: string;
+  url: string;
+  content?: string;
+  publishedAt?: string;
+  source?: string;
+};
+
+/** Small server-side news primitive for scheduled agents and workflows. */
+export async function searchFreshNews(
+  query: string,
+  options: { days?: number; maxResults?: number } = {}
+): Promise<FreshNewsResult[]> {
+  const data = await tavilyPost<{
+    results?: Array<{
+      title?: string;
+      url?: string;
+      content?: string;
+      published_date?: string;
+      publishedDate?: string;
+    }>;
+  }>("/search", {
+    query,
+    topic: "news",
+    search_depth: "advanced",
+    days: options.days ?? 2,
+    max_results: options.maxResults ?? 6,
+    include_answer: false,
+    include_raw_content: false,
+  });
+
+  return (data.results ?? [])
+    .filter((result) => result.title && result.url)
+    .map((result) => ({
+      title: result.title!,
+      url: result.url!,
+      content: result.content,
+      publishedAt: result.published_date ?? result.publishedDate,
+      source: (() => {
+        try {
+          return new URL(result.url!).hostname.replace(/^www\./, "");
+        } catch {
+          return undefined;
+        }
+      })(),
+    }));
+}
+
 // ─── tavilySearch ─────────────────────────────────────────────────────────────
 
 export const tavilySearch = tool({

@@ -4,7 +4,7 @@
  *
  * Called by Etles after the user finishes onboarding.
  * Registers per-user QStash crons for:
- * - Hourly heartbeat (proactive check-ins)
+ * - Four-hour heartbeat (proactive check-ins and current-news monitoring)
  * - Weekly synthesis (Monday 8am UTC)
  *
  * Also saves onboarding_complete to memory so the system prompt

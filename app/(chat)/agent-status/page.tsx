@@ -97,10 +97,10 @@ export default async function AgentStatusPage() {
               </CardHeader>
               <CardContent className="p-3 sm:p-6 pt-0 sm:pt-0">
                 <div className="text-lg sm:text-2xl font-bold mb-0.5 sm:mb-1">
-                  Hourly Checks
+                  Four-hour Checks
                 </div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">
-                  Scanning calendar, email, and tasks for urgent matters.
+                  Scanning connected apps and current news for useful actions.
                 </p>
                 {status.heartbeat.nextRun && (
                   <div className="mt-3 sm:mt-4 flex items-center gap-1.5 sm:gap-2 text-[9px] sm:text-[10px] text-primary bg-primary/5 p-1 sm:p-1.5 px-2 sm:px-3 rounded-full w-fit">

@@ -18,6 +18,7 @@ import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
 import { getBackgroundModel } from "@/lib/ai/providers";
 import { getActiveGoalsSnapshot } from "@/lib/ai/tools/goals";
+import { searchFreshNews } from "@/lib/ai/tools/tavily-search";
 import {
   getActiveAgentTasksByChatId,
   getBotIntegration,
@@ -99,6 +100,21 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
   });
 
   // ── Step 3: Load Composio signals (calendar, email) ───────────────────────
+  const news = await context.run("check-current-news", async () => {
+    if (!process.env.TAVILY_API_KEY) return [];
+    try {
+      const focus = [memoryContext.memoryLines, memoryContext.weeklyBrief]
+        .filter(Boolean).join(" ").replace(/\s+/g, " ").slice(0, 1200);
+      const query = focus
+        ? `latest important news in the last 48 hours relevant to these user priorities: ${focus}`
+        : "latest important world, business, technology, and local news in the last 48 hours";
+      return await searchFreshNews(query, { days: 2, maxResults: 6 });
+    } catch (error) {
+      console.error("[Heartbeat] current-news search failed:", error);
+      return [];
+    }
+  });
+
   const signals = await context.run("check-signals", async () => {
     let composioTools: Record<string, unknown> = {};
     try {
@@ -117,15 +133,18 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
 
 Return a JSON object with this exact shape:
 {
-  "hasUrgentItems": boolean,
+"hasUrgentItems": boolean,
+"hasNews": boolean,
   "urgentSummary": "1-3 sentence plain text summary if urgent, empty string if not",
-  "items": ["item1", "item2"]
+"items": ["item1", "item2"],
+"news": [{"headline":"...","source":"...","url":"...","publishedAt":"...","whyItMatters":"..."}]
 }
 
 Check: upcoming calendar events (next 4 hours), unread high-priority emails, overdue tasks.
+Also review the supplied current-news results. Include news only when it is relevant and published within the last 48 hours. Never invent headlines, dates, sources, URLs, or implications. Set hasNews true only when at least one supplied result is genuinely useful to this user, even if it is not urgent.
 Be selective — only flag genuinely urgent items. If nothing urgent, set hasUrgentItems: false.
 Return ONLY the JSON object, no other text.`,
-        prompt: `User context:\n${memoryContext.memoryLines}\n\nOpen tasks:\n${contextData.openTasks.join("\n") || "None"}\n\nCheck for urgent items now.`,
+        prompt: `Current date/time: ${new Date().toISOString()}\n\nUser context:\n${memoryContext.memoryLines}\n\nOpen tasks:\n${contextData.openTasks.join("\n") || "None"}\n\nFresh news search results (use only supplied URLs):\n${JSON.stringify(news)}\n\nCheck for urgent items now.`,
         tools: composioTools as any,
         stopWhen: stepCountIs(5),
       });
@@ -133,13 +152,15 @@ Return ONLY the JSON object, no other text.`,
       const clean = result.text.replace(/```json|```/g, "").trim();
       return JSON.parse(clean) as {
         hasUrgentItems: boolean;
+        hasNews: boolean;
         urgentSummary: string;
         items: string[];
+        news: Array<{ headline: string; source: string; url: string; publishedAt?: string; whyItMatters: string }>;
       };
     } catch (error) {
       // Never let a model/tool failure crash the heartbeat — degrade gracefully.
       console.error("[Heartbeat] check-signals failed:", error);
-      return { hasUrgentItems: false, urgentSummary: "", items: [] };
+      return { hasUrgentItems: false, hasNews: false, urgentSummary: "", items: [], news: [] };
     }
   });
 
@@ -245,7 +266,7 @@ Return ONLY the JSON object, no other text.`,
   }
 
   // No urgent items — stop here, don't bother the user further
-  if (!signals.hasUrgentItems) {
+  if (!signals.hasUrgentItems && !signals.hasNews) {
     return;
   }
 
@@ -255,9 +276,8 @@ Return ONLY the JSON object, no other text.`,
       model: getBackgroundModel(),
       system: `You are Etles, the user's proactive AI chief of staff. You're reaching out because something important needs their attention.
 
-Write a SHORT, direct Telegram message (max 4 sentences). No fluff. No "I noticed". Just the facts and what they should do.
-Use Telegram HTML formatting only: <b>bold</b>, <i>italic</i>.`,
-      prompt: `Urgent items detected:\n${signals.urgentSummary}\n\nDetails:\n${signals.items.join("\n")}\n\nWeekly context:\n${memoryContext.weeklyBrief}`,
+Write a SHORT, direct Telegram message (max 6 sentences). No fluff. Lead with the concrete item and recommended next action. If news is included, name the source and link the supplied URL; never present an old or unverified item as breaking news. Do not repeat generic check-in language. Use Telegram HTML formatting only: <b>bold</b>, <i>italic</i>, and <a href="URL">source</a>.`,
+      prompt: `Current date/time: ${new Date().toISOString()}\n\nUrgent items detected:\n${signals.urgentSummary}\n\nDetails:\n${signals.items.join("\n")}\n\nVerified fresh news candidates:\n${JSON.stringify(signals.news ?? [])}\n\nWeekly context:\n${memoryContext.weeklyBrief}`,
     });
     return text.trim();
   });

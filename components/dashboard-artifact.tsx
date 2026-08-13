@@ -4,6 +4,8 @@ import { CalendarDays, Download, Filter, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
+import { ChartDisplay } from "@/components/elements/chart-display";
+import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 
 const bars = [42, 68, 51, 82, 63, 91, 74, 96];
 export function DashboardArtifact({
@@ -26,6 +28,7 @@ export function DashboardArtifact({
     { label: "Conversion", value: "6.8%", change: "+2.1%" },
     { label: "Active pipeline", value: "128", change: "+14" },
   ];
+  const charts = (data.charts ?? data.series ?? []) as ChartToolPayload[];
   return (
     <div className="min-h-full bg-[#f0ece3] p-5 text-[#19312e] sm:p-8">
       <div className="mx-auto max-w-6xl">
@@ -136,6 +139,15 @@ export function DashboardArtifact({
             </div>
           </section>
         </div>
+        {charts.length > 0 ? (
+          <section className="mt-6 grid gap-6 lg:grid-cols-2">
+            {charts.map((chart, index) => (
+              <div className="rounded-2xl border border-[#c8d2ce] bg-[#fffdf8] p-4" key={chart.title || `chart-${index}`}>
+                <ChartDisplay spec={chart} />
+              </div>
+            ))}
+          </section>
+        ) : null}
         {data.rows?.length ? (
           <section className="mt-6 overflow-hidden rounded-2xl border border-black/10 bg-[#fffdf8]">
             <div className="border-b border-black/10 px-5 py-4">

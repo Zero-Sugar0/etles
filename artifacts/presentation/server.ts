@@ -5,11 +5,14 @@ import { createDocumentHandler } from "@/lib/artifacts/server";
 
 export const presentationDocumentHandler = createDocumentHandler({
   kind: "presentation",
-  onCreateDocument: async ({ title, dataStream, modelId }) => {
+  onCreateDocument: async ({ title, dataStream, modelId, prompt, audience, style, data }) => {
     const result = streamText({
       model: getLanguageModel(modelId ?? "google/gemini-2.5-flash"),
       system: presentationPrompt,
-      prompt: `Create an editable real-world presentation deck titled "${title}" with varied narrative layouts, images or visual direction, charts where useful, and speaker notes.`,
+      prompt: `${prompt ?? `Create an editable real-world presentation deck titled "${title}".`}
+Audience: ${audience ?? "business decision makers"}
+Style: ${style ?? "clear, polished, high-contrast editorial design"}
+Source data: ${JSON.stringify(data ?? {})}`,
     });
     let content = "";
     for await (const delta of result.textStream) {

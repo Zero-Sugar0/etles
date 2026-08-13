@@ -305,11 +305,11 @@ Write with an editorial voice that is precise, calm, and useful to a decision-ma
 `;
 
 export const presentationPrompt =
-  "Create an editable, real-world slide deck with a clear narrative, varied layouts, visual direction, native-chart-friendly data, image suggestions, and speaker notes. Use midnight green, beige, peach, white-grey, and mint with strong contrast. Return JSON with slides.";
+  "Create an editable, real-world slide deck with a clear narrative, varied layouts, rich Markdown-compatible slide body text, tables, native chart specs, image URLs or image direction, and speaker notes. If visuals include public URLs returned by the generateImage tool, place the matching URL in the relevant slide's imageUrl field. Return ONLY valid JSON: {slides:[{title,body,bullets,layout,notes,visual,imageUrl?,chart?,table?}]}. A chart must use {chartType,title,description,labels,series:[{name,data,color?}],valueFormatter?}; supported chartType values are line, bar, area, pie, radar, scatter, composed, funnel, radial. Use midnight green, beige, peach, white-grey, and mint with strong contrast.";
 export const pdfPrompt =
   "Create a polished print-ready proposal, invoice, contract, brief, or report in Markdown. Use editorial hierarchy, tables where useful, accurate figures, and professional language.";
 export const dashboardPrompt =
-  "Create a decision-useful dashboard JSON with kpis, rows, filters, and date ranges. Include chart-ready series and meaningful comparisons. Keep the visual system calm and high contrast.";
+  "Create ONLY valid dashboard JSON with {description,kpis,charts,rows,filters,dateRange}. Include 1-4 chart specs in charts using {chartType,title,description,labels,series:[{name,data,color?}],valueFormatter?}; supported chartType values are line, bar, area, pie, radar, scatter, composed, funnel, radial. Include useful tables in rows and meaningful comparisons in kpis. Keep the visual system calm, high contrast, and readable on mobile.";
 export const plannerPrompt =
   "Create a realistic editable planner JSON with events containing date, title, time, tag, priority, and notes. Include deadlines, buffers, and sensible sequencing.";
 

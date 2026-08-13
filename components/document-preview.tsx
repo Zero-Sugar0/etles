@@ -62,6 +62,16 @@ export function DocumentPreview({
     }
   }, [artifact.documentId, setArtifact]);
 
+  if (result && !artifact.isVisible) {
+    return (
+      <DocumentToolResult
+        isReadonly={isReadonly}
+        result={{ id: result.id, title: result.title, kind: result.kind }}
+        type="create"
+      />
+    );
+  }
+
   if (artifact.isVisible) {
     if (result) {
       return (

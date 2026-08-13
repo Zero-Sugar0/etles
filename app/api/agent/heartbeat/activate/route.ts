@@ -21,7 +21,7 @@ import { Redis } from "@upstash/redis";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
 
-const HOURLY_CRON = "0 * * * *"; // every hour
+const HEARTBEAT_CRON = "0 */4 * * *"; // every four hours
 const SYNTHESIS_CRON = "0 8 * * 1"; // Mondays at 8am UTC
 
 const DEFAULT_MORNING_HOUR = 7; // 7am UTC default
@@ -170,11 +170,11 @@ export async function POST(req: NextRequest) {
 
   const results: Record<string, string> = {};
 
-  // ── 1. Hourly heartbeat schedule ─────────────────────────────────────────
+  // ── 1. Four-hour heartbeat schedule ──────────────────────────────────────
   try {
     const heartbeat = await (qstash.schedules as any).create({
       destination: `${baseUrl}/api/agent/heartbeat`,
-      cron: HOURLY_CRON,
+      cron: HEARTBEAT_CRON,
       body: JSON.stringify({ userId, type: "heartbeat" }),
       headers: {
         "Content-Type": "application/json",
@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
     ok: activated,
     schedules: results,
     message: activated
-      ? `Background intelligence activated. Hourly heartbeat + weekly synthesis${results.morningScheduleId ? " + morning briefing" : ""}${results.sandboxKeepaliveScheduleId ? " + sandbox keep-alive" : ""} running.`
+      ? `Background intelligence activated. Four-hour heartbeat + weekly synthesis${results.morningScheduleId ? " + morning briefing" : ""}${results.sandboxKeepaliveScheduleId ? " + sandbox keep-alive" : ""} running.`
       : "Activation partially failed — check server logs.",
   });
 }

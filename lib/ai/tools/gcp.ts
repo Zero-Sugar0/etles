@@ -1,16 +1,18 @@
 import { tool } from "ai";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import { z } from "zod";
 
 // ─── GCloud CLI Helper ────────────────────────────────────────────────────────
 // All GCP tools use the gcloud CLI. Ensure gcloud is installed and authenticated.
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 async function runGCloud(args: string[]): Promise<any> {
-  const { stdout, stderr } = await execAsync(
-    `gcloud ${args.join(" ")} --format=json`
+  const { stdout, stderr } = await execFileAsync(
+    "gcloud",
+    [...args.filter(Boolean), "--format=json"],
+    { maxBuffer: 10 * 1024 * 1024, windowsHide: true }
   );
   if (stderr && !stdout) {
     throw new Error(stderr);

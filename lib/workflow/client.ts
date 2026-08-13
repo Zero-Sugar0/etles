@@ -80,7 +80,7 @@ export type WorkflowTriggerPayload = {
   parentWorkflowRunId?: string;
   /** Depth of this agent in the A2A spawn chain (root = 0). Used for recursion depth limits. */
   depth?: number;
-  /** Task ID of the root agent — used to namespace the hourly spawn budget in Redis. */
+  /** Task ID of the root agent — used to namespace the heartbeat spawn budget in Redis. */
   rootTaskId?: string;
 };
 
@@ -289,7 +289,7 @@ export type HeartbeatWorkflowPayload = {
 };
 
 /**
- * Triggers the hourly background intelligence scan for a user.
+ * Triggers the four-hour background intelligence scan for a user.
  * Route: POST /api/agent/heartbeat/workflow
  */
 export async function triggerHeartbeatWorkflow(
@@ -394,7 +394,7 @@ export async function registerUserCrons(userId: string): Promise<void> {
   try {
     const heartbeat = await qstash.schedules.create({
       destination: heartbeatUrl,
-      cron: "0 * * * *",
+      cron: "0 */4 * * *",
       body: JSON.stringify({ userId, type: "heartbeat" }),
       headers: {
         "Content-Type": "application/json",

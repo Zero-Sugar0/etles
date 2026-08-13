@@ -52,7 +52,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { GetCallerIdentityCommand, STSClient } from "@aws-sdk/client-sts";
 import { tool } from "ai";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { promisify } from "util";
 import { z } from "zod";
 
@@ -60,13 +60,19 @@ import { z } from "zod";
 // Falls back to AWS CLI for services without SDK packages installed.
 // Uses the same credential chain as the SDK clients.
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 async function runAwsCli(args: string[], region?: string): Promise<any> {
-  const regionFlag = region ? `--region ${region}` : "";
-  const { stdout, stderr } = await execAsync(
-    `aws ${args.join(" ")} ${regionFlag} --output json`
-  );
+  const cliArgs = [
+    ...args,
+    ...(region ? ["--region", region] : []),
+    "--output",
+    "json",
+  ];
+  const { stdout, stderr } = await execFileAsync("aws", cliArgs, {
+    maxBuffer: 10 * 1024 * 1024,
+    windowsHide: true,
+  });
   if (stderr && !stdout) {
     throw new Error(stderr);
   }

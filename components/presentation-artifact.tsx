@@ -9,6 +9,8 @@ import {
 import { useMemo } from "react";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
+import { ChartDisplay } from "@/components/elements/chart-display";
+import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 
 const palette = {
   midnight: "#173f3a",
@@ -27,6 +29,10 @@ type Slide = {
   body?: string;
   bullets?: string[];
   visual?: string;
+  image?: string;
+  imageUrl?: string;
+  chart?: ChartToolPayload;
+  table?: { headers: string[]; rows: (string | number)[][] };
   notes?: string;
   layout?: string;
 };
@@ -88,7 +94,7 @@ export function PresentationArtifact({
       <div className="grid gap-6 lg:grid-cols-2">
         {slides.map((slide, index) => (
           <article
-            className={`group relative aspect-video overflow-hidden rounded-[1.35rem] border border-black/10 p-7 shadow-[0_16px_40px_rgba(25,49,46,0.12)] transition-transform hover:-translate-y-1 ${index % 4 === 0 ? "bg-[#173f3a] text-white" : index % 4 === 1 ? "bg-[#fffdf8]" : index % 4 === 2 ? "bg-[#efb39f]" : "bg-[#b9d8c8]"}`}
+            className={`group relative min-h-[340px] overflow-hidden rounded-[1.35rem] border border-black/10 p-7 shadow-[0_16px_40px_rgba(25,49,46,0.12)] transition-transform hover:-translate-y-1 ${index % 4 === 0 ? "bg-[#173f3a] text-white" : index % 4 === 1 ? "bg-[#fffdf8]" : index % 4 === 2 ? "bg-[#efb39f]" : "bg-[#b9d8c8]"}`}
             key={slide.title || `slide-${index}`}
           >
             <div className="flex h-full flex-col justify-between">
@@ -103,7 +109,7 @@ export function PresentationArtifact({
                   {slide.title || "Untitled slide"}
                 </h2>
                 {slide.body ? (
-                  <RichArtifactMarkdown className="mt-4 max-w-lg text-sm opacity-80 prose-headings:text-current prose-p:my-2 prose-p:leading-6 prose-ul:my-2 prose-ol:my-2">
+                  <RichArtifactMarkdown className="mt-4 max-w-full text-sm opacity-85 prose-headings:text-current prose-p:my-2 prose-p:leading-6 prose-ul:my-2 prose-ol:my-2 prose-table:min-w-[420px] prose-code:text-[0.85em]">
                     {slide.body}
                   </RichArtifactMarkdown>
                 ) : null}
@@ -116,6 +122,40 @@ export function PresentationArtifact({
                       </li>
                     ))}
                   </ul>
+                ) : null}
+                {slide.table?.headers?.length ? (
+                  <div className="mt-5 overflow-x-auto rounded-lg border border-current/15 bg-black/5">
+                    <table className="w-full min-w-[420px] text-left text-xs">
+                      <thead className="border-b border-current/15 bg-black/5">
+                        <tr>
+                          {slide.table.headers.map((header) => (
+                            <th className="px-3 py-2 font-semibold" key={header}>{header}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {slide.table.rows.map((row, rowIndex) => (
+                          <tr className="border-b border-current/10 last:border-0" key={`row-${rowIndex}`}>
+                            {row.map((value, columnIndex) => (
+                              <td className="px-3 py-2" key={`${rowIndex}-${columnIndex}`}>{String(value)}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+                {slide.chart ? (
+                  <div className="mt-5 rounded-xl bg-white/75 p-2 text-[#19312e]">
+                    <ChartDisplay spec={slide.chart} />
+                  </div>
+                ) : null}
+                {(slide.imageUrl || slide.image) ? (
+                  <img
+                    alt={slide.visual || slide.title || "Presentation visual"}
+                    className="mt-5 max-h-48 w-full rounded-xl object-cover"
+                    src={slide.imageUrl || slide.image}
+                  />
                 ) : null}
               </div>
               <div className="flex items-end justify-between gap-4">

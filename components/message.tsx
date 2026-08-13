@@ -841,6 +841,33 @@ const PurePreviewMessage = ({
               );
             }
 
+            if (
+              [
+                "tool-createPdf",
+                "tool-createPresentation",
+                "tool-createDashboard",
+                "tool-createPlanner",
+              ].includes(type as string)
+            ) {
+              const artifactResult = (part as any).output;
+
+              if (
+                artifactResult &&
+                typeof artifactResult === "object" &&
+                typeof artifactResult.id === "string" &&
+                typeof artifactResult.title === "string" &&
+                typeof artifactResult.kind === "string"
+              ) {
+                return (
+                  <DocumentPreview
+                    isReadonly={isReadonly}
+                    key={key}
+                    result={artifactResult}
+                  />
+                );
+              }
+            }
+
             if (type === "tool-updateDocument") {
               const { toolCallId } = part;
 

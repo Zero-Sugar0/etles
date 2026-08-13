@@ -42,7 +42,7 @@ export const activateHeartbeat = ({
   tool({
     description:
       "Activate the proactive background intelligence system for this user. " +
-      "This creates hourly heartbeat, weekly synthesis, and morning briefing schedules. " +
+      "This creates a four-hour heartbeat, weekly synthesis, and morning briefing schedules. " +
       "ALWAYS call this after the user completes onboarding (after saving 'onboarding_complete' memory). " +
       "Safe to call multiple times — uses deduplication so it won't create duplicates.",
     inputSchema: z.object({
@@ -136,8 +136,8 @@ export const getAgentSystemStatus = ({ userId }: { userId: string }) =>
 
       const systems = [
         {
-          name: "Hourly Heartbeat",
-          description: "Scans calendar, email, tasks for urgent items",
+          name: "Four-hour Heartbeat",
+          description: "Scans connected apps and fresh news for relevant action",
           lastRun: heartbeat?.lastRun ?? null,
           status: heartbeat?.status ?? "never_run",
           schedulesActive: !!schedules?.heartbeatScheduleId,
