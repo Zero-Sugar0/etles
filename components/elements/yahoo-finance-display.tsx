@@ -30,6 +30,43 @@ const formatNumber = (value: number | null | undefined) =>
     ? "—"
     : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
+type FinanceTooltipProps = {
+  active?: boolean;
+  payload?: Array<{
+    value?: unknown;
+    payload?: { timestamp?: string };
+  }>;
+};
+
+function FinanceTooltip({ active, payload }: FinanceTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  const point = payload[0]?.payload;
+  const value = payload[0]?.value;
+  const date = point?.timestamp
+    ? new Date(point.timestamp).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Market close";
+
+  return (
+    <div className="min-w-[132px] rounded-lg border border-border/80 bg-popover px-3 py-2 text-popover-foreground shadow-xl">
+      <p className="mb-1 text-[11px] text-muted-foreground">{date}</p>
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="size-1.5 rounded-full bg-primary" />
+          Close
+        </span>
+        <span className="font-mono text-sm font-semibold tabular-nums">
+          {typeof value === "number" ? value.toFixed(2) : "—"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function YahooFinanceDisplay({ data }: { data: YahooFinancePayload }) {
   const positive = (data.changePercent ?? 0) >= 0;
   const price = formatNumber(data.price);
@@ -123,6 +160,9 @@ export function YahooFinanceDisplay({ data }: { data: YahooFinancePayload }) {
                 <XAxis dataKey="timestamp" hide />
                 <YAxis domain={["dataMin", "dataMax"]} hide />
                 <Tooltip
+                  content={<FinanceTooltip />}
+                  cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
+                  isAnimationActive={false}
                   labelFormatter={(value) =>
                     new Date(value).toLocaleDateString()
                   }
@@ -139,6 +179,12 @@ export function YahooFinanceDisplay({ data }: { data: YahooFinancePayload }) {
                   stroke="hsl(var(--primary))"
                   fill={`url(#finance-fill-${data.symbol})`}
                   strokeWidth={2}
+                  activeDot={{
+                    r: 4,
+                    fill: "hsl(var(--primary))",
+                    stroke: "hsl(var(--background))",
+                    strokeWidth: 2,
+                  }}
                   dot={false}
                   isAnimationActive={false}
                 />
