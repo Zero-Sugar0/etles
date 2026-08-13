@@ -36,6 +36,12 @@ export function DataStreamHandler() {
       }
       if (delta.type === "data-kind") {
         activeKind = delta.data;
+        setArtifact((currentArtifact) => ({
+          ...currentArtifact,
+          kind: delta.data,
+          isVisible: true,
+          status: "streaming",
+        }));
       }
 
       const artifactDefinition = artifactDefinitions.find(
@@ -61,6 +67,7 @@ export function DataStreamHandler() {
             return {
               ...draftArtifact,
               documentId: delta.data,
+              isVisible: true,
               status: "streaming",
             };
 
@@ -75,7 +82,14 @@ export function DataStreamHandler() {
             return {
               ...draftArtifact,
               kind: delta.data,
+              isVisible: true,
               status: "streaming",
+              boundingBox: {
+                top: 80,
+                left: 80,
+                width: 720,
+                height: 560,
+              },
             };
 
           case "data-clear":
