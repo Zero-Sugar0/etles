@@ -3,6 +3,7 @@
 import { Composio } from "@composio/core";
 import { VercelProvider } from "@composio/vercel";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { Redis } from "@upstash/redis";
 import { generateText, stepCountIs } from "ai";
 import { type NextRequest, NextResponse } from "next/server";
 import { getBackgroundModel } from "@/lib/ai/providers";
@@ -16,12 +17,14 @@ import {
 } from "@/lib/ai/tools/memory";
 import * as twilioWhatsApp from "@/lib/ai/tools/twilio-whatsapp";
 import {
+  getBotIntegration,
   getChatsByUserId,
   saveMessages,
   updateAgentTask,
 } from "@/lib/db/queries";
 import { createAgentScheduleEvent, getAgentSchedule, updateAgentSchedule } from "@/lib/db/queries/agent-calendar";
 import { generateUUID } from "@/lib/utils";
+import { sendLongMessage } from "@/lib/telegram/api";
 
 const composioStatus = new Composio({ provider: new VercelProvider() });
 
@@ -55,7 +58,28 @@ async function handler(req: NextRequest) {
       console.warn(
         `[QStash] No active chat found for user ${userId}. Skipping reminder.`
       );
-      return NextResponse.json({ ok: false, error: "No active chat found" });
+      const telegram = await getBotIntegration({ userId, platform: "telegram" });
+      if (
+        telegram &&
+        process.env.UPSTASH_REDIS_REST_URL &&
+        process.env.UPSTASH_REDIS_REST_TOKEN
+      ) {
+        const redis = new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        });
+        const chatKeys = await redis.keys(`tg:chat:${userId}:*`);
+        await Promise.all(
+          chatKeys.map(async (key) => {
+            const telegramChatId = Number(key.split(":").at(-1));
+            if (!Number.isNaN(telegramChatId)) {
+              await sendLongMessage(telegram.botToken, telegramChatId, `Reminder: ${message}`);
+            }
+          })
+        );
+        return NextResponse.json({ ok: true, delivered: "telegram" });
+      }
+      return NextResponse.json({ ok: false, error: "No active chat or Telegram session found" });
     }
 
     const chatId = activeChat.id;
@@ -218,6 +242,34 @@ Be direct, professional, and efficient. Do not ask for user confirmation.`;
     }
 
     await saveMessages({ messages: messagesToSave });
+
+    // Background tools do not include Telegram sending. Deliver explicitly
+    // after the scheduled work succeeds so reminders reach the user's bot.
+    try {
+      const telegram = await getBotIntegration({ userId, platform: "telegram" });
+      if (
+        telegram &&
+        process.env.UPSTASH_REDIS_REST_URL &&
+        process.env.UPSTASH_REDIS_REST_TOKEN
+      ) {
+        const redis = new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        });
+        const chatKeys = await redis.keys(`tg:chat:${userId}:*`);
+        const notification = result.text?.trim() || `Reminder: ${message}`;
+        await Promise.all(
+          chatKeys.map(async (key) => {
+            const telegramChatId = Number(key.split(":").at(-1));
+            if (!Number.isNaN(telegramChatId)) {
+              await sendLongMessage(telegram.botToken, telegramChatId, notification);
+            }
+          })
+        );
+      }
+    } catch (deliveryError) {
+      console.error("[QStash] Reminder completed but Telegram delivery failed:", deliveryError);
+    }
 
     if (schedule) {
       await updateAgentSchedule(userId, taskId, { status: schedule.kind === "reminder" ? "completed" : "active", lastError: null });

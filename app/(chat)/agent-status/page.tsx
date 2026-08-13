@@ -10,6 +10,7 @@ import {
 import { redirect } from "next/navigation";
 import { auth } from "@/app/(auth)/auth";
 import { AgentStatusActions } from "@/components/agent-status-actions";
+import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -181,9 +182,9 @@ export default async function AgentStatusPage() {
             </CardHeader>
             <CardContent className="p-4 sm:p-6 max-h-[400px] sm:max-h-[600px] overflow-y-auto">
               {status.synthesis.lastBrief ? (
-                <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none whitespace-pre-wrap text-[11px] sm:text-sm leading-relaxed">
+                <RichArtifactMarkdown className="max-w-none text-[11px] leading-relaxed sm:text-sm prose-headings:font-semibold prose-headings:tracking-tight prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:my-3 prose-li:my-1 prose-table:min-w-[560px] prose-a:break-all">
                   {status.synthesis.lastBrief}
-                </div>
+                </RichArtifactMarkdown>
               ) : (
                 <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
                   <History className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground/20 mb-3 sm:mb-4" />
