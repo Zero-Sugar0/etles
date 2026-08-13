@@ -1,6 +1,7 @@
 "use client";
 
 import { CalendarDays, Download, GripVertical } from "lucide-react";
+import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
 
 export function PlannerArtifact({
@@ -59,6 +60,18 @@ export function PlannerArtifact({
             <Download className="size-4" /> Download
           </Button>
         </div>
+        {(() => {
+          try {
+            const parsed = JSON.parse(content) as { description?: string };
+            return parsed.description ? (
+              <RichArtifactMarkdown className="mt-6 max-w-2xl prose-p:text-[#65746f] prose-strong:text-[#173f3a]">
+                {parsed.description}
+              </RichArtifactMarkdown>
+            ) : null;
+          } catch {
+            return null;
+          }
+        })()}
         <div className="mt-8 grid gap-3">
           {events.map((event) => (
             <div

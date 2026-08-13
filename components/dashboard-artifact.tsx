@@ -2,6 +2,7 @@
 
 import { CalendarDays, Download, Filter, TrendingUp } from "lucide-react";
 import { useMemo, useState } from "react";
+import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
 
 const bars = [42, 68, 51, 82, 63, 91, 74, 96];
@@ -56,6 +57,11 @@ export function DashboardArtifact({
             </Button>
           </div>
         </div>
+        {data.description ? (
+          <RichArtifactMarkdown className="mt-6 max-w-3xl prose-p:text-[#65746f] prose-strong:text-[#173f3a]">
+            {data.description}
+          </RichArtifactMarkdown>
+        ) : null}
         <div className="mt-7 grid gap-4 md:grid-cols-3 lg:grid-cols-4">
           {kpis.map(
             (
