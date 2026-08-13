@@ -7,6 +7,7 @@ import {
   Mic2,
 } from "lucide-react";
 import { useMemo } from "react";
+import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
 
 const palette = {
@@ -86,9 +87,11 @@ export function PresentationArtifact({
                 <h2 className="max-w-xl font-serif text-3xl font-semibold leading-tight sm:text-4xl">
                   {slide.title || "Untitled slide"}
                 </h2>
-                <p className="mt-4 max-w-lg text-sm leading-6 opacity-80">
-                  {slide.body}
-                </p>
+                {slide.body ? (
+                  <RichArtifactMarkdown className="mt-4 max-w-lg text-sm opacity-80 prose-headings:text-current prose-p:my-2 prose-p:leading-6 prose-ul:my-2 prose-ol:my-2">
+                    {slide.body}
+                  </RichArtifactMarkdown>
+                ) : null}
                 {slide.bullets?.length ? (
                   <ul className="mt-4 grid gap-2 text-sm leading-5">
                     {slide.bullets.map((bullet) => (

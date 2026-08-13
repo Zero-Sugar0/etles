@@ -1,6 +1,7 @@
 "use client";
 
 import { Download, FileText, Printer } from "lucide-react";
+import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
 
 export function PdfArtifact({
@@ -32,36 +33,10 @@ export function PdfArtifact({
             </div>
           </div>
         </header>
-        <main className="prose prose-slate max-w-none px-8 py-10 prose-headings:font-serif prose-headings:text-[#123b3a] prose-p:leading-7 sm:px-12">
-          {content.split("\n").map((line) => {
-            if (line.startsWith("# ")) {
-              return <h1 key={line}>{line.slice(2)}</h1>;
-            }
-            if (line.startsWith("## ")) {
-              return <h2 key={line}>{line.slice(3)}</h2>;
-            }
-            if (!line.trim()) {
-              return <div className="h-3" key={line} />;
-            }
-            if (/^[-*] /.test(line)) {
-              return (
-                <li className="ml-5 list-disc" key={line}>
-                  {line.slice(2)}
-                </li>
-              );
-            }
-            if (line.startsWith("> ")) {
-              return (
-                <blockquote
-                  className="border-l-4 border-[#efb39f] bg-[#f8e3da] px-4 py-3 text-[#5d4036]"
-                  key={line}
-                >
-                  {line.slice(2)}
-                </blockquote>
-              );
-            }
-            return <p key={line}>{line}</p>;
-          })}
+        <main className="px-8 py-10 sm:px-12">
+          <RichArtifactMarkdown className="prose-headings:text-[#173f3a] prose-a:text-[#255e52] prose-blockquote:border-[#efb39f] prose-blockquote:bg-[#f8e3da] prose-th:bg-[#e3efe8]">
+            {content}
+          </RichArtifactMarkdown>
         </main>
         <footer className="flex items-center justify-between border-t border-[#c8d2ce] bg-[#f7f5ef] px-8 py-4 text-xs text-[#647572] sm:px-12">
           <span>Confidential working document</span>
