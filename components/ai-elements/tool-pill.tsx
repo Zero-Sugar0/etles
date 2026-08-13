@@ -658,6 +658,7 @@ export function ToolPill({
   isConsecutive,
 }: ToolPillProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoFailed, setLogoFailed] = useState(false);
   const [resolvedAppLabel, setAppLabel] = useState<string | null>(null);
 
   const parsedDetails = parseToolNameDetails(type);
@@ -669,6 +670,8 @@ export function ToolPill({
 
   useEffect(() => {
     let active = true;
+    setLogoFailed(false);
+    setLogoUrl(null);
     preloadToolkitLogos().then((toolkits: ToolkitInfo[]) => {
       if (!active) {
         return;
@@ -695,7 +698,7 @@ export function ToolPill({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors duration-200 select-none group w-fit max-w-full text-left text-xs cursor-pointer",
+        "inline-flex min-w-0 max-w-[calc(100vw-2rem)] items-center gap-1.5 rounded-full px-3 py-1.5 text-left text-xs transition-colors duration-200 select-none group w-fit cursor-pointer",
         {
           "hover:bg-muted/50":
             state !== "output-error" && state !== "approval-requested",
@@ -705,11 +708,11 @@ export function ToolPill({
         }
       )}
     >
-      {finalLogoSrc ? (
+      {finalLogoSrc && !logoFailed ? (
         <img
           alt={displayAppLabel}
           className="size-3.5 object-contain rounded-[3px] shrink-0"
-          onError={() => setLogoUrl("")}
+          onError={() => setLogoFailed(true)}
           src={finalLogoSrc}
         />
       ) : (
@@ -718,19 +721,19 @@ export function ToolPill({
           className="size-3.5 shrink-0 text-muted-foreground"
         />
       )}
-      <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate capitalize">
+      <span className="min-w-0 max-w-[7rem] truncate font-semibold text-zinc-800 capitalize dark:text-zinc-200 sm:max-w-[10rem]">
         {displayAppLabel}
       </span>
       <span className="text-zinc-400/60 dark:text-zinc-600/60 font-medium">
         ·
       </span>
-      <span className="text-[11px] text-zinc-600 dark:text-zinc-400 font-medium lowercase">
+      <span className="max-w-[8rem] truncate text-[11px] font-medium lowercase text-zinc-600 dark:text-zinc-400 sm:max-w-none">
         {friendlyAction}
       </span>
       <span className="text-zinc-400/60 dark:text-zinc-600/60 font-medium">
         ·
       </span>
-      <span className="text-zinc-500 dark:text-zinc-400 truncate max-w-[200px] md:max-w-[300px]">
+      <span className="min-w-0 max-w-[8rem] truncate text-zinc-500 dark:text-zinc-400 sm:max-w-[200px] md:max-w-[300px]">
         {summaryText}
       </span>
 

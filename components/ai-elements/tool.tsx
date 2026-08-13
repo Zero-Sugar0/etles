@@ -186,7 +186,7 @@ export const ToolHeader = ({
   return (
     <CollapsibleTrigger
       className={cn(
-        "group flex w-full items-center justify-between gap-3 px-4 py-3",
+        "group flex w-full min-w-0 items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-4",
         className
       )}
       {...props}
@@ -205,7 +205,7 @@ export const ToolHeader = ({
         ) : (
           <ZapIcon className="size-3.5 shrink-0 text-muted-foreground/70" />
         )}
-        <span className="truncate font-medium text-foreground/80 text-sm">
+        <span className="min-w-0 truncate font-medium text-foreground/80 text-sm">
           {title ?? formatToolName(type)}
         </span>
         {getStatusIndicator(state)}

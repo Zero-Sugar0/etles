@@ -36,6 +36,7 @@ const KNOWN_COMPOSIO_TOOLKIT_SLUGS = [
   "googleforms",
   "googlemeet",
   "googlesheets",
+  "googletasks",
   "hubspot",
   "instagram",
   "intercom",
@@ -86,6 +87,8 @@ export const TOOLKIT_SLUG_ALIASES: Record<string, string> = {
   google_docs: "googledocs",
   googlesheets: "googlesheets",
   google_sheets: "googlesheets",
+  googletasks: "googletasks",
+  google_tasks: "googletasks",
   googlemeet: "googlemeet",
   google_meet: "googlemeet",
   microsoftteams: "microsoftteams",
@@ -107,6 +110,7 @@ const LOCAL_LOGO_SLUG_ALIASES: Record<string, string> = {
   googleforms: "google-forms",
   googlemeet: "google-meet",
   googlesheets: "google-sheets",
+  googletasks: "google-task",
   microsoftteams: "teams",
 };
 

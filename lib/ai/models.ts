@@ -361,6 +361,14 @@ export const chatModels: ChatModel[] = [
     features: { reasoning: true, vision: false, tools: true },
     gatewayOrder: ["deepseek", "bedrock"],
   },
+  {
+    id: "deepseek/deepseek-v4-pro-0813",
+    name: "DeepSeek V4 Pro 0813",
+    provider: "deepseek",
+    description: "DeepSeek V4 Pro reasoning model with tool use; no vision input",
+    features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["deepseek", "bedrock"],
+  },
   // Perplexity
   {
     id: "perplexity/sonar",
@@ -515,8 +523,16 @@ export const chatModels: ChatModel[] = [
     id: "xai/grok-4.5",
     name: "Grok 4.5",
     provider: "xai",
-    description: "Latest Grok flagship model",
+    description: "Grok reasoning model with tool use and vision input",
     features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["xai"],
+  },
+  {
+    id: "xai/grok-4.6",
+    name: "Grok 4.6",
+    provider: "xai",
+    description: "Grok reasoning model with tool use; no vision input",
+    features: { reasoning: true, vision: false, tools: true },
     gatewayOrder: ["xai"],
   },
   {
@@ -560,6 +576,22 @@ export const chatModels: ChatModel[] = [
     description: "High-capability Qwen 3.7 model with strong reasoning",
     features: { reasoning: true, vision: true, tools: true },
     gatewayOrder: ["alibaba"],
+  },
+  {
+    id: "alibaba/qwen3.7-flash",
+    name: "Qwen 3.7 Flash",
+    provider: "alibaba",
+    description: "Fast Qwen reasoning model with tool use and vision input",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["alibaba"],
+  },
+  {
+    id: "moonshotai/kimi-k3",
+    name: "Kimi K3",
+    provider: "moonshotai",
+    description: "Kimi reasoning model with tool use and vision input",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["fireworks", "bedrock"],
   },
   {
     id: "alibaba/qwen3.8-max",
