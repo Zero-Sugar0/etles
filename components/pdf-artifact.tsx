@@ -1,6 +1,14 @@
 "use client";
 
-import { Download, FileText, Printer } from "lucide-react";
+import { Download, FileText, Palette, Printer } from "lucide-react";
+import { useState } from "react";
+import {
+  downloadPdfFromMarkdown,
+  type PdfTheme,
+  pdfThemeColors,
+  pdfThemeLabels,
+  pdfThemes,
+} from "@/components/pdf-export";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
 
@@ -13,10 +21,16 @@ export function PdfArtifact({
   title?: string;
   onDownload?: () => void;
 }) {
+  const [theme, setTheme] = useState<PdfTheme>("forest");
+  const palette = pdfThemeColors[theme];
+
   return (
     <div className="min-h-full bg-[#dedbd2] p-5 sm:p-10 print:bg-white print:p-0">
       <div className="mx-auto max-w-3xl overflow-hidden rounded-sm border border-black/10 bg-[#fffdf8] shadow-[0_24px_70px_rgba(35,44,40,0.18)] print:shadow-none">
-        <header className="relative overflow-hidden bg-[#173f3a] px-8 py-10 text-white sm:px-12">
+        <header
+          className="relative overflow-hidden px-8 py-10 text-white sm:px-12"
+          style={{ backgroundColor: `#${palette.ink}` }}
+        >
           <div className="absolute -right-10 -top-16 size-48 rounded-full border-[22px] border-[#efb39f]/40" />
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -28,6 +42,25 @@ export function PdfArtifact({
               </h1>
             </div>
             <div className="text-right text-xs text-[#dce8e2]">
+              <div className="mb-3 flex items-center justify-end gap-2">
+                <Palette className="size-3" />
+                <select
+                  aria-label="PDF color theme"
+                  className="rounded border border-white/30 bg-transparent px-2 py-1 text-xs"
+                  onChange={(event) => setTheme(event.target.value as PdfTheme)}
+                  value={theme}
+                >
+                  {pdfThemes.map((option) => (
+                    <option
+                      className="text-[#173f3a]"
+                      key={option}
+                      value={option}
+                    >
+                      {pdfThemeLabels[option]}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>Prepared for review</div>
               <div className="mt-1">{new Date().toLocaleDateString()}</div>
             </div>
@@ -51,7 +84,15 @@ export function PdfArtifact({
             </Button>
             <Button
               className="gap-2 bg-[#123b3a] text-white"
-              onClick={onDownload}
+              onClick={() => {
+                if (onDownload) {
+                  onDownload();
+                } else {
+                  downloadPdfFromMarkdown(content, title, theme).catch(
+                    () => undefined
+                  );
+                }
+              }}
               size="sm"
             >
               <Download className="size-3" /> Download PDF
