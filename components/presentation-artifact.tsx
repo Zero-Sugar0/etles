@@ -39,15 +39,30 @@ export function PresentationArtifact({
   onDownload?: () => void;
 }) {
   const slides = useMemo<Slide[]>(() => {
+    const cleanContent = content
+      .replace(/^```(?:json|markdown)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
     try {
-      const parsed = JSON.parse(content);
-      return parsed.slides ?? [parsed];
+      const parsed = JSON.parse(cleanContent) as { slides?: Slide[] } | Slide[];
+      const slideList: Slide[] = Array.isArray(parsed)
+        ? parsed
+        : (parsed.slides ?? [parsed as Slide]);
+      return slideList.map((slide, index) => ({
+        ...slide,
+        title: slide.title || `Slide ${index + 1}`,
+        body: Array.isArray(slide.body)
+          ? slide.body.join("\n")
+          : slide.body || "",
+      }));
     } catch {
-      return content.split(/\n(?=#|SLIDE)/).map((body) => ({
-        title: body
-          .split("\n")[0]
-          ?.replace(/^#+|SLIDE:?/g, "")
-          .trim(),
+      return cleanContent.split(/\n(?=#|SLIDE)/).map((body, index) => ({
+        title:
+          body
+            .split("\n")[0]
+            ?.replace(/^#+|SLIDE:?/g, "")
+            .trim() || `Slide ${index + 1}`,
         body,
       }));
     }
