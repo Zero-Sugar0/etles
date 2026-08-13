@@ -15,10 +15,14 @@ import type { Document } from "@/lib/db/schema";
 import { cn, fetcher } from "@/lib/utils";
 import type { ArtifactKind, UIArtifact } from "./artifact";
 import { CodeEditor } from "./code-editor";
+import { DashboardArtifact } from "./dashboard-artifact";
 import { DocumentToolCall, DocumentToolResult } from "./document";
 import { InlineDocumentSkeleton } from "./document-skeleton";
 import { FileIcon, FullscreenIcon, ImageIcon, LoaderIcon } from "./icons";
 import { ImageEditor } from "./image-editor";
+import { PdfArtifact } from "./pdf-artifact";
+import { PlannerArtifact } from "./planner-artifact";
+import { PresentationArtifact } from "./presentation-artifact";
 import { SpreadsheetEditor } from "./sheet-editor";
 import { Editor } from "./text-editor";
 
@@ -289,6 +293,14 @@ const DocumentContent = ({ document }: { document: Document }) => {
           status={artifact.status}
           title={document.title}
         />
+      ) : document.kind === "dashboard" ? (
+        <DashboardArtifact content={document.content ?? ""} />
+      ) : document.kind === "planner" ? (
+        <PlannerArtifact content={document.content ?? ""} />
+      ) : document.kind === "presentation" ? (
+        <PresentationArtifact content={document.content ?? ""} />
+      ) : document.kind === "pdf" ? (
+        <PdfArtifact content={document.content ?? ""} title={document.title} />
       ) : null}
     </div>
   );
