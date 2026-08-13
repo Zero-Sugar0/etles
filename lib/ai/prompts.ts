@@ -253,23 +253,16 @@ Always return a JSON object with:
         - \`color\`: Text color string.
         - \`bold\`: boolean
         - \`textAlign\`: "left" | "center" | "right"
-- \`theme\`: Choose one visual theme for the workbook: \`editorial\`, \`ocean\`, \`forest\`, \`sunset\`, \`lavender\`, or \`midnight\`.
+- \`theme\`: Use \`system\` by default so the workbook follows the app's light/dark theme. Choose \`editorial\`, \`ocean\`, \`forest\`, \`sunset\`, \`lavender\`, or \`midnight\` only when the user requests a distinctive palette.
 
 ### 2. Design & Styling Excellence (CRITICAL)
 A workbook without styling is UNACCEPTABLE. You must choose colors that best represent the data context.
 
-**Accessible editorial palette:**
-- **Midnight green (headers)**: Bg: \`#123b3a\`, Text: \`#ffffff\`
-- **Warm beige (canvas)**: Bg: \`#f7f5ef\`, Text: \`#183231\`
-- **Soft peach (attention)**: Bg: \`#f8e5dc\`, Text: \`#6b3427\`
-- **White-grey (cards/neutral)**: Bg: \`#ebe7dd\`, Text: \`#31504d\`
-- **Positive mint**: Bg: \`#e6efe9\`, Text: \`#1d5952\`
-
 **MANDATORY Styling Rules:**
-- **Headers**: Row 1 MUST always be styled with a strong theme-appropriate background and bold text.
-- **Dynamic Highlights**: Use colors based on the *meaning* of the data. 
-- **Readability**: Always ensure high contrast.
-- **Color variety**: Use the selected theme consistently, with a restrained accent color for totals, warnings, and positive statuses.
+- **Headers**: Row 1 MUST be styled with a strong theme-aware background and bold, high-contrast text.
+- **Dynamic Highlights**: Use restrained accents based on the meaning of the data, and never reduce text contrast.
+- **Readability**: Keep text legible in both light and dark application themes.
+- **Color variety**: Use the selected palette consistently; do not force midnight green, beige, or any other fixed brand palette when the theme is `system`.
 - **Workbook Completeness**: Use multiple sheets and descriptive titles.
 
 ## Example of requested output:
@@ -305,7 +298,7 @@ Write with an editorial voice that is precise, calm, and useful to a decision-ma
 `;
 
 export const presentationPrompt =
-  "Create an editable, real-world slide deck with a clear narrative, varied layouts, rich Markdown-compatible slide body text, tables, native chart specs, image URLs or image direction, and speaker notes. If visuals include public URLs returned by the generateImage tool, place the matching URL in the relevant slide's imageUrl field. Return ONLY valid JSON: {slides:[{title,body,bullets,layout,notes,visual,imageUrl?,chart?,table?}]}. A chart must use {chartType,title,description,labels,series:[{name,data,color?}],valueFormatter?}; supported chartType values are line, bar, area, pie, radar, scatter, composed, funnel, radial. Use midnight green, beige, peach, white-grey, and mint with strong contrast.";
+  "Create an editable, real-world slide deck with a clear narrative, varied layouts, rich Markdown-compatible slide body text, tables, native chart specs, image URLs or image direction, and speaker notes. If visuals include public URLs returned by the generateImage tool, place the matching URL in the relevant slide's imageUrl field. Return ONLY valid JSON: {slides:[{title,body,bullets,layout,notes,visual,imageUrl?,chart?,table?}]}. A chart must use {chartType,title,description,labels,series:[{name,data,color?}],valueFormatter?}; supported chartType values are line, bar, area, pie, radar, scatter, composed, funnel, radial. Use the application's semantic theme and ensure strong contrast in both light and dark modes.";
 export const pdfPrompt =
   "Create a polished print-ready proposal, invoice, contract, brief, or report in Markdown. Use editorial hierarchy, tables where useful, accurate figures, and professional language.";
 export const dashboardPrompt =

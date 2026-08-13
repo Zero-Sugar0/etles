@@ -71,8 +71,8 @@ function PureArtifactActions({
                 <TooltipTrigger asChild>
                   <DropdownMenuTrigger asChild>
                     <Button
-                      className={cn("h-fit dark:hover:bg-zinc-700", {
-                        "p-2": !action.label,
+                      className={cn("h-fit dark:hover:bg-zinc-700 [&_svg]:size-3.5", {
+                        "p-1.5": !action.label,
                         "px-2 py-1.5": action.label,
                         "bg-accent text-accent-foreground": isActive,
                       })}
@@ -113,8 +113,8 @@ function PureArtifactActions({
           <Tooltip key={action.description}>
             <TooltipTrigger asChild>
               <Button
-                className={cn("h-fit dark:hover:bg-zinc-700", {
-                  "p-2": !action.label,
+                className={cn("h-fit dark:hover:bg-zinc-700 [&_svg]:size-3.5", {
+                  "p-1.5": !action.label,
                   "px-2 py-1.5": action.label,
                   "bg-accent text-accent-foreground": isActive,
                 })}

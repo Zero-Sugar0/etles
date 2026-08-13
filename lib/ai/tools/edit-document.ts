@@ -12,7 +12,7 @@ type EditDocumentProps = {
 export const editDocument = ({ session, dataStream }: EditDocumentProps) =>
   tool({
     description:
-      "Make a targeted edit to an existing artifact by finding and replacing an exact string. Preferred over updateDocument for small changes. The old_string must match exactly.",
+      "Make a targeted edit to an owned artifact by finding and replacing an exact string. Works with text, reports, planners, dashboards, sheets, PDFs, presentations, code, and images. Preferred over updateDocument for small changes. The old_string must match exactly.",
     inputSchema: z.object({
       id: z.string().describe("The ID of the artifact to edit"),
       old_string: z
@@ -65,25 +65,26 @@ export const editDocument = ({ session, dataStream }: EditDocumentProps) =>
         transient: true,
       });
 
-      if (document.kind === "code") {
-        dataStream.write({
-          type: "data-codeDelta",
-          data: updated,
-          transient: true,
-        });
-      } else if (document.kind === "sheet") {
-        dataStream.write({
-          type: "data-sheetDelta",
-          data: updated,
-          transient: true,
-        });
-      } else {
-        dataStream.write({
-          type: "data-textDelta",
-          data: updated,
-          transient: true,
-        });
-      }
+      const deltaTypeByKind = {
+        code: "data-codeDelta",
+        dashboard: "data-dashboardDelta",
+        image: "data-imageDelta",
+        pdf: "data-pdfDelta",
+        planner: "data-plannerDelta",
+        presentation: "data-presentationDelta",
+        report: "data-reportDelta",
+        sheet: "data-sheetDelta",
+        text: "data-textDelta",
+      } as const;
+      const deltaType =
+        deltaTypeByKind[document.kind as keyof typeof deltaTypeByKind] ??
+        "data-textDelta";
+
+      dataStream.write({
+        type: deltaType,
+        data: updated,
+        transient: true,
+      });
 
       dataStream.write({ type: "data-finish", data: null, transient: true });
 

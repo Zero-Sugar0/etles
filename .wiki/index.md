@@ -27,6 +27,7 @@
 | **growth-tactics** | Acquisition channels, referral mechanics, community building, launch playbooks |
 | **instructions** | Full operating instructions: capability map, tool reference, operating principles |
 | **skill-or-wiki-creator** | How Etles creates, improves, and maintains its own wiki pages and skills |
+| **document** | How Etles creates and renders text, reports, planners, dashboards, presentations, PDFs, and spreadsheets |
 
 ## Update Rules
 

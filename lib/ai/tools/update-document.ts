@@ -17,7 +17,8 @@ export const updateDocument = ({
   modelId,
 }: UpdateDocumentProps) =>
   tool({
-    description: "Update a document with the given description.",
+    description:
+      "Update an existing owned artifact using its document ID. Use this for substantive changes to text, reports, planners, dashboards, sheets, PDFs, and presentations; use editDocument for an exact small replacement.",
     inputSchema: z.object({
       id: z.string().describe("The ID of the document to update"),
       description: z
@@ -30,6 +31,12 @@ export const updateDocument = ({
       if (!document) {
         return {
           error: "Document not found",
+        };
+      }
+
+      if (document.userId !== session.user?.id) {
+        return {
+          error: "Forbidden",
         };
       }
 

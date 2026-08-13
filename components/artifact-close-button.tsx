@@ -8,7 +8,7 @@ function PureArtifactCloseButton() {
 
   return (
     <Button
-      className="h-fit p-2 dark:hover:bg-zinc-700"
+      className="h-fit p-1.5 dark:hover:bg-zinc-700"
       data-testid="artifact-close-button"
       onClick={() => {
         setArtifact((currentArtifact) => ({
@@ -19,7 +19,7 @@ function PureArtifactCloseButton() {
       }}
       variant="outline"
     >
-      <CrossIcon size={18} />
+      <CrossIcon size={16} />
     </Button>
   );
 }

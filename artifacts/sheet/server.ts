@@ -17,6 +17,7 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
         title: z.string().describe("The main title of the spreadsheet"),
         theme: z
           .enum([
+            "system",
             "editorial",
             "ocean",
             "forest",
@@ -76,6 +77,7 @@ export const sheetDocumentHandler = createDocumentHandler<"sheet">({
         title: z.string().describe("The main title of the spreadsheet"),
         theme: z
           .enum([
+            "system",
             "editorial",
             "ocean",
             "forest",

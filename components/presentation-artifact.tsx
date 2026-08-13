@@ -10,19 +10,10 @@ import { useMemo } from "react";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
 import { ChartDisplay } from "@/components/elements/chart-display";
+import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
 import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 
-const palette = {
-  midnight: "#173f3a",
-  forest: "#255e52",
-  beige: "#f6f2e9",
-  paper: "#fffdf8",
-  peach: "#efb39f",
-  mint: "#b9d8c8",
-  gold: "#d6ad61",
-  ink: "#19312e",
-  muted: "#65746f",
-};
+const palette = { mode: "theme tokens" };
 
 type Slide = {
   title?: string;
@@ -43,6 +34,7 @@ export function PresentationArtifact({
 }: {
   content: string;
   onDownload?: () => void;
+  onSaveContent?: (content: string, debounce: boolean) => void;
 }) {
   const slides = useMemo<Slide[]>(() => {
     const cleanContent = content
@@ -74,27 +66,29 @@ export function PresentationArtifact({
     }
   }, [content]);
   return (
-    <div className="min-h-full bg-[#f0ece3] p-4 text-[#19312e] sm:p-8">
-      <div className="mx-auto flex max-w-6xl items-center justify-between pb-5">
+    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent}>
+    <div className="min-h-full bg-background p-4 text-foreground sm:p-8">
+      <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#647572]">
-            <LayoutTemplate className="size-4" /> Presentation studio
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            <LayoutTemplate className="size-3.5" /> Presentation studio
           </p>
-          <h1 className="mt-1 font-serif text-2xl font-semibold">
+          <h1 className="mt-1 font-serif text-xl font-semibold sm:text-2xl">
             A deck with a point of view
           </h1>
         </div>
         <Button
-          className="gap-2 bg-[#123b3a] text-white hover:bg-[#1a5049]"
+          className="gap-1.5"
           onClick={onDownload}
+          size="sm"
         >
-          <Download className="size-4" /> Download .pptx
+          <Download className="size-3.5" /> Download .pptx
         </Button>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         {slides.map((slide, index) => (
           <article
-            className={`group relative min-h-[340px] overflow-hidden rounded-[1.35rem] border border-black/10 p-7 shadow-[0_16px_40px_rgba(25,49,46,0.12)] transition-transform hover:-translate-y-1 ${index % 4 === 0 ? "bg-[#173f3a] text-white" : index % 4 === 1 ? "bg-[#fffdf8]" : index % 4 === 2 ? "bg-[#efb39f]" : "bg-[#b9d8c8]"}`}
+            className="group relative min-h-[300px] overflow-hidden rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm transition-transform hover:-translate-y-1 sm:min-h-[340px] sm:p-7"
             key={slide.title || `slide-${index}`}
           >
             <div className="flex h-full flex-col justify-between">
@@ -124,9 +118,9 @@ export function PresentationArtifact({
                   </ul>
                 ) : null}
                 {slide.table?.headers?.length ? (
-                  <div className="mt-5 overflow-x-auto rounded-lg border border-current/15 bg-black/5">
+                  <div className="mt-5 overflow-x-auto rounded-lg border border-current/15 bg-foreground/5">
                     <table className="w-full min-w-[420px] text-left text-xs">
-                      <thead className="border-b border-current/15 bg-black/5">
+                      <thead className="border-b border-current/15 bg-foreground/5">
                         <tr>
                           {slide.table.headers.map((header) => (
                             <th className="px-3 py-2 font-semibold" key={header}>{header}</th>
@@ -146,7 +140,7 @@ export function PresentationArtifact({
                   </div>
                 ) : null}
                 {slide.chart ? (
-                  <div className="mt-5 rounded-xl bg-white/75 p-2 text-[#19312e]">
+                  <div className="mt-5 rounded-xl border border-border/60 bg-background/80 p-2 text-foreground">
                     <ChartDisplay spec={slide.chart} />
                   </div>
                 ) : null}
@@ -160,11 +154,11 @@ export function PresentationArtifact({
               </div>
               <div className="flex items-end justify-between gap-4">
                 <div className="flex items-center gap-2 text-xs opacity-70">
-                  <Mic2 className="size-4" /> Speaker notes included
+                  <Mic2 className="size-3.5" /> Speaker notes included
                 </div>
                 {slide.visual ? (
-                  <div className="flex items-center gap-2 rounded-full bg-black/10 px-3 py-2 text-xs">
-                    <ImageIcon className="size-4" /> {slide.visual}
+                    <div className="flex items-center gap-2 rounded-full bg-foreground/10 px-3 py-2 text-xs">
+                    <ImageIcon className="size-3.5" /> {slide.visual}
                   </div>
                 ) : (
                   <div className="flex h-14 w-32 items-end gap-1 rounded-xl border border-current/15 bg-current/10 p-2">
@@ -183,6 +177,7 @@ export function PresentationArtifact({
         ))}
       </div>
     </div>
+    </ArtifactSourceEditor>
   );
 }
 

@@ -8,6 +8,7 @@ export interface SheetStyle {
 }
 
 export type SheetTheme =
+  | "system"
   | "editorial"
   | "ocean"
   | "forest"

@@ -30,25 +30,25 @@ export const reportArtifact = new Artifact<"report", Record<string, never>>({
     }
   },
   content: ({ content, status }) => (
-    <article className="min-h-full bg-[#f7f5ef] px-5 py-8 text-[#183231] sm:px-10 md:px-16 md:py-12">
+    <article className="min-h-full bg-background px-5 py-8 text-foreground sm:px-10 md:px-16 md:py-12">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-8 flex items-center justify-between gap-4 border-b border-[#c8d2ce] pb-4">
+        <div className="mb-8 flex items-center justify-between gap-4 border-b border-border pb-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#1d5952]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
               Research brief
             </p>
-            <p className="mt-1 text-xs text-[#647572]">
+            <p className="mt-1 text-xs text-muted-foreground">
               {status === "streaming"
                 ? "Writing with source-aware structure"
                 : "Prepared by your agent"}
             </p>
           </div>
-          <span className="rounded-full bg-[#123b3a] px-3 py-1 text-[11px] font-medium text-white">
+          <span className="rounded-full bg-primary px-3 py-1 text-[11px] font-medium text-primary-foreground">
             Report
           </span>
         </div>
         <Streamdown
-          className="report-markdown text-[#31504d] [&_a]:font-medium [&_a]:text-[#1d5952] [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-[#e7ebe5] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.9em] [&_h1]:font-serif [&_h1]:text-3xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h1]:text-[#123b3a] [&_h2]:mt-8 [&_h2]:border-b [&_h2]:border-[#c8d2ce] [&_h2]:pb-2 [&_h2]:font-serif [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-[#123b3a] [&_h3]:mt-5 [&_h3]:font-semibold [&_h3]:text-[#1d5952] [&_li]:leading-7 [&_ol]:my-4 [&_ol]:pl-6 [&_p]:leading-7 [&_strong]:font-semibold [&_table]:text-[#31504d] [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6"
+          className="report-markdown text-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.9em] [&_h1]:font-serif [&_h1]:text-3xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:mt-8 [&_h2]:border-b [&_h2]:border-border [&_h2]:pb-2 [&_h2]:font-serif [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-5 [&_h3]:font-semibold [&_h3]:text-primary [&_li]:leading-7 [&_ol]:my-4 [&_ol]:pl-6 [&_p]:leading-7 [&_strong]:font-semibold [&_table]:text-foreground [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6"
           components={markdownComponents as any}
         >
           {content}

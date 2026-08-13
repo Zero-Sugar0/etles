@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
 import { ChartDisplay } from "@/components/elements/chart-display";
+import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
 import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 
 const bars = [42, 68, 51, 82, 63, 91, 74, 96];
@@ -14,6 +15,7 @@ export function DashboardArtifact({
 }: {
   content: string;
   onDownload?: () => void;
+  onSaveContent?: (content: string, debounce: boolean) => void;
 }) {
   const [range, setRange] = useState("Last 30 days");
   const data = useMemo(() => {
@@ -30,20 +32,21 @@ export function DashboardArtifact({
   ];
   const charts = (data.charts ?? data.series ?? []) as ChartToolPayload[];
   return (
-    <div className="min-h-full bg-[#f0ece3] p-5 text-[#19312e] sm:p-8">
+    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent}>
+    <div className="min-h-full bg-background p-5 text-foreground sm:p-8">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#647572]">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Business intelligence
             </p>
-            <h1 className="mt-2 font-serif text-3xl font-semibold">
+            <h1 className="mt-2 font-serif text-2xl font-semibold sm:text-3xl">
               Performance, without the noise
             </h1>
           </div>
           <div className="flex gap-2">
             <select
-              className="rounded-lg border border-[#c8d2ce] bg-white px-3 py-2 text-sm"
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm"
               onChange={(e) => setRange(e.target.value)}
               value={range}
             >
@@ -52,7 +55,7 @@ export function DashboardArtifact({
               <option>Year to date</option>
             </select>
             <Button
-              className="gap-2 border-[#c8d2ce]"
+              className="gap-2"
               onClick={onDownload}
               variant="outline"
             >
@@ -61,7 +64,7 @@ export function DashboardArtifact({
           </div>
         </div>
         {data.description ? (
-          <RichArtifactMarkdown className="mt-6 max-w-3xl prose-p:text-[#65746f] prose-strong:text-[#173f3a]">
+          <RichArtifactMarkdown className="mt-6 max-w-3xl prose-p:text-muted-foreground prose-strong:text-foreground">
             {data.description}
           </RichArtifactMarkdown>
         ) : null}
@@ -77,15 +80,15 @@ export function DashboardArtifact({
               index: number
             ) => (
               <div
-                className={`rounded-2xl border border-black/10 p-5 shadow-sm ${index % 3 === 0 ? "bg-[#fffdf8]" : index % 3 === 1 ? "bg-[#e3efe8]" : "bg-[#f8e3da]"}`}
+                className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm"
                 key={kpi.label}
               >
-                <div className="flex justify-between text-xs uppercase tracking-wider text-[#647572]">
+                <div className="flex justify-between text-xs uppercase tracking-wider text-muted-foreground">
                   <span>{kpi.label}</span>
-                  <TrendingUp className="size-4 text-[#1d5952]" />
+                  <TrendingUp className="size-4 text-primary" />
                 </div>
                 <div className="mt-3 text-3xl font-semibold">{kpi.value}</div>
-                <div className="mt-2 text-sm font-medium text-[#1d5952]">
+                <div className="mt-2 text-sm font-medium text-primary">
                   {kpi.change} vs previous period
                 </div>
               </div>
@@ -93,15 +96,15 @@ export function DashboardArtifact({
           )}
         </div>
         <div className="mt-6 grid gap-6 lg:grid-cols-[1.4fr_0.8fr]">
-          <section className="rounded-2xl border border-[#c8d2ce] bg-[#123b3a] p-6 text-white">
+          <section className="rounded-lg border border-border bg-card p-6 text-card-foreground">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-serif text-xl">Momentum curve</h2>
-                <p className="mt-1 text-sm text-[#dce8e2]">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Weekly signal across the selected range
                 </p>
               </div>
-              <CalendarDays className="size-5 text-[#f2c8b7]" />
+              <CalendarDays className="size-5 text-primary" />
             </div>
             <div className="mt-10 flex h-48 items-end gap-3">
               {bars.map((height, index) => (
@@ -110,30 +113,30 @@ export function DashboardArtifact({
                   key={`bar-${height}`}
                 >
                   <div
-                    className="rounded-t-md bg-[#f2c8b7]"
+                    className="rounded-t-md bg-primary"
                     style={{ height: `${height}%` }}
                   />
-                  <span className="text-center text-[10px] text-[#dce8e2]">
+                  <span className="text-center text-[10px] text-muted-foreground">
                     W{index + 1}
                   </span>
                 </div>
               ))}
             </div>
           </section>
-          <section className="rounded-2xl border border-[#c8d2ce] bg-[#ebe7dd] p-6">
+          <section className="rounded-lg border border-border bg-muted/30 p-6">
             <div className="flex items-center justify-between">
               <h2 className="font-serif text-xl">Filters & views</h2>
-              <Filter className="size-5 text-[#647572]" />
+              <Filter className="size-5 text-muted-foreground" />
             </div>
             <div className="mt-5 grid gap-3">
               {["All regions", "All channels", "All owners"].map((label) => (
                 <button
-                  className="flex items-center justify-between rounded-xl bg-[#f7f5ef] px-4 py-3 text-left text-sm"
+                  className="flex items-center justify-between rounded-md border border-border bg-background px-4 py-3 text-left text-sm"
                   key={label}
                   type="button"
                 >
                   {label}
-                  <span className="text-[#647572]">⌄</span>
+                  <span className="text-muted-foreground">⌄</span>
                 </button>
               ))}
             </div>
@@ -142,20 +145,20 @@ export function DashboardArtifact({
         {charts.length > 0 ? (
           <section className="mt-6 grid gap-6 lg:grid-cols-2">
             {charts.map((chart, index) => (
-              <div className="rounded-2xl border border-[#c8d2ce] bg-[#fffdf8] p-4" key={chart.title || `chart-${index}`}>
+              <div className="rounded-lg border border-border bg-card p-4" key={chart.title || `chart-${index}`}>
                 <ChartDisplay spec={chart} />
               </div>
             ))}
           </section>
         ) : null}
         {data.rows?.length ? (
-          <section className="mt-6 overflow-hidden rounded-2xl border border-black/10 bg-[#fffdf8]">
-            <div className="border-b border-black/10 px-5 py-4">
+          <section className="mt-6 overflow-hidden rounded-lg border border-border bg-card">
+            <div className="border-b border-border px-5 py-4">
               <h2 className="font-serif text-xl">Detail view</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-[#e3efe8] text-xs uppercase tracking-wider text-[#65746f]">
+                <thead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
                   <tr>
                     {Object.keys(data.rows[0]).map((key: string) => (
                       <th className="px-5 py-3" key={key}>
@@ -167,7 +170,7 @@ export function DashboardArtifact({
                 <tbody>
                   {data.rows.slice(0, 8).map((row: Record<string, string>) => (
                     <tr
-                      className="border-t border-black/5"
+                      className="border-t border-border/50"
                       key={JSON.stringify(row)}
                     >
                       {Object.entries(row).map(([key, value]) => (
@@ -187,5 +190,6 @@ export function DashboardArtifact({
         ) : null}
       </div>
     </div>
+    </ArtifactSourceEditor>
   );
 }

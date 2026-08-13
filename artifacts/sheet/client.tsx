@@ -10,6 +10,7 @@ import {
   SparklesIcon,
   UndoIcon,
 } from "@/components/icons";
+import { DocumentSkeleton } from "@/components/document-skeleton";
 import { SpreadsheetEditor } from "@/components/sheet-editor";
 import { isSheetData, type SheetData } from "@/lib/ai/tools/sheet-types";
 
@@ -52,7 +53,8 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
       }));
     }
   },
-  content: ({ content, currentVersionIndex, onSaveContent, status }) => {
+  content: ({ content, currentVersionIndex, onSaveContent, status, isLoading }) => {
+    if (isLoading) return <DocumentSkeleton artifactKind="sheet" />;
     return (
       <SpreadsheetEditor
         content={content}

@@ -102,7 +102,6 @@ function PureArtifact({
   const {
     data: documents,
     isLoading: isDocumentsFetching,
-    mutate: mutateDocuments,
   } = useSWR<Document[]>(
     artifact.documentId !== "init" && artifact.status !== "streaming"
       ? `/api/document?id=${artifact.documentId}`
@@ -121,19 +120,27 @@ function PureArtifact({
       const mostRecentDocument = documents.at(-1);
 
       if (mostRecentDocument) {
-        setDocument(mostRecentDocument);
-        setCurrentVersionIndex(documents.length - 1);
-        setArtifact((currentArtifact) => ({
-          ...currentArtifact,
-          content: mostRecentDocument.content ?? "",
-        }));
+        setDocument((currentDocument) =>
+          currentDocument != null &&
+          currentDocument.id === mostRecentDocument.id &&
+          currentDocument.content === mostRecentDocument.content
+            ? currentDocument
+            : mostRecentDocument
+        );
+        setCurrentVersionIndex((currentIndex) =>
+          currentIndex === documents.length - 1
+            ? currentIndex
+            : documents.length - 1
+        );
+        setArtifact((currentArtifact) => {
+          const nextContent = mostRecentDocument.content ?? "";
+          return currentArtifact.content === nextContent
+            ? currentArtifact
+            : { ...currentArtifact, content: nextContent };
+        });
       }
     }
   }, [documents, setArtifact]);
-
-  useEffect(() => {
-    mutateDocuments();
-  }, [mutateDocuments]);
 
   const { mutate } = useSWRConfig();
   const [isContentDirty, setIsContentDirty] = useState(false);
@@ -310,7 +317,7 @@ function PureArtifact({
                   damping: 30,
                 },
               }}
-              className="relative h-dvh w-[400px] shrink-0 bg-muted dark:bg-background"
+              className="relative h-dvh w-[380px] shrink-0 bg-muted dark:bg-background"
               exit={{
                 opacity: 0,
                 x: 0,
@@ -323,7 +330,7 @@ function PureArtifact({
                 {!isCurrentVersion && (
                   <motion.div
                     animate={{ opacity: 1 }}
-                    className="absolute top-0 left-0 z-50 h-dvh w-[400px] bg-zinc-900/50"
+                    className="absolute top-0 left-0 z-50 h-dvh w-[380px] bg-zinc-900/50"
                     exit={{ opacity: 0 }}
                     initial={{ opacity: 0 }}
                   />

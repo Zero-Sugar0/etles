@@ -5,11 +5,11 @@ import { useState } from "react";
 import {
   downloadPdfFromMarkdown,
   type PdfTheme,
-  pdfThemeColors,
   pdfThemeLabels,
   pdfThemes,
 } from "@/components/pdf-export";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
+import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
 import { Button } from "@/components/ui/button";
 
 export function PdfArtifact({
@@ -20,29 +20,29 @@ export function PdfArtifact({
   content: string;
   title?: string;
   onDownload?: () => void;
+  onSaveContent?: (content: string, debounce: boolean) => void;
 }) {
   const [theme, setTheme] = useState<PdfTheme>("forest");
-  const palette = pdfThemeColors[theme];
 
   return (
-    <div className="min-h-full bg-[#dedbd2] p-5 sm:p-10 print:bg-white print:p-0">
-      <div className="mx-auto max-w-3xl overflow-hidden rounded-sm border border-black/10 bg-[#fffdf8] shadow-[0_24px_70px_rgba(35,44,40,0.18)] print:shadow-none">
+    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent}>
+    <div className="min-h-full bg-background p-4 text-foreground sm:p-6 lg:p-10 print:bg-white print:p-0">
+      <div className="mx-auto max-w-3xl overflow-hidden rounded-lg border border-border bg-card shadow-sm print:shadow-none">
         <header
-          className="relative overflow-hidden px-8 py-10 text-white sm:px-12"
-          style={{ backgroundColor: `#${palette.ink}` }}
+          className="relative overflow-hidden bg-primary px-5 py-6 text-primary-foreground sm:px-8 sm:py-10 lg:px-12"
         >
-          <div className="absolute -right-10 -top-16 size-48 rounded-full border-[22px] border-[#efb39f]/40" />
-          <div className="flex items-start justify-between gap-4">
+          <div className="absolute -right-10 -top-16 size-48 rounded-full border-[22px] border-primary/20" />
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#dce8e2]">
-                <FileText className="size-4" /> Etles document studio
+              <p className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-primary-foreground/70">
+                <FileText className="size-3.5" /> Etles document studio
               </p>
-              <h1 className="mt-5 font-serif text-3xl font-semibold">
+              <h1 className="mt-4 font-serif text-2xl font-semibold sm:text-3xl">
                 {title}
               </h1>
             </div>
-            <div className="text-right text-xs text-[#dce8e2]">
-              <div className="mb-3 flex items-center justify-end gap-2">
+            <div className="text-left text-xs text-primary-foreground/70 sm:text-right">
+              <div className="mb-3 flex items-center gap-2 sm:justify-end">
                 <Palette className="size-3" />
                 <select
                   aria-label="PDF color theme"
@@ -52,7 +52,7 @@ export function PdfArtifact({
                 >
                   {pdfThemes.map((option) => (
                     <option
-                      className="text-[#173f3a]"
+                      className="text-foreground"
                       key={option}
                       value={option}
                     >
@@ -66,12 +66,12 @@ export function PdfArtifact({
             </div>
           </div>
         </header>
-        <main className="px-8 py-10 sm:px-12">
-          <RichArtifactMarkdown className="prose-headings:text-[#173f3a] prose-a:text-[#255e52] prose-blockquote:border-[#efb39f] prose-blockquote:bg-[#f8e3da] prose-th:bg-[#e3efe8]">
+        <main className="px-5 py-7 sm:px-8 sm:py-10 lg:px-12">
+          <RichArtifactMarkdown className="prose-headings:text-foreground prose-a:text-primary prose-blockquote:border-primary prose-blockquote:bg-muted prose-th:bg-muted">
             {content}
           </RichArtifactMarkdown>
         </main>
-        <footer className="flex items-center justify-between border-t border-[#c8d2ce] bg-[#f7f5ef] px-8 py-4 text-xs text-[#647572] sm:px-12">
+        <footer className="flex flex-col items-start gap-3 border-t border-border bg-muted/30 px-5 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
           <span>Confidential working document</span>
           <div className="flex gap-2">
             <Button
@@ -83,7 +83,7 @@ export function PdfArtifact({
               <Printer className="size-3" /> Print
             </Button>
             <Button
-              className="gap-2 bg-[#123b3a] text-white"
+              className="gap-2"
               onClick={() => {
                 if (onDownload) {
                   onDownload();
@@ -101,5 +101,6 @@ export function PdfArtifact({
         </footer>
       </div>
     </div>
+    </ArtifactSourceEditor>
   );
 }

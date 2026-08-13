@@ -1,5 +1,6 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import { parse, unparse } from "papaparse";
 import { type CSSProperties, memo, useEffect, useMemo, useState } from "react";
 import DataGrid, { type Column, textEditor } from "react-data-grid";
@@ -35,7 +36,18 @@ type SheetPalette = {
   accent: string;
 };
 
-const SHEET_PALETTES: Record<SheetTheme, SheetPalette> = {
+const SYSTEM_PALETTE: SheetPalette = {
+  canvas: "hsl(var(--background))",
+  panel: "hsl(var(--muted))",
+  header: "hsl(var(--primary))",
+  headerText: "hsl(var(--primary-foreground))",
+  ink: "hsl(var(--foreground))",
+  muted: "hsl(var(--muted-foreground))",
+  line: "hsl(var(--border))",
+  accent: "hsl(var(--accent))",
+};
+
+const SHEET_PALETTES: Record<Exclude<SheetTheme, "system">, SheetPalette> = {
   editorial: {
     canvas: "#fbfaf7",
     panel: "#f0ede5",
@@ -99,7 +111,7 @@ const SHEET_PALETTES: Record<SheetTheme, SheetPalette> = {
 };
 
 function getSheetPalette(theme?: SheetTheme): SheetPalette {
-  return SHEET_PALETTES[theme ?? "editorial"];
+  return theme && theme !== "system" ? SHEET_PALETTES[theme] : SYSTEM_PALETTE;
 }
 
 function getContrastColor(background: string, fallback: string): string {
@@ -240,6 +252,7 @@ const PureSpreadsheetEditor = ({
   }, [content]);
 
   const [activeSheetIndex, setActiveSheetIndex] = useState(0);
+  const { resolvedTheme } = useTheme();
 
   // Reset active sheet if it's out of bounds
   useEffect(() => {
@@ -252,7 +265,9 @@ const PureSpreadsheetEditor = ({
   const activeCsv = activeSheet?.csv ?? "";
   const activeStyles = activeSheet?.styles ?? {};
   const palette = getSheetPalette(sheetData.theme);
-  const isDarkTheme = sheetData.theme === "midnight";
+  const isDarkTheme =
+    sheetData.theme === "midnight" ||
+    (sheetData.theme === "system" && resolvedTheme === "dark");
 
   const parseData = useMemo(() => {
     if (!activeCsv) {
