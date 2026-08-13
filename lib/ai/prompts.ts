@@ -325,6 +325,18 @@ export const updateDocumentPrompt = (
     mediaType = "spreadsheet";
   } else if (type === "report") {
     mediaType = "research report";
+  } else if (type === "presentation") {
+    mediaType =
+      "presentation deck with varied layouts, visuals, charts, and speaker notes";
+  } else if (type === "pdf") {
+    mediaType =
+      "print-ready PDF document with editorial hierarchy, tables, and callouts";
+  } else if (type === "dashboard") {
+    mediaType =
+      "interactive dashboard with KPIs, chart series, filters, and detail tables";
+  } else if (type === "planner") {
+    mediaType =
+      "editable calendar planner with events, priorities, deadlines, and buffers";
   }
 
   return `Improve the following contents of the ${mediaType} based on the given prompt.

@@ -27,8 +27,12 @@ export const createDocument = ({
     inputSchema: z.object({
       title: z.string(),
       kind: z.enum(artifactKinds),
+      prompt: z.string().optional(),
+      audience: z.string().optional(),
+      style: z.string().optional(),
+      data: z.record(z.string(), z.unknown()).optional(),
     }),
-    execute: async ({ title, kind }) => {
+    execute: async ({ title, kind, prompt, audience, style, data }) => {
       if (hasCreatedDocument) {
         return {
           id: "",
@@ -81,6 +85,10 @@ export const createDocument = ({
         dataStream,
         session,
         modelId,
+        prompt,
+        audience,
+        style,
+        data,
       });
 
       dataStream.write({ type: "data-finish", data: null, transient: true });

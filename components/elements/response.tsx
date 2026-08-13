@@ -1,7 +1,9 @@
 "use client";
 
+import { createMathPlugin } from "@streamdown/math";
 import type { ComponentProps } from "react";
 import { Streamdown } from "streamdown";
+import "katex/dist/katex.min.css";
 import { cn } from "@/lib/utils";
 import { markdownComponents } from "./markdown-components";
 
@@ -17,6 +19,7 @@ export function Response({ className, children, ...props }: ResponseProps) {
       components={{
         ...(markdownComponents as any),
       }}
+      plugins={{ math: createMathPlugin({ singleDollarTextMath: true }) }}
       {...props}
     >
       {children}

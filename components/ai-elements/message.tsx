@@ -1,5 +1,6 @@
 "use client";
 
+import { createMathPlugin } from "@streamdown/math";
 import type { FileUIPart, UIMessage } from "ai";
 import {
   ChevronLeftIcon,
@@ -10,6 +11,7 @@ import {
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Streamdown } from "streamdown";
+import "katex/dist/katex.min.css";
 import { markdownComponents } from "@/components/elements/markdown-components";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
@@ -314,6 +316,7 @@ export const MessageResponse = memo(
         className
       )}
       components={markdownComponents as any}
+      plugins={{ math: createMathPlugin({ singleDollarTextMath: true }) }}
       {...props}
     />
   ),
