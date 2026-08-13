@@ -262,7 +262,7 @@ A workbook without styling is UNACCEPTABLE. You must choose colors that best rep
 - **Headers**: Row 1 MUST be styled with a strong theme-aware background and bold, high-contrast text.
 - **Dynamic Highlights**: Use restrained accents based on the meaning of the data, and never reduce text contrast.
 - **Readability**: Keep text legible in both light and dark application themes.
-- **Color variety**: Use the selected palette consistently; do not force midnight green, beige, or any other fixed brand palette when the theme is `system`.
+- **Color variety**: Use the selected palette consistently; do not force midnight green, beige, or any other fixed brand palette when the theme is \`system\`.
 - **Workbook Completeness**: Use multiple sheets and descriptive titles.
 
 ## Example of requested output:
