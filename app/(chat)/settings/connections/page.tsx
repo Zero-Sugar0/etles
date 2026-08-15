@@ -30,7 +30,7 @@ type Toolkit = {
   connectedAccounts?: ConnectedAccount[];
 };
 
-const ITEMS_PER_PAGE = 24;
+const ITEMS_PER_PAGE = 36;
 
 export default function ConnectionsPage() {
   const [toolkits, setToolkits] = useState<Toolkit[]>([]);
@@ -85,9 +85,15 @@ export default function ConnectionsPage() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
-  const connectedCount = toolkits.filter(
+  const connectedToolkitCount = toolkits.filter(
     (toolkit) => toolkit.isConnected
   ).length;
+  const connectedAccountCount = toolkits.reduce(
+    (total, toolkit) =>
+      total +
+      (toolkit.connectedAccounts?.length || (toolkit.isConnected ? 1 : 0)),
+    0
+  );
 
   async function handleConnect(slug: string) {
     setIsActionLoading(slug);
@@ -153,11 +159,17 @@ export default function ConnectionsPage() {
               </Button>
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Workspace
+                  Workspace integrations
                 </p>
-                <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-                  Connections
-                </h1>
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+                    Connections
+                  </h1>
+                  <p className="text-xs text-muted-foreground sm:text-sm">
+                    {connectedAccountCount} connected{" "}
+                    {connectedAccountCount === 1 ? "account" : "accounts"}
+                  </p>
+                </div>
               </div>
             </div>
             <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
@@ -181,7 +193,7 @@ export default function ConnectionsPage() {
                 >
                   {value === "all"
                     ? "All"
-                    : `Connected ${connectedCount ? `(${connectedCount})` : ""}`}
+                    : `Connected${connectedToolkitCount ? ` (${connectedToolkitCount})` : ""}`}
                 </button>
               ))}
             </div>
@@ -213,6 +225,16 @@ export default function ConnectionsPage() {
           </div>
         ) : (
           <>
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <p>
+                Showing {paginatedToolkits.length} of {filteredToolkits.length}{" "}
+                integrations
+              </p>
+              <p className="hidden sm:block">
+                {connectedAccountCount} active{" "}
+                {connectedAccountCount === 1 ? "account" : "accounts"}
+              </p>
+            </div>
             <section
               aria-label="Available connections"
               className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
@@ -224,7 +246,7 @@ export default function ConnectionsPage() {
                   return (
                     <motion.article
                       animate={{ opacity: 1, y: 0 }}
-                      className="group flex min-h-[82px] items-center justify-between gap-4 rounded-xl border border-border/60 bg-card px-4 py-3 shadow-sm transition-all hover:border-primary/40 hover:shadow-md"
+                      className="group flex min-h-[82px] items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-3.5 py-3 shadow-sm transition-all hover:border-primary/40 hover:shadow-md sm:px-4"
                       exit={{ opacity: 0, y: 8 }}
                       initial={{ opacity: 0, y: 8 }}
                       key={toolkit.slug}
@@ -256,8 +278,8 @@ export default function ConnectionsPage() {
                           </div>
                           {toolkit.isConnected ? (
                             <p className="truncate text-xs text-emerald-600 dark:text-emerald-400">
-                              {accounts.length > 1
-                                ? `${accounts.length} active accounts`
+                              {accounts.length > 0
+                                ? `${accounts.length} active ${accounts.length === 1 ? "account" : "accounts"}`
                                 : "Active"}
                             </p>
                           ) : (
