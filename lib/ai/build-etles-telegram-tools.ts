@@ -133,7 +133,7 @@ export function buildEtlesTelegramTools({
     deleteReminder: deleteReminder({ userId }),
     setupTrigger: setupTrigger({ userId }),
     listActiveTriggers: listActiveTriggers({ userId }),
-    removeTrigger: removeTrigger(),
+    removeTrigger: removeTrigger({ userId }),
     delegateToSubAgent: delegateToSubAgent({
       userId,
       chatId,

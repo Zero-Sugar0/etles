@@ -2,7 +2,7 @@
  * Heartbeat Workflow — durable proactive agent.
  * Route: POST /api/agent/heartbeat/workflow/
  *
- * Triggered hourly per user by QStash cron → /api/agent/heartbeat
+ * Triggered every four hours per user by QStash cron → /api/agent/heartbeat
  * which calls triggerHeartbeatWorkflow() → this endpoint.
  *
  * Steps:
@@ -12,8 +12,6 @@
  * 4. deliver         — save to chat + push Telegram if needed
  */
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
 import { getBackgroundModel } from "@/lib/ai/providers";
@@ -33,10 +31,9 @@ import {
 } from "@/lib/user-activity";
 import { generateUUID } from "@/lib/utils";
 import { WORKFLOW_BASE_URL } from "@/lib/workflow/client";
+import { getComposioClient } from "@/lib/composio-client";
 
 export const maxDuration = 300;
-
-const composio = new Composio({ provider: new VercelProvider() });
 
 export type HeartbeatPayload = {
   userId: string;
@@ -57,24 +54,38 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
       const ns = index.namespace(`memory-${userId}`);
 
       // Recall recent priorities and weekly synthesis in parallel
-      const [priorities, synthesis] = await Promise.all([
+      const [priorities, heartbeatReports, latestSynthesis] = await Promise.all([
         ns.query({
           data: "priorities commitments urgent tasks deadlines",
           topK: 8,
           includeMetadata: true,
         }),
         ns.query({
-          data: "weekly_synthesis brief",
-          topK: 1,
+          data: "heartbeat report what Etles previously informed the user proactive update",
+          topK: 8,
           includeMetadata: true,
         }),
+        ns.fetch(["weekly_synthesis"]),
       ]);
 
       const memoryLines = priorities
-        .map((r) => (r.metadata as any)?.content)
+        .map((r) => {
+          const metadata = r.metadata as any;
+          const date = metadata?.reportedAt ?? metadata?.updatedAt ?? metadata?.savedAt;
+          return metadata?.content ? `[${date ?? "undated"}] ${metadata.content}` : null;
+        })
         .filter(Boolean)
         .join("\n");
-      const weeklyBrief = (synthesis[0]?.metadata as any)?.content ?? "";
+      const reportLines = heartbeatReports
+        .map((r) => {
+          const metadata = r.metadata as any;
+          const date = metadata?.reportedAt ?? metadata?.updatedAt ?? metadata?.savedAt;
+          return metadata?.content ? `[${date ?? "undated"}] ${metadata.content}` : null;
+        })
+        .filter(Boolean)
+        .join("\n");
+      const latestSynthesisMetadata = latestSynthesis[0]?.metadata as any;
+      const weeklyBrief = latestSynthesisMetadata?.content ?? "";
 
       const [goals, graph] = await Promise.all([
         getActiveGoalsSnapshot(userId, 5),
@@ -88,7 +99,9 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
       ]);
 
       return {
-        memoryLines,
+        memoryLines: [memoryLines, reportLines ? `Previous heartbeat reports:\n${reportLines}` : ""]
+          .filter(Boolean)
+          .join("\n"),
         weeklyBrief,
         goals,
         graph: graph ?? { success: false, results: [] },
@@ -135,10 +148,10 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
   const signals = await context.run("check-signals", async () => {
     let composioTools: Record<string, unknown> = {};
     try {
-      const session = await composio.create(userId, {
+      const session = await (await getComposioClient(userId)).create(userId, {
         multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
       });
-      composioTools = await session.tools();
+      composioTools = (await session.tools()) as Record<string, unknown>;
     } catch {
       /* Composio optional */
     }
@@ -146,10 +159,10 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
     try {
       const result = await generateText({
         model: getBackgroundModel(),
-        system: `You are Etles's background intelligence scanner. Before deciding anything, inspect the connected tools available to you.
+        system: `You are Etles's background intelligence scanner. Before deciding anything, inspect the connected tools available to you. Graph freshness: entities, facts, and relations are dated. Prefer the newest relevant confirmed fact, include dates when freshness changes the conclusion, and do not treat stale conflicting graph data as current without verification.
 
 You MUST attempt these checks when the relevant Composio tools are available:
-1. Gmail or email: retrieve the user's 3 most recent relevant emails, prioritising unread, starred, deadlines, requests, and replies.
+1. Gmail or email: retrieve exactly the 3 newest relevant emails when at least 3 exist. Use newest-first ordering or an explicit recent-date filter. If fewer than 3 exist, return every available email and state the count. Never substitute older search results for the newest messages.
 2. Google Calendar or calendar: retrieve events in the next 24 hours, with special attention to the next 4 hours, conflicts, and preparation needs.
 3. Connected task/project tools: retrieve overdue and due-soon work.
 If a connection or tool is unavailable, skip it without guessing and report that it was not connected. Never claim an email or event was checked unless a tool returned it.
@@ -158,15 +171,21 @@ Return a JSON object with this exact shape:
 {
 "hasUrgentItems": boolean,
 "hasNews": boolean,
+"hasNewItems": boolean,
   "urgentSummary": "1-3 sentence plain text summary if urgent, empty string if not",
-"items": ["item1", "item2"],
+"emailSnapshot": [{"subject":"...","sender":"...","receivedAt":"...","importance":"urgent|important|normal"}],
+"items": [{"category":"urgent|informational|already_reported","summary":"...","source":"email|calendar|task|news|other","occurredAt":"ISO date or unknown","fingerprint":"stable concise identifier","actionTaken":"what Etles did, or none","needsUser":true}],
 "news": [{"headline":"...","source":"...","url":"...","publishedAt":"...","whyItMatters":"..."}],
-"connectionSuggestions": [{"service":"Gmail","why":"...","help":"..."}]
+"connectionSuggestions": [{"service":"Gmail","why":"...","help":"..."}],
+"actionsTaken": ["safe action completed"],
+"actionsNeedingUser": ["action requiring user approval"]
 }
 
 Check: upcoming calendar events (next 4 hours), unread high-priority emails, overdue tasks.
 Also review the supplied current-news results. Include news only when it is relevant and published within the last 48 hours. Never invent headlines, dates, sources, URLs, or implications. Set hasNews true only when at least one supplied result is genuinely useful to this user, even if it is not urgent.
 Be selective — only flag genuinely urgent items. If nothing urgent, set hasUrgentItems: false.
+Compare findings with previous heartbeat reports supplied in context. Mark unchanged findings as already_reported and set hasNewItems false when there is no new or materially changed item.
+Safe execution policy: resolve low-risk internal work when the connected tool supports it, such as updating a clearly completed task or recording a follow-up. Draft but do not send external messages, make payments, delete data, or change appointments without user approval. Record every action in actionsTaken or actionsNeedingUser.
 Return ONLY the JSON object, no other text.`,
         prompt: `Current date/time: ${new Date().toISOString()}\n\nKnown user memory:\n${memoryContext.memoryLines}\n\nActive goals:\n${JSON.stringify(memoryContext.goals)}\n\nKnowledge graph context:\n${JSON.stringify(memoryContext.graph)}\n\nOpen tasks:\n${contextData.openTasks.join("\n") || "None"}\n\nAvailable Composio tools (use these to inspect connected services):\n${Object.keys(composioTools).join(", ") || "None"}\n\nFresh news search results (use only supplied URLs):\n${JSON.stringify(news)}\n\nNow perform the required email, calendar, and task checks before deciding.`,
         tools: composioTools as any,
@@ -177,15 +196,59 @@ Return ONLY the JSON object, no other text.`,
       return JSON.parse(clean) as {
         hasUrgentItems: boolean;
         hasNews: boolean;
+        hasNewItems: boolean;
         urgentSummary: string;
-        items: string[];
+        emailSnapshot: Array<{ subject: string; sender: string; receivedAt: string; importance: string }>;
+        items: Array<{ category: "urgent" | "informational" | "already_reported"; summary: string; source: string; occurredAt: string; fingerprint: string; actionTaken: string; needsUser: boolean }>;
         news: Array<{ headline: string; source: string; url: string; publishedAt?: string; whyItMatters: string }>;
         connectionSuggestions: Array<{ service: string; why: string; help: string }>;
+        actionsTaken: string[];
+        actionsNeedingUser: string[];
       };
     } catch (error) {
       // Never let a model/tool failure crash the heartbeat — degrade gracefully.
       console.error("[Heartbeat] check-signals failed:", error);
-      return { hasUrgentItems: false, hasNews: false, urgentSummary: "", items: [], news: [], connectionSuggestions: [] };
+      return { hasUrgentItems: false, hasNews: false, hasNewItems: false, urgentSummary: "", emailSnapshot: [], items: [], news: [], connectionSuggestions: [], actionsTaken: [], actionsNeedingUser: [] };
+    }
+  });
+
+  // Persist every scan, including quiet scans, as a structured dated audit record.
+  await context.run("save-heartbeat-history", async () => {
+    try {
+      const index = new (await import("@upstash/vector")).Index({
+        url: process.env.UPSTASH_VECTOR_REST_URL!,
+        token: process.env.UPSTASH_VECTOR_REST_TOKEN!,
+      });
+      const ns = index.namespace(`memory-${userId}`);
+      const runAt = new Date().toISOString();
+      const runId = `heartbeat_run_${runAt.replace(/[^0-9]/g, "")}_${generateUUID()}`;
+      const record = {
+        runId,
+        runAt,
+        hasUrgentItems: signals.hasUrgentItems,
+        hasNewItems: signals.hasNewItems,
+        emailSnapshot: signals.emailSnapshot,
+        items: signals.items,
+        news: signals.news,
+        connectionSuggestions: signals.connectionSuggestions,
+        actionsTaken: signals.actionsTaken,
+        actionsNeedingUser: signals.actionsNeedingUser,
+      };
+      await ns.upsert({
+        id: runId,
+        data: `Heartbeat scan ${runAt}: ${JSON.stringify(record)}`,
+        metadata: {
+          key: runId,
+          content: JSON.stringify(record),
+          tags: ["heartbeat", "history", "structured"],
+          source: "heartbeat",
+          reportedAt: runAt,
+          savedAt: runAt,
+          updatedAt: runAt,
+        },
+      });
+    } catch (error) {
+      console.error("[Heartbeat] history persistence failed:", error);
     }
   });
 
@@ -283,6 +346,7 @@ Return ONLY the JSON object, no other text.`,
           },
         ] as any,
       });
+
     }
   });
 
@@ -291,7 +355,7 @@ Return ONLY the JSON object, no other text.`,
   }
 
   // No urgent items — stop here, don't bother the user further
-  if (!signals.hasUrgentItems && !signals.hasNews) {
+  if (!signals.hasNewItems || (!signals.hasUrgentItems && !signals.hasNews)) {
     return;
   }
 
@@ -302,7 +366,7 @@ Return ONLY the JSON object, no other text.`,
       system: `You are Etles, the user's proactive AI chief of staff. You're reaching out because something important needs their attention.
 
 Write a SHORT, direct Telegram message (max 6 sentences). No fluff. Lead with the concrete item and recommended next action. If news is included, name the source and link the supplied URL; never present an old or unverified item as breaking news. Do not repeat generic check-in language. Use Telegram HTML formatting only: <b>bold</b>, <i>italic</i>, and <a href="URL">source</a>.`,
-      prompt: `Current date/time: ${new Date().toISOString()}\n\nUrgent items detected:\n${signals.urgentSummary}\n\nDetails:\n${signals.items.join("\n")}\n\nVerified fresh news candidates:\n${JSON.stringify(signals.news ?? [])}\n\nConnection suggestions:\n${JSON.stringify(signals.connectionSuggestions ?? [])}\n\nKnown user context:\n${JSON.stringify({ goals: memoryContext.goals, graph: memoryContext.graph })}\n\nWeekly context:\n${memoryContext.weeklyBrief}`,
+      prompt: `Current date/time: ${new Date().toISOString()}\n\nUrgent items detected:\n${signals.urgentSummary}\n\nDetails:\n${signals.items.map((item) => typeof item === "string" ? item : `${item.category}: ${item.summary} (${item.actionTaken || "no action"})`).join("\n")}\n\nVerified fresh news candidates:\n${JSON.stringify(signals.news ?? [])}\n\nConnection suggestions:\n${JSON.stringify(signals.connectionSuggestions ?? [])}\n\nActions already taken:\n${JSON.stringify(signals.actionsTaken ?? [])}\n\nActions needing user:\n${JSON.stringify(signals.actionsNeedingUser ?? [])}\n\nKnown user context:\n${JSON.stringify({ goals: memoryContext.goals, graph: memoryContext.graph })}\n\nWeekly context:\n${memoryContext.weeklyBrief}`,
     });
     return text.trim();
   });
@@ -322,6 +386,27 @@ Write a SHORT, direct Telegram message (max 6 sentences). No fluff. Lead with th
           createdAt: new Date(),
         },
       ] as any,
+    });
+
+    const reportDate = new Date().toISOString();
+    const index = new (await import("@upstash/vector")).Index({
+      url: process.env.UPSTASH_VECTOR_REST_URL!,
+      token: process.env.UPSTASH_VECTOR_REST_TOKEN!,
+    });
+    const ns = index.namespace(`memory-${userId}`);
+    const reportId = `heartbeat_report_${reportDate.replace(/[^0-9]/g, "")}_${generateUUID()}`;
+    await ns.upsert({
+      id: reportId,
+      data: `Heartbeat report from ${reportDate}: ${proactiveMessage}`,
+      metadata: {
+        key: reportId,
+        content: proactiveMessage,
+        tags: ["heartbeat", "report", "proactive"],
+        source: "heartbeat",
+        reportedAt: reportDate,
+        savedAt: reportDate,
+        updatedAt: reportDate,
+      },
     });
 
     // Push via Telegram if connected

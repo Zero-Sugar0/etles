@@ -13,11 +13,29 @@
       "skillPath": "skills/agent-browser/SKILL.md",
       "computedHash": "a674b7d81066e3cc471a7512ddb4ae724418cbfefa75cbb050b0dc430e4d57a0"
     },
+    "agents-sdk": {
+      "source": "cloudflare/skills",
+      "sourceType": "github",
+      "skillPath": "skills/agents-sdk/SKILL.md",
+      "computedHash": "01515ef239bee4ab1464d0eb735a857de3832a304fccd9315bf439837c053e62"
+    },
     "before-and-after": {
       "source": "vercel-labs/before-and-after",
       "sourceType": "github",
       "skillPath": "skill/SKILL.md",
       "computedHash": "2ddadc58c8b916f8b253542c4c3ae0057e35530914c0d7627a0e10b89accaef5"
+    },
+    "better-auth-best-practices": {
+      "source": "better-auth/skills",
+      "sourceType": "github",
+      "skillPath": "better-auth/best-practices/SKILL.md",
+      "computedHash": "e8b46af23c6b1bc7aefdae3cf816368058c05e46eadb9bdca4f744b17d05a866"
+    },
+    "browser-use": {
+      "source": "browser-use/browser-use",
+      "sourceType": "github",
+      "skillPath": "skills/browser-use/SKILL.md",
+      "computedHash": "92fdf854b31e0587a56005873e025a5502576e08898f749197d961dc7feada04"
     },
     "canvas-design": {
       "source": "anthropics/skills",
@@ -47,6 +65,12 @@
       "skillPath": "skills/copywriting/SKILL.md",
       "computedHash": "cb9761b92e140cd68c1de6397c51dd9952da198382abfdbf26589ef26f6572b4"
     },
+    "email-and-password-best-practices": {
+      "source": "better-auth/skills",
+      "sourceType": "github",
+      "skillPath": "better-auth/emailAndPassword/SKILL.md",
+      "computedHash": "7786d722fa682b3d6a99793e73a9d51b59becefa595676134a993020633e068f"
+    },
     "extract-design-system": {
       "source": "arvindrk/extract-design-system",
       "sourceType": "github",
@@ -58,6 +82,12 @@
       "sourceType": "github",
       "skillPath": "skills/faceless-explainer/SKILL.md",
       "computedHash": "9ad7547f470ab886c876f3979d42b09c521a06216153699b40c7761b6ab6821b"
+    },
+    "fetch": {
+      "source": "browserbase/skills",
+      "sourceType": "github",
+      "skillPath": "skills/fetch/SKILL.md",
+      "computedHash": "c16b8fceac3bcc088837c9c684a05cf8d2481588f1b4aee1ea36c9689ad386cc"
     },
     "find-docs": {
       "source": "upstash/context7",
@@ -100,6 +130,12 @@
       "sourceType": "github",
       "skillPath": "skills/hyperframes-registry/SKILL.md",
       "computedHash": "91bece4022ee312ca8f47225588892e99492b2508039194e97ed7972ebfd2aa8"
+    },
+    "mcp-builder": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/mcp-builder/SKILL.md",
+      "computedHash": "6498a736a8dc5c645047c8a875b8ea7417e2ad97146f005200e50d20a9337ada"
     },
     "obsidian-cli": {
       "source": "kepano/obsidian-skills",
@@ -190,6 +226,12 @@
       "sourceType": "github",
       "skillPath": ".claude/skills/ui-ux-pro-max/SKILL.md",
       "computedHash": "6cb585d36a0d0418986bc8449bc0c8ff216344d692e08245d7f9e7414fee11a6"
+    },
+    "upstash": {
+      "source": "upstash/skills",
+      "sourceType": "github",
+      "skillPath": "skills/upstash/SKILL.md",
+      "computedHash": "e923f6fad6fec412366bb0c78c5139c836f939da26d6141913a2e61748814926"
     }
   }
 }

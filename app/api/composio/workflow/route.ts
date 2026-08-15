@@ -10,8 +10,6 @@
  * Triggered by: app/api/composio/webhook/route.ts after saving the event.
  */
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
 import { getBackgroundModel } from "@/lib/ai/providers";
@@ -26,10 +24,9 @@ import { SUPPORTED_TRIGGERS } from "@/lib/ai/triggers";
 import { saveMessages, updateEventStatus } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 import type { ComposioWebhookWorkflowPayload } from "@/lib/workflow/client";
+import { getComposioClient } from "@/lib/composio-client";
 
 export const maxDuration = 300;
-
-const composio = new Composio({ provider: new VercelProvider() });
 
 export const { POST } = serve<ComposioWebhookWorkflowPayload>(
   async (context) => {
@@ -42,7 +39,7 @@ export const { POST } = serve<ComposioWebhookWorkflowPayload>(
       async () => {
         let composioTools: Record<string, any> = {};
         try {
-          const session = await composio.create(userId, {
+          const session = await (await getComposioClient(userId)).create(userId, {
             manageConnections: true,
             multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
           });

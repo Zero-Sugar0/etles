@@ -11,8 +11,6 @@
  *   configured (QSTASH_TOKEN missing).
  */
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { Redis } from "@upstash/redis";
 import { generateText, stepCountIs } from "ai";
 import { after } from "next/server";
@@ -50,8 +48,7 @@ import {
   isWorkflowEnabled,
   triggerTelegramWorkflow,
 } from "@/lib/workflow/client";
-
-const composio = new Composio({ provider: new VercelProvider() });
+import { getComposioClient } from "@/lib/composio-client";
 
 export const maxDuration = 60;
 
@@ -410,11 +407,11 @@ async function routeMessage({
 
   let composioTools: Record<string, unknown> = {};
   try {
-    const session = await composio.create(ownerUserId, {
+    const session = await (await getComposioClient(ownerUserId)).create(ownerUserId, {
       manageConnections: true,
       multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
     });
-    composioTools = await session.tools();
+    composioTools = (await session.tools()) as Record<string, any>;
   } catch (e) {
     console.error("[Telegram] Failed to load Composio tools:", e);
   }

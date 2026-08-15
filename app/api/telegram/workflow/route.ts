@@ -10,8 +10,6 @@
  * Triggered by: app/api/telegram/[userId]/route.ts → after() block
  */
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { Redis } from "@upstash/redis";
 import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
@@ -45,12 +43,11 @@ import {
   WORKFLOW_BASE_URL,
   type TelegramWorkflowPayload,
 } from "@/lib/workflow/client";
+import { getComposioClient } from "@/lib/composio-client";
 
 export const maxDuration = 300;
 
 // ── Singletons (reused across warm invocations) ───────────────────────────────
-
-const composio = new Composio({ provider: new VercelProvider() });
 
 const redis =
   process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -420,11 +417,11 @@ export const { POST } = serve<TelegramWorkflowPayload>(
       const stopTyping = startTypingHeartbeat(botToken, telegramChatId);
       let composioTools: Record<string, unknown> = {};
       try {
-        const session = await composio.create(ownerUserId, {
+        const session = await (await getComposioClient(ownerUserId)).create(ownerUserId, {
           manageConnections: true,
           multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
         });
-        composioTools = await session.tools();
+        composioTools = (await session.tools()) as Record<string, any>;
       } catch (e) {
         console.error("[TelegramWorkflow] Composio tools failed:", e);
       }

@@ -42,6 +42,7 @@ import {
   suggestion,
   type User,
   user,
+  userCredential,
   type UserMedia,
   userMedia,
   userSkill,
@@ -160,6 +161,60 @@ export async function getUserById(id: string): Promise<User[]> {
   } catch (_error) {
     throw new ChatbotError("bad_request:database", "Failed to get user by id");
   }
+}
+
+export async function listUserCredentials(userId: string) {
+  return db
+    .select({ id: userCredential.id, provider: userCredential.provider, keyName: userCredential.keyName, valueHint: userCredential.valueHint, updatedAt: userCredential.updatedAt })
+    .from(userCredential)
+    .where(eq(userCredential.userId, userId))
+    .orderBy(asc(userCredential.provider), asc(userCredential.keyName));
+}
+
+export async function getUserCredential(userId: string, provider: string, keyName: string) {
+  const [credential] = await db
+    .select({ encryptedValue: userCredential.encryptedValue })
+    .from(userCredential)
+    .where(and(eq(userCredential.userId, userId), eq(userCredential.provider, provider), eq(userCredential.keyName, keyName)))
+    .limit(1);
+  return credential ?? null;
+}
+
+export async function getUserCredentialById(userId: string, id: string) {
+  const [credential] = await db
+    .select({
+      id: userCredential.id,
+      provider: userCredential.provider,
+      keyName: userCredential.keyName,
+      encryptedValue: userCredential.encryptedValue,
+    })
+    .from(userCredential)
+    .where(and(eq(userCredential.userId, userId), eq(userCredential.id, id)))
+    .limit(1);
+  return credential ?? null;
+}
+
+export async function upsertUserCredential(input: {
+  userId: string;
+  provider: string;
+  keyName: string;
+  encryptedValue: string;
+  valueHint: string;
+}) {
+  const [credential] = await db
+    .insert(userCredential)
+    .values({ ...input, updatedAt: new Date() })
+    .onConflictDoUpdate({
+      target: [userCredential.userId, userCredential.provider, userCredential.keyName],
+      set: { encryptedValue: input.encryptedValue, valueHint: input.valueHint, updatedAt: new Date() },
+    })
+    .returning({ id: userCredential.id, provider: userCredential.provider, keyName: userCredential.keyName, valueHint: userCredential.valueHint });
+  return credential;
+}
+
+export async function deleteUserCredential(userId: string, id: string) {
+  const [credential] = await db.delete(userCredential).where(and(eq(userCredential.userId, userId), eq(userCredential.id, id))).returning({ id: userCredential.id });
+  return credential ?? null;
 }
 
 export async function createGuestUser() {

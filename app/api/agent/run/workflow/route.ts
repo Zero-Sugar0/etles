@@ -21,8 +21,6 @@
  * replayed on retries, so subsequent steps never lose prior step data.
  */
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { Index } from "@upstash/vector";
 import { serve } from "@upstash/workflow/nextjs";
 import { convertToModelMessages, generateText, stepCountIs } from "ai";
@@ -110,10 +108,9 @@ import {
   getTextFromMessage,
 } from "@/lib/utils";
 import type { AgentRunWorkflowPayload } from "@/lib/workflow/client";
+import { getComposioClient } from "@/lib/composio-client";
 
 export const maxDuration = 300;
-
-const composio = new Composio({ provider: new VercelProvider() });
 
 const BASE_URL =
   process.env.BASE_URL ||
@@ -247,11 +244,11 @@ export const { POST } = serve<AgentRunWorkflowPayload>(async (context) => {
       // Load Composio tools — optional, continue without if unavailable
       let composioTools: Record<string, unknown> = {};
       try {
-        const session = await composio.create(userId, {
+    const session = await (await getComposioClient(userId)).create(userId, {
           manageConnections: true,
           multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
         });
-        composioTools = await session.tools();
+        composioTools = (await session.tools()) as Record<string, any>;
       } catch (err) {
         console.error("[AgentRunWorkflow] Composio tools unavailable:", err);
       }
@@ -271,7 +268,7 @@ export const { POST } = serve<AgentRunWorkflowPayload>(async (context) => {
         deleteSchedule: deleteSchedule(),
         setupTrigger: setupTrigger({ userId }),
         listActiveTriggers: listActiveTriggers({ userId }),
-        removeTrigger: removeTrigger(),
+        removeTrigger: removeTrigger({ userId }),
         delegateToSubAgent: delegateToSubAgent({
           userId,
           chatId,

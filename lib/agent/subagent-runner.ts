@@ -13,8 +13,6 @@
  * delegate mid-task.
  */
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { Index } from "@upstash/vector";
 import { generateText, stepCountIs } from "ai";
 import { notifyParentAgent } from "@/lib/agent/agent-bus";
@@ -110,8 +108,7 @@ import { withBackgroundApproval } from "@/lib/ai/tools/background-approval";
 import { withRetry } from "@/lib/ai/tools/with-retry";
 import { saveMessages, updateAgentTask } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
-
-const composio = new Composio({ provider: new VercelProvider() });
+import { getComposioClient } from "@/lib/composio-client";
 
 import * as aws from "@/lib/ai/tools/aws";
 import * as azure from "@/lib/ai/tools/azure";
@@ -226,13 +223,13 @@ export async function runSubAgent(params: RunSubAgentParams): Promise<{
 
   let composioTools: Record<string, unknown> = {};
   try {
-    const session = await composio.create(userId, {
+    const session = await (await getComposioClient(userId)).create(userId, {
       manageConnections: true,
       multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
     });
     // withApproval / withBackgroundApproval flags/gates irreversible tools
     // withRetry adds exponential backoff on transient API errors (5xx, 429, network)
-    const rawTools = await session.tools();
+    const rawTools = (await session.tools()) as Record<string, unknown>;
     const approvedTools = isBackground
       ? withBackgroundApproval(rawTools, {
           userId,

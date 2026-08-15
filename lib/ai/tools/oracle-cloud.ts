@@ -6,6 +6,7 @@ import os from "os";
 import path from "path";
 import { promisify } from "util";
 import { z } from "zod";
+import { resolveUserCredential, withUserCredentialContext } from "@/lib/security/user-credentials";
 
 // ─── Oracle Cloud SSH Agent Tools ────────────────────────────────────────────
 //
@@ -26,9 +27,9 @@ const execAsync = promisify(exec);
 // Writes the private key to a secure temp file for the duration of each call,
 // then deletes it. Avoids key exposure in shell arguments.
 
-function withTempKey<T>(fn: (keyPath: string) => Promise<T>): Promise<T> {
-  const rawKey = process.env.ORACLE_SSH_PRIVATE_KEY;
-  const keyPath = process.env.ORACLE_SSH_KEY_PATH;
+async function withTempKey<T>(fn: (keyPath: string) => Promise<T>): Promise<T> {
+  const rawKey = await resolveUserCredential(undefined, "oracle", "ORACLE_SSH_PRIVATE_KEY", ["ORACLE_SSH_PRIVATE_KEY"]);
+  const keyPath = await resolveUserCredential(undefined, "oracle", "ORACLE_SSH_KEY_PATH", ["ORACLE_SSH_KEY_PATH"]);
 
   if (keyPath) {
     return fn(keyPath);
@@ -49,15 +50,15 @@ function withTempKey<T>(fn: (keyPath: string) => Promise<T>): Promise<T> {
   });
 }
 
-function sshBase() {
-  const host = process.env.ORACLE_SSH_HOST;
+async function sshBase() {
+  const host = await resolveUserCredential(undefined, "oracle", "ORACLE_SSH_HOST", ["ORACLE_SSH_HOST"]);
   if (!host) {
     throw new Error("ORACLE_SSH_HOST must be set.");
   }
   return {
     host,
-    user: process.env.ORACLE_SSH_USER || "ubuntu",
-    port: process.env.ORACLE_SSH_PORT || "22",
+    user: (await resolveUserCredential(undefined, "oracle", "ORACLE_SSH_USER", ["ORACLE_SSH_USER"])) || "ubuntu",
+    port: (await resolveUserCredential(undefined, "oracle", "ORACLE_SSH_PORT", ["ORACLE_SSH_PORT"])) || "22",
   };
 }
 
@@ -67,7 +68,7 @@ async function sshExec(
   timeoutMs = 30_000
 ): Promise<{ stdout: string; stderr: string; code: number }> {
   return withTempKey(async (keyPath) => {
-    const { host, user, port } = sshBase();
+    const { host, user, port } = await sshBase();
     const flags = `-i ${keyPath} -p ${port} -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes`;
     const cdPrefix = cwd ? `cd ${cwd} && ` : "";
     // Wrap command in single quotes, escaping any internal single quotes
@@ -1241,7 +1242,8 @@ export const oracleSSHSSL = ({ userId }: { userId: string }) =>
 // EXPORT ALL — 23 tools, 13 sections, 0 extra npm packages
 // =============================================================================
 
-export const allOracleTools = (ctx: { userId: string }) => ({
+export const allOracleTools = (ctx: { userId: string }) => {
+  const tools = {
   oracleSSHExec: oracleSSHExec(ctx),
   oracleSSHExecMany: oracleSSHExecMany(ctx),
   oracleSSHReadFile: oracleSSHReadFile(ctx),
@@ -1262,7 +1264,18 @@ export const allOracleTools = (ctx: { userId: string }) => ({
   oracleSSHService: oracleSSHService(ctx),
   oracleSSHDiskCleanup: oracleSSHDiskCleanup(ctx),
   oracleSSHSSL: oracleSSHSSL(ctx),
-});
+  };
+  return Object.fromEntries(Object.entries(tools).map(([name, candidate]) => {
+    const original = candidate as any;
+    return [name, {
+      ...original,
+      execute: (args: unknown, options?: unknown) => withUserCredentialContext(
+        ctx.userId,
+        () => original.execute(args, options)
+      ),
+    }];
+  }));
+};
 
 // =============================================================================
 // TOOL INDEX

@@ -8,6 +8,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -23,6 +24,31 @@ export const user = pgTable("User", {
 });
 
 export type User = InferSelectModel<typeof user>;
+
+export const userCredential = pgTable(
+  "UserCredential",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    provider: varchar("provider", { length: 64 }).notNull(),
+    keyName: varchar("keyName", { length: 128 }).notNull(),
+    encryptedValue: text("encryptedValue").notNull(),
+    valueHint: varchar("valueHint", { length: 32 }).notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    userProviderKeyUnique: unique("UserCredential_user_provider_key_unique").on(
+      table.userId,
+      table.provider,
+      table.keyName
+    ),
+  })
+);
+
+export type UserCredential = InferSelectModel<typeof userCredential>;
 
 export const chat = pgTable("Chat", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),

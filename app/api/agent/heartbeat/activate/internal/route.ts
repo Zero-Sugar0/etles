@@ -16,7 +16,7 @@ import { Client } from "@upstash/qstash";
 import { Redis } from "@upstash/redis";
 import { type NextRequest, NextResponse } from "next/server";
 
-const HOURLY_CRON = "0 * * * *";
+const FOUR_HOUR_CRON = "0 */4 * * *";
 const SYNTHESIS_CRON = "0 8 * * 1";
 const DEFAULT_MORNING_HOUR = 7;
 
@@ -105,11 +105,11 @@ export async function POST(req: NextRequest) {
   const ids = scheduleIds(userId);
   const results: Record<string, string> = {};
 
-  // Hourly heartbeat
+  // Four-hour heartbeat
   try {
     const heartbeat = await (qstash.schedules as any).create({
       destination: `${baseUrl}/api/agent/heartbeat`,
-      cron: HOURLY_CRON,
+      cron: FOUR_HOUR_CRON,
       body: JSON.stringify({ userId, type: "heartbeat" }),
       headers: {
         "Content-Type": "application/json",
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
     });
     results.heartbeatScheduleId = heartbeat.scheduleId;
   } catch (err: any) {
-    console.error("[Heartbeat Internal] Hourly schedule error:", err?.message);
+      console.error("[Heartbeat Internal] Four-hour schedule error:", err?.message);
   }
 
   // Weekly synthesis

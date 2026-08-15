@@ -178,17 +178,23 @@ export function Chat({
       mutate(unstable_serialize(getChatHistoryPaginationKey));
     },
     onError: (error) => {
-      if (error.message?.includes("AI Gateway requires a valid credit card")) {
+      const errorCause =
+        typeof (error as Error & { cause?: unknown }).cause === "string"
+          ? (error as Error & { cause: string }).cause
+          : undefined;
+      const displayMessage = errorCause || error.message;
+
+      if (displayMessage?.includes("AI Gateway requires a valid credit card")) {
         setShowCreditCardAlert(true);
       } else if (error instanceof ChatbotError) {
         toast({
           type: "error",
-          description: error.message,
+          description: displayMessage,
         });
       } else {
         toast({
           type: "error",
-          description: error.message || "Oops, an error occurred!",
+          description: displayMessage || "Oops, an error occurred!",
         });
       }
     },
@@ -235,7 +241,20 @@ export function Chat({
           if (lastPrev !== lastNew) {
             return incoming;
           }
-          return prev;
+
+          // Tool approvals update parts on an existing message. Comparing
+          // only message IDs leaves a stale "Awaiting Approval" card after
+          // the server has persisted the user's decision.
+          const prevSignature = JSON.stringify(
+            prev.map((message) => ({ id: message.id, parts: message.parts }))
+          );
+          const incomingSignature = JSON.stringify(
+            incoming.map((message) => ({
+              id: message.id,
+              parts: message.parts,
+            }))
+          );
+          return prevSignature === incomingSignature ? prev : incoming;
         });
       } catch {
         /* ignore */

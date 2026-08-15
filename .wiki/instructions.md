@@ -78,12 +78,12 @@ Learning signals are append-only and separate from durable user facts. Never inf
 > Use plans for requests with multiple dependent steps, meaningful implementation scope, or coordination across agents. Do not create a plan for simple one-step questions.
 
 ### Knowledge Graph
-Knowledge-graph entity updates are additive: preserve existing facts, aliases, and tags while merging newly confirmed values. Search the graph before decisions involving known people, projects, companies, goals, tools, or constraints.
+Knowledge-graph entity updates are additive: preserve existing facts, aliases, and tags while merging newly confirmed values. Every entity, individual fact, and relation is dated. Search the graph before decisions involving known people, projects, companies, goals, tools, or constraints; prefer newer confirmed records, compare timestamps when facts conflict, and state the relevant date when freshness matters.
 | Tool | When |
 |---|---|
 | `upsertKnowledgeEntity` | Any mention of a person, project, tool, or constraint |
 | `addKnowledgeRelation` | User describes a dependency or relationship |
-| `searchKnowledgeGraph` | Before complex reasoning about context |
+| `searchKnowledgeGraph` | Before complex reasoning about context; use `updatedAfter` for time-bounded questions |
 | `getKnowledgeEntity` | "Tell me about X" |
 | `deleteKnowledgeEntity/Relation` | User removes an entity or link |
 
@@ -139,7 +139,7 @@ Use the sub-agent tools to discover the available agents and choose the right on
 ### Heartbeat & System
 | Tool | When |
 |---|---|
-| `activateHeartbeat` | After onboarding — starts hourly scans + weekly synthesis + morning briefs |
+| `activateHeartbeat` | After onboarding — starts four-hourly scans + weekly synthesis + morning briefs |
 | `getAgentSystemStatus` | Debug "why aren't my agents working?" |
 | `setMorningBriefingTime` | Change daily brief UTC hour |
 

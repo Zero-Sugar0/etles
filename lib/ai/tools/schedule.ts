@@ -7,6 +7,7 @@ import { z } from "zod";
 import { createAgentTask } from "@/lib/db/queries";
 import { createAgentScheduleEvent, insertAgentSchedule } from "@/lib/db/queries/agent-calendar";
 import { generateUUID } from "@/lib/utils";
+import { getUserRedis, resolveUserCredential } from "@/lib/security/user-credentials";
 
 function getRedis(): Redis | null {
   if (
@@ -40,7 +41,7 @@ async function trackSchedule(
   userId: string,
   entry: TrackedSchedule
 ): Promise<void> {
-  const redis = getRedis();
+  const redis = (await getUserRedis(userId)) ?? getRedis();
   if (!redis) {
     return;
   }
@@ -60,7 +61,7 @@ async function trackSchedule(
 async function listTrackedSchedules(
   userId: string
 ): Promise<TrackedSchedule[]> {
-  const redis = getRedis();
+  const redis = (await getUserRedis(userId)) ?? getRedis();
   if (!redis) {
     return [];
   }
@@ -84,10 +85,12 @@ async function listTrackedSchedules(
 // That endpoint handles delivering the reminder back to the user (e.g., via a notification
 // or by creating a new chat message).
 
-function getQStashClient() {
+async function getQStashClient(userId: string) {
+  const token = await resolveUserCredential(userId, "upstash", "QSTASH_TOKEN", ["QSTASH_TOKEN"]);
+  const baseUrl = await resolveUserCredential(userId, "upstash", "QSTASH_URL", ["QSTASH_URL"]);
   return new Client({
-    baseUrl: process.env.QSTASH_URL || "https://qstash-us-east-1.upstash.io",
-    token: process.env.QSTASH_TOKEN || "not-needed",
+    baseUrl: baseUrl || "https://qstash-us-east-1.upstash.io",
+    token: token || "not-needed",
   });
 }
 
@@ -128,7 +131,7 @@ export const setReminder = ({
     }),
     execute: async ({ message, delaySeconds, label }) => {
       try {
-        const client = getQStashClient();
+        const client = await getQStashClient(userId);
         const taskId = generateUUID();
 
         const result = await client.publishJSON({
@@ -236,7 +239,7 @@ export const setCronJob = ({
     }),
     execute: async ({ name, cron, message }) => {
       try {
-        const client = getQStashClient();
+        const client = await getQStashClient(userId);
         const taskId = generateUUID();
 
         const schedule = await client.schedules.create({
@@ -271,6 +274,8 @@ export const setCronJob = ({
         }
 
         try {
+          const { getNextCronRunDate } = await import("./cron-calculator");
+          const nextRunAt = getNextCronRunDate(cron);
           const calendarEntry = await insertAgentSchedule({
             id: taskId,
             userId,
@@ -282,8 +287,9 @@ export const setCronJob = ({
             status: "active",
             cron,
             timezone: "UTC",
+            nextRunAt,
             qstashId: schedule.scheduleId,
-            idempotencyKey: `${userId}:cron:${name}`,
+            idempotencyKey: `${userId}:cron:${name}:${taskId}`,
             payload: { type: "cron", name, message, taskId },
           });
           await createAgentScheduleEvent({ id: generateUUID(), scheduleId: calendarEntry.id, userId, eventKey: `${calendarEntry.id}:created`, type: "created", metadata: { qstashScheduleId: schedule.scheduleId } });
@@ -311,25 +317,39 @@ export const setCronJob = ({
     },
   });
 
-// ─── listSchedules ────────────────────────────────────────────────────────────
-
 export const listSchedules = ({ userId }: { userId: string }) =>
   tool({
     description:
-      "List all active recurring schedules (cron jobs) that have been set. " +
+      "List all active recurring schedules (cron jobs) and reminders. " +
       "Use this when the user asks what reminders or scheduled tasks are active.",
     inputSchema: z.object({}),
     execute: async () => {
       try {
-        const client = getQStashClient();
-        const all = await client.schedules.list();
+        const { listAgentSchedules } = await import("@/lib/db/queries/agent-calendar");
+        const dbSchedules = await listAgentSchedules(userId);
 
-        // Cron jobs created via setCronJob carry a `cron-{userId}-` prefix.
+        if (dbSchedules.length > 0) {
+          const activeSchedules = dbSchedules
+            .filter((s) => s.status === "active" || s.status === "paused")
+            .map((s) => ({
+              id: s.id,
+              kind: s.kind,
+              title: s.title,
+              message: s.message,
+              cron: s.cron,
+              status: s.status,
+              nextRunAt: s.nextRunAt?.toISOString() ?? null,
+              timezone: s.timezone,
+              agentSlug: s.agentSlug,
+            }));
+          return { schedules: activeSchedules, count: activeSchedules.length };
+        }
+
+        const client = await getQStashClient(userId);
+        const all = await client.schedules.list();
         const userCrons = all.filter((s) =>
           (s.scheduleId || "").startsWith(`cron-${userId}-`)
         );
-
-        // Reminders (one-shot QStash publishes) are tracked in Redis.
         const tracked = await listTrackedSchedules(userId);
 
         const schedules = [
@@ -340,16 +360,13 @@ export const listSchedules = ({ userId }: { userId: string }) =>
               if (body && typeof body === "object") {
                 parsed = body as Record<string, unknown>;
               }
-            } catch {
-              // Non-JSON schedule body — default to empty.
-            }
+            } catch {}
             return {
               kind: "cron" as const,
               scheduleId: s.scheduleId,
               name: (parsed.name as string) ?? "unnamed",
               cron: s.cron,
               message: (parsed.message as string) ?? "",
-              destination: s.destination,
             };
           }),
           ...tracked
@@ -363,11 +380,7 @@ export const listSchedules = ({ userId }: { userId: string }) =>
             })),
         ];
 
-        if (!schedules.length) {
-          return { schedules: [], message: "No active schedules found." };
-        }
-
-        return { schedules };
+        return { schedules, count: schedules.length };
       } catch (error: any) {
         return { schedules: [], error: error.message };
       }
@@ -391,22 +404,27 @@ export const deleteSchedule = (
     }),
     execute: async ({ scheduleId }) => {
       try {
-        const client = getQStashClient();
-        await client.schedules.delete(scheduleId);
-        // Remove from the tracked list if present.
+        const client = await getQStashClient(userId);
+        try {
+          await client.schedules.delete(scheduleId);
+        } catch (_) {}
+
         if (userId) {
-          const redis = getRedis();
+          const { deleteAgentSchedule } = await import("@/lib/db/queries/agent-calendar");
+          await deleteAgentSchedule(userId, scheduleId);
+
+          const redis = (await getUserRedis(userId)) ?? getRedis();
           if (redis) {
             const tracked = await listTrackedSchedules(userId);
             const remaining = tracked.filter(
-              (t) => t.scheduleId !== scheduleId
+              (t) => t.scheduleId !== scheduleId && t.messageId !== scheduleId
             );
             await redis.set(schedulesKey(userId), JSON.stringify(remaining), {
               ex: 60 * 60 * 24 * 90,
             });
           }
         }
-        return { success: true, message: `Schedule ${scheduleId} deleted.` };
+        return { success: true, message: `Schedule ${scheduleId} cancelled.` };
       } catch (error: any) {
         return { success: false, error: error.message };
       }
@@ -419,27 +437,35 @@ export const deleteReminder = ({ userId }: { userId: string }) =>
   tool({
     description:
       "Delete a pending one-shot reminder before it fires. " +
-      "Use this when the user wants to cancel a reminder that has not yet been delivered. " +
-      "Provide the reminder's messageId (from listSchedules, kind: 'reminder').",
+      "Use this when the user wants to cancel a reminder that has not yet been delivered.",
     inputSchema: z.object({
       messageId: z
         .string()
         .describe(
-          "The messageId of the reminder to cancel (from listSchedules)."
+          "The messageId or schedule ID of the reminder to cancel."
         ),
     }),
     execute: async ({ messageId }) => {
       try {
-        // One-shot QStash messages are cancelled by their messageId. We call the
-        // QStash messages cancel endpoint via the SDK's lower-level publish API.
-        // If cancellation isn't supported for the message, remove it from tracking.
-        const redis = getRedis();
-        if (redis) {
-          const tracked = await listTrackedSchedules(userId);
-          const remaining = tracked.filter((t) => t.messageId !== messageId);
-          await redis.set(schedulesKey(userId), JSON.stringify(remaining), {
-            ex: 60 * 60 * 24 * 90,
-          });
+        const client = await getQStashClient(userId);
+        try {
+          await client.messages.delete(messageId);
+        } catch (_) {}
+
+        if (userId) {
+          const { deleteAgentSchedule } = await import("@/lib/db/queries/agent-calendar");
+          await deleteAgentSchedule(userId, messageId);
+
+          const redis = (await getUserRedis(userId)) ?? getRedis();
+          if (redis) {
+            const tracked = await listTrackedSchedules(userId);
+            const remaining = tracked.filter(
+              (t) => t.messageId !== messageId && t.scheduleId !== messageId
+            );
+            await redis.set(schedulesKey(userId), JSON.stringify(remaining), {
+              ex: 60 * 60 * 24 * 90,
+            });
+          }
         }
         return {
           success: true,

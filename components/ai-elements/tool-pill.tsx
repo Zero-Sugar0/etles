@@ -569,6 +569,9 @@ export function getToolPreviewText(
   if (state === "approval-requested") {
     return "Awaiting approval";
   }
+  if (state === "approval-responded") {
+    return "Approved";
+  }
 
   // Check output first if available
   if (output) {
@@ -705,6 +708,8 @@ export function ToolPill({
           "text-destructive hover:bg-destructive/10": state === "output-error",
           "text-yellow-600 hover:bg-yellow-500/10":
             state === "approval-requested",
+          "text-emerald-600 hover:bg-emerald-500/10":
+            state === "approval-responded",
         }
       )}
     >
@@ -769,7 +774,12 @@ export function ExpandableToolPill({
   approvalId,
   addToolApprovalResponse,
 }: ExpandableToolPillProps) {
-  const isAwaitingApproval = state === "approval-requested" && approvalId;
+  const approved = part?.approval?.approved === true;
+  const effectiveState =
+    state === "approval-requested" && approved
+      ? "approval-responded"
+      : state;
+  const isAwaitingApproval = effectiveState === "approval-requested" && approvalId;
 
   return (
     <div
@@ -780,7 +790,9 @@ export function ExpandableToolPill({
     >
       <Collapsible
         className="w-full"
-        defaultOpen={state === "approval-requested" || state === "output-error"}
+        defaultOpen={
+          effectiveState === "approval-requested" || effectiveState === "output-error"
+        }
       >
         <CollapsibleTrigger asChild>
           <div>
@@ -789,7 +801,7 @@ export function ExpandableToolPill({
               isConsecutive={isConsecutiveTool}
               output={part.output}
               rawError={rawError}
-              state={state}
+              state={effectiveState}
               type={type}
             />
           </div>
@@ -802,7 +814,7 @@ export function ExpandableToolPill({
             <Confirmation
               approval={{ id: approvalId! }}
               className="mx-3 mb-3"
-              state={state as any}
+              state={effectiveState as any}
             >
               <ConfirmationRequest>
                 <ConfirmationTitle>

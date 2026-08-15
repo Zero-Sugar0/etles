@@ -1,0 +1,6 @@
+allowBuilds:
+  bufferutil: false
+  esbuild: false
+  keytar: false
+  protobufjs: false
+  sharp: false

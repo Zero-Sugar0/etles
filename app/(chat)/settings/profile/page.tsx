@@ -6,19 +6,25 @@ import {
   Bot,
   Camera,
   Check,
+  CheckCheck,
   ChevronRight,
   Clock3,
+  Copy,
+  Eye,
+  EyeOff,
   Hash,
+  KeyRound,
   Mail,
   Shield,
   Sparkles,
+  Trash2,
   User as UserIcon,
   Zap,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BotIntegrationsPanel } from "@/components/bot-integrations-panel";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +37,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { guestRegex } from "@/lib/constants";
 
 export default function ProfilePage() {
@@ -42,7 +50,85 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [quietHours, setQuietHours] = useState(false);
+  const [credentials, setCredentials] = useState<Array<{ id: string; provider: string; keyName: string; valueHint: string; updatedAt?: string }>>([]);
+  const [credentialProvider, setCredentialProvider] = useState("ai-gateway");
+  const [credentialKey, setCredentialKey] = useState("AI_GATEWAY_API_KEY");
+  const [credentialValue, setCredentialValue] = useState("");
+  const [credentialStatus, setCredentialStatus] = useState("");
+  const [showSecrets, setShowSecrets] = useState(false);
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
+  const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
 
+  useEffect(() => {
+    void fetch("/api/user/profile").then(async (response) => {
+      if (response.ok) setCredentials((await response.json()).credentials ?? []);
+    });
+  }, []);
+
+  async function saveCredential() {
+    if (!credentialValue.trim()) return;
+    const response = await fetch("/api/user/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: credentialProvider, keyName: credentialKey, value: credentialValue }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setCredentialStatus(data.error ?? "Could not save credential");
+      return;
+    }
+    setCredentialValue("");
+    setCredentialStatus("Encrypted and saved");
+    const updated = await fetch("/api/user/profile");
+    if (updated.ok) setCredentials((await updated.json()).credentials ?? []);
+  }
+
+  async function removeCredential(id: string) {
+    await fetch(`/api/user/profile?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    setCredentials((current) => current.filter((credential) => credential.id !== id));
+    setRevealedSecrets((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }
+  async function revealCredential(id: string) {
+    const response = await fetch("/api/user/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "revealCredential", id }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setCredentialStatus(data.error ?? "Could not reveal credential");
+      return null;
+    }
+    setRevealedSecrets((current) => ({ ...current, [id]: data.value }));
+    return data.value as string;
+  }
+  async function copyCredential(id: string) {
+    const value = revealedSecrets[id] ?? (await revealCredential(id));
+    if (!value) return;
+    await navigator.clipboard.writeText(value);
+    setCopiedSecret(id);
+    window.setTimeout(() => setCopiedSecret((current) => current === id ? null : current), 1600);
+  }
+  async function toggleSecretVisibility(show: boolean) {
+    if (show) {
+      const values = await Promise.all(
+        credentials.map(async (credential) => [credential.id, await revealCredential(credential.id)] as const)
+      );
+      const revealed = values.reduce<Record<string, string>>((result, [id, value]) => {
+        if (value) result[id] = value;
+        return result;
+      }, {});
+      setRevealedSecrets((current) => ({
+        ...current,
+        ...revealed,
+      }));
+    }
+    setShowSecrets(show);
+  }
   async function saveName() {
     const parts = name.trim().split(/\s+/);
     if (!parts[0]) {
@@ -190,6 +276,13 @@ export default function ProfilePage() {
           </Card>
         </section>
 
+        <Tabs className="w-full" defaultValue="profile">
+          <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl border border-border/70 bg-card/70 p-1">
+            <TabsTrigger className="gap-2 py-2.5" value="profile"><UserIcon className="size-4" /> Profile</TabsTrigger>
+            <TabsTrigger className="gap-2 py-2.5" value="integrations"><Bot className="size-4" /> Integrations</TabsTrigger>
+            <TabsTrigger className="gap-2 py-2.5" value="secrets"><KeyRound className="size-4" /> Secrets</TabsTrigger>
+          </TabsList>
+          <TabsContent value="profile">
         <Card className="border-border/70 bg-card/70">
           <CardHeader className="p-5 sm:p-6">
             <div className="flex items-center justify-between gap-3">
@@ -239,7 +332,60 @@ export default function ProfilePage() {
             </div>
           </CardContent>
         </Card>
-        <BotIntegrationsPanel />
+          </TabsContent>
+          <TabsContent value="integrations">
+            <BotIntegrationsPanel />
+          </TabsContent>
+          <TabsContent value="secrets">
+        <Card className="border-border/70 bg-card/70">
+          <CardHeader className="border-b border-border/70 p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base"><KeyRound className="size-4 text-primary" /> Secrets</CardTitle>
+                <CardDescription className="mt-1 max-w-2xl">Encrypted profile keys are used only when the matching deployment environment key is unavailable.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                {showSecrets ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+                <span>{showSecrets ? "Values visible" : "Values masked"}</span>
+                <Switch aria-label="Toggle secret visibility" checked={showSecrets} onCheckedChange={(checked) => void toggleSecretVisibility(checked)} />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5 p-5 sm:p-6">
+            <div className="rounded-lg border border-border/70 bg-background">
+              <div className="border-b border-border/70 px-4 py-3 text-sm font-medium">Add a secret</div>
+              <div className="grid gap-3 p-4 sm:grid-cols-[9rem_1fr_1fr_auto]">
+                <select aria-label="Secret provider" className="h-10 rounded-md border border-input bg-background px-3 text-sm" onChange={(event) => setCredentialProvider(event.target.value)} value={credentialProvider}>
+                  {["ai-gateway", "composio", "upstash", "daytona", "oracle", "e2b"].map((provider) => <option key={provider} value={provider}>{provider}</option>)}
+                </select>
+                <Input aria-label="Secret key name" onChange={(event) => setCredentialKey(event.target.value)} placeholder="Credential name" value={credentialKey} />
+                <Input aria-label="Secret value" autoComplete="off" onChange={(event) => setCredentialValue(event.target.value)} placeholder="Long credential value" type="password" value={credentialValue} />
+                <Button disabled={!credentialValue.trim()} onClick={saveCredential}><KeyRound className="size-4" /> Save</Button>
+              </div>
+              {credentialStatus && <p className="px-4 pb-4 text-xs text-muted-foreground">{credentialStatus}</p>}
+            </div>
+            <div className="overflow-hidden rounded-lg border border-border/70 bg-background">
+              <div className="border-b border-border/70 px-4 py-3 text-sm font-medium">Saved secrets</div>
+              {credentials.length === 0 ? <p className="px-4 py-8 text-center text-sm text-muted-foreground">No profile secrets saved yet.</p> : <div className="divide-y divide-border">
+                {credentials.map((credential) => {
+                  const revealed = revealedSecrets[credential.id];
+                  const displayValue = showSecrets && revealed ? revealed : "••••••••••••••••";
+                  return <div className="flex flex-wrap items-center gap-3 px-4 py-3" key={credential.id}>
+                    <div className="min-w-0 flex-1"><p className="truncate font-mono text-sm font-medium">{credential.keyName}</p><p className="text-xs text-muted-foreground">{credential.provider}</p></div>
+                    <code className="max-w-full truncate font-mono text-xs text-muted-foreground sm:max-w-[18rem]">{displayValue}</code>
+                    <div className="flex items-center gap-1">
+                      <Button aria-label={revealed ? `Hide ${credential.keyName}` : `Reveal ${credential.keyName}`} onClick={() => revealed ? setRevealedSecrets((current) => { const next = { ...current }; delete next[credential.id]; return next; }) : void revealCredential(credential.id)} size="icon" variant="ghost">{revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}</Button>
+                      <Button aria-label={`Copy ${credential.keyName}`} onClick={() => void copyCredential(credential.id)} size="icon" variant="ghost">{copiedSecret === credential.id ? <CheckCheck className="size-4 text-emerald-400" /> : <Copy className="size-4" />}</Button>
+                      <Button aria-label={`Remove ${credential.keyName}`} onClick={() => void removeCredential(credential.id)} size="icon" variant="ghost"><Trash2 className="size-4 text-muted-foreground" /></Button>
+                    </div>
+                  </div>;
+                })}
+              </div>}
+            </div>
+          </CardContent>
+        </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

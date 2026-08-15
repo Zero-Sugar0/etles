@@ -1,8 +1,7 @@
 //app/(chat)/api/chat/route.ts
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { geolocation, ipAddress } from "@vercel/functions";
+import { z } from "zod";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -32,7 +31,7 @@ import {
   type RequestHints,
   sessionTailPrompt,
 } from "@/lib/ai/prompts";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { getLanguageModel, getUserLanguageModel } from "@/lib/ai/providers";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
 import {
   createDashboard,
@@ -180,11 +179,10 @@ import { checkIpRateLimit } from "@/lib/ratelimit";
 import { getSessionTail, saveSessionTail } from "@/lib/session-tail";
 import type { ChatMessage } from "@/lib/types";
 import { touchUserActivity } from "@/lib/user-activity";
+import { getComposioClient } from "@/lib/composio-client";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
-
-const composio = new Composio({ provider: new VercelProvider() });
 
 export const maxDuration = 60;
 
@@ -204,7 +202,18 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     requestBody = postRequestBodySchema.parse(json);
-  } catch (_) {
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const issues = error.issues
+        .map((issue) => `${issue.path.join(".") || "request"}: ${issue.message}`)
+        .join("; ");
+      console.warn("[Chat API] Invalid request:", issues);
+      return new ChatbotError(
+        "bad_request:api",
+        `Invalid chat request. ${issues}`
+      ).toResponse();
+    }
+
     return new ChatbotError("bad_request:api").toResponse();
   }
 
@@ -259,7 +268,10 @@ export async function POST(request: Request) {
     const isOnboarding = selectedChatModel === "onboarding_specialist";
 
     if (!isOnboarding && !allowedModelIds.has(selectedChatModel)) {
-      return new ChatbotError("bad_request:api").toResponse();
+      return new ChatbotError(
+        "bad_request:api",
+        `Unsupported chat model: ${selectedChatModel}`
+      ).toResponse();
     }
 
     // Auto-seed Business Model Canvas, KPI tree, and OKRs into Knowledge Graph
@@ -344,6 +356,24 @@ export async function POST(request: Request) {
       : [...convertToUIMessages(messagesFromDb), message as ChatMessage];
     const uiMessages = sanitizeDanglingToolCalls(rawUiMessages);
 
+    // Approval responses arrive as an update to the original assistant tool
+    // message. Persist that update immediately so a refresh cannot resurrect
+    // the approval prompt while the continuation is still running.
+    if (isToolApprovalFlow) {
+      for (const currentMessage of uiMessages) {
+        const hasResolvedApproval = currentMessage.parts.some((part: any) =>
+          part?.approval && typeof part.approval.approved === "boolean"
+        );
+
+        if (hasResolvedApproval) {
+          await updateMessage({
+            id: currentMessage.id,
+            parts: currentMessage.parts,
+          });
+        }
+      }
+    }
+
     const { longitude, latitude, city, country } = geolocation(request);
 
     const requestHints: RequestHints = {
@@ -387,11 +417,14 @@ export async function POST(request: Request) {
     let composioTools: Record<string, any> = {};
     if (session?.user?.id && !isGuest) {
       try {
-        const composioSession = await composio.create(session.user.id, {
+        const composioClient = await getComposioClient(session.user.id);
+        const composioSession = await composioClient.create(session.user.id, {
           manageConnections: true,
           multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
         });
-        composioTools = withApproval(await composioSession.tools());
+        composioTools = withApproval(
+          (await composioSession.tools()) as Record<string, unknown>
+        );
       } catch (error) {
         console.error("Failed to initialize Composio tools:", error);
       }
@@ -533,8 +566,9 @@ export async function POST(request: Request) {
         )}\n\n${getRequestPromptFromHints(requestHints)}`;
 
         const result = streamText({
-          model: getLanguageModel(
-            isOnboarding ? DEFAULT_CHAT_MODEL : selectedChatModel
+          model: await getUserLanguageModel(
+            isOnboarding ? DEFAULT_CHAT_MODEL : selectedChatModel,
+            session.user.id
           ),
           system: corePrompt,
           messages: modelMessages,
@@ -821,7 +855,7 @@ export async function POST(request: Request) {
             listActiveTriggers: listActiveTriggers({
               userId: session.user.id!,
             }),
-            removeTrigger: removeTrigger(),
+            removeTrigger: removeTrigger({ userId: session.user.id! }),
             // Sub-agent delegation (guest users get listSubAgents only)
             ...(isGuest
               ? { listSubAgents: listSubAgents() }

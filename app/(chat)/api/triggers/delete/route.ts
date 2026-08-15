@@ -1,8 +1,6 @@
-import { Composio } from "@composio/core";
 import { guestRegex } from "@/lib/constants";
+import { getComposioClient } from "@/lib/composio-client";
 import { auth } from "../../../../(auth)/auth";
-
-const composio = new Composio();
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -18,6 +16,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    const composio = await getComposioClient(session.user.id);
     const { triggerId } = await req.json();
     const triggerManager = composio.triggers as any;
     const deleteMethod =

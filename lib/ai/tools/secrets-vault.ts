@@ -11,22 +11,9 @@
  */
 
 import crypto from "crypto";
-import { Redis } from "@upstash/redis";
 import { tool } from "ai";
 import { z } from "zod";
-
-function getRedis(): Redis | null {
-  if (
-    !process.env.UPSTASH_REDIS_REST_URL ||
-    !process.env.UPSTASH_REDIS_REST_TOKEN
-  ) {
-    return null;
-  }
-  return new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
-}
+import { getUserRedis } from "@/lib/security/user-credentials";
 
 function getMasterKey(): Buffer {
   const secret = process.env.SECRETS_ENCRYPTION_KEY || process.env.AUTH_SECRET;
@@ -89,7 +76,7 @@ export async function saveUserSecret(
   value: string,
   category = "general"
 ): Promise<void> {
-  const redis = getRedis();
+  const redis = await getUserRedis(userId);
   if (!redis) throw new Error("Redis connection unavailable.");
 
   const encryptedValue = encrypt(value);
@@ -108,7 +95,7 @@ export async function getUserSecret(
   userId: string,
   name: string
 ): Promise<{ name: string; value: string; category: string; updatedAt: string } | null> {
-  const redis = getRedis();
+  const redis = await getUserRedis(userId);
   if (!redis) return null;
 
   const raw = await redis.get<string>(secretKey(userId, name));
@@ -132,7 +119,7 @@ export async function getUserSecret(
 export async function getAllUserSecrets(
   userId: string
 ): Promise<Record<string, string>> {
-  const redis = getRedis();
+  const redis = await getUserRedis(userId);
   if (!redis) return {};
 
   const names = await redis.smembers<string[]>(secretIndexKey(userId));
@@ -152,7 +139,7 @@ export async function deleteUserSecret(
   userId: string,
   name: string
 ): Promise<boolean> {
-  const redis = getRedis();
+  const redis = await getUserRedis(userId);
   if (!redis) return false;
 
   await redis.del(secretKey(userId, name));
@@ -244,7 +231,7 @@ export const listSecretsTool = ({ userId }: { userId: string }) =>
     inputSchema: z.object({}),
     execute: async () => {
       try {
-        const redis = getRedis();
+        const redis = await getUserRedis(userId);
         if (!redis) {
           return { success: false, error: "Vault storage unavailable." };
         }

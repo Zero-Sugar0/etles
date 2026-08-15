@@ -18,8 +18,6 @@
  * Triggered by: per-user QStash cron (created via /api/agent/heartbeat/activate)
  */
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { Redis } from "@upstash/redis";
 import { Index } from "@upstash/vector";
 import { serve } from "@upstash/workflow/nextjs";
@@ -33,10 +31,9 @@ import {
 import { sendLongMessage } from "@/lib/telegram/api";
 import { generateUUID } from "@/lib/utils";
 import { WORKFLOW_BASE_URL } from "@/lib/workflow/client";
+import { getComposioClient } from "@/lib/composio-client";
 
 export const maxDuration = 300;
-
-const composio = new Composio({ provider: new VercelProvider() });
 
 type MorningPayload = {
   userId: string;
@@ -102,10 +99,10 @@ export const { POST } = serve<MorningPayload>(async (context) => {
     async () => {
       let composioTools: Record<string, unknown> = {};
       try {
-        const session = await composio.create(userId, {
+      const session = await (await getComposioClient(userId)).create(userId, {
           multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
         });
-        composioTools = await session.tools();
+        composioTools = (await session.tools()) as Record<string, any>;
       } catch {
         return { calendarSummary: "", emailSummary: "" };
       }

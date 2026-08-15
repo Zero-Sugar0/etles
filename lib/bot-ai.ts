@@ -2,15 +2,12 @@
  * Shared AI tool builder for Chat SDK platform bots (Slack, Linear, Discord, etc.)
  */
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
+import { getComposioClient } from "@/lib/composio-client";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { recallMemory, saveMemory } from "@/lib/ai/tools/memory";
 import { readScratchpad, writeScratchpad } from "@/lib/ai/tools/scratchpad";
 import { wikiQuery } from "@/lib/ai/tools/wiki";
-
-const composio = new Composio({ provider: new VercelProvider() });
 
 export async function buildPlatformAgentTools({
   userId,
@@ -21,11 +18,11 @@ export async function buildPlatformAgentTools({
 }) {
   let composioTools: Record<string, unknown> = {};
   try {
-    const session = await composio.create(userId, {
+    const session = await (await getComposioClient(userId)).create(userId, {
       manageConnections: true,
       multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
     });
-    composioTools = await session.tools();
+    composioTools = (await session.tools()) as Record<string, unknown>;
   } catch {
     /* Composio optional */
   }

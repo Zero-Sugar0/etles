@@ -1,11 +1,8 @@
 //app/(chat)/api/triggers/route.ts
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { SUPPORTED_TRIGGERS } from "@/lib/ai/triggers";
 import { guestRegex } from "@/lib/constants";
+import { getComposioClient } from "@/lib/composio-client";
 import { auth } from "../../../(auth)/auth";
-
-const composio = new Composio({ provider: new VercelProvider() });
 
 // GET: List available trigger types and active user triggers
 export async function GET() {
@@ -22,6 +19,7 @@ export async function GET() {
   }
 
   try {
+    const composio = await getComposioClient(session.user.id);
     let activeTriggersItems: any[] = [];
     try {
       const userAccounts = await composio.connectedAccounts.list({
@@ -79,6 +77,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    const composio = await getComposioClient(session.user.id);
     const { triggerSlug, config } = await req.json();
 
     // Fetch connected accounts for this user

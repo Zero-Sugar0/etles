@@ -1,8 +1,6 @@
-import { Composio } from "@composio/core";
 import { guestRegex } from "@/lib/constants";
+import { getComposioClient } from "@/lib/composio-client";
 import { auth } from "../../../../(auth)/auth";
-
-const composio = new Composio();
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -21,6 +19,7 @@ export async function POST(req: Request) {
     await req.json();
 
   try {
+    const composio = await getComposioClient(session.user.id);
     await composio.connectedAccounts.delete(connectedAccountId);
     return Response.json({ success: true });
   } catch (error: any) {

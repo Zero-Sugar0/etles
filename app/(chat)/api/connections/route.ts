@@ -1,9 +1,20 @@
 // app/(chat)/api/connections/route.ts
-import { Composio } from "@composio/core";
 import { guestRegex } from "@/lib/constants";
+import { getComposioClient } from "@/lib/composio-client";
 import { auth } from "../../../(auth)/auth";
 
-const composio = new Composio();
+function getComposioErrorStatus(error: unknown) {
+  const candidate = error as {
+    status?: unknown;
+    cause?: { status?: unknown };
+  };
+  const status = candidate?.status ?? candidate?.cause?.status;
+  return typeof status === "number" ? status : undefined;
+}
+
+function isComposioAuthError(error: unknown) {
+  return getComposioErrorStatus(error) === 401;
+}
 
 // GET: List all toolkits and their connection status
 export async function GET() {
@@ -21,6 +32,7 @@ export async function GET() {
   }
 
   try {
+    const composio = await getComposioClient(session.user.id);
     // Fetch all toolkits from Composio SDK directly
     let allApps: any = await composio.toolkits.get();
     if (!Array.isArray(allApps)) {
@@ -90,14 +102,31 @@ export async function GET() {
       }),
     });
   } catch (error: any) {
-    console.error("Failed to fetch toolkits from Composio:", error);
+    const status = getComposioErrorStatus(error);
+    console.error("Failed to fetch Composio toolkits", {
+      status,
+      code: error?.code,
+    });
+
+    if (isComposioAuthError(error)) {
+      return Response.json(
+        {
+          error:
+            "Composio authentication failed. Check the deployment key or add a valid Composio key in Profile > Secrets.",
+          code: "COMPOSIO_AUTH_INVALID",
+          toolkits: [],
+        },
+        { status: 401 }
+      );
+    }
+
     return Response.json(
       {
         error: "Failed to load toolkits",
-        details: error.message,
+        code: "COMPOSIO_TOOLKIT_FETCH_FAILED",
         toolkits: [],
       },
-      { status: error.status === 401 ? 401 : 500 }
+      { status: 500 }
     );
   }
 }
@@ -120,6 +149,7 @@ export async function POST(req: Request) {
   const { toolkit, alias }: { toolkit: string; alias?: string } =
     await req.json();
   try {
+    const composio = await getComposioClient(session.user.id);
     const baseUrl =
       process.env.BASE_URL ||
       process.env.RENDER_EXTERNAL_URL ||
@@ -139,10 +169,22 @@ export async function POST(req: Request) {
 
     return Response.json({ redirectUrl: connectionRequest.redirectUrl });
   } catch (error: any) {
-    console.error("Failed to initiate Composio authorization:", error);
+    const status = getComposioErrorStatus(error);
+    console.error("Failed to initiate Composio authorization", {
+      status,
+      code: error?.code,
+    });
+
     return Response.json(
-      { error: "Failed to initiate connection", details: error.message },
-      { status: 500 }
+      {
+        error: isComposioAuthError(error)
+          ? "Composio authentication failed. Check the deployment key or add a valid Composio key in Profile > Secrets."
+          : "Failed to initiate connection",
+        code: isComposioAuthError(error)
+          ? "COMPOSIO_AUTH_INVALID"
+          : "COMPOSIO_CONNECTION_FAILED",
+      },
+      { status: isComposioAuthError(error) ? 401 : 500 }
     );
   }
 }

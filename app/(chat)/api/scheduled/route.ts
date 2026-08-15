@@ -1,9 +1,6 @@
 //app/(chat)/api/scheduled/route.ts
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
-import { Redis } from "@upstash/redis";
 import { generateText, stepCountIs } from "ai";
 import { type NextRequest, NextResponse } from "next/server";
 import { getBackgroundModel } from "@/lib/ai/providers";
@@ -25,8 +22,8 @@ import {
 import { createAgentScheduleEvent, getAgentSchedule, updateAgentSchedule } from "@/lib/db/queries/agent-calendar";
 import { generateUUID } from "@/lib/utils";
 import { sendLongMessage } from "@/lib/telegram/api";
-
-const composioStatus = new Composio({ provider: new VercelProvider() });
+import { getUserRedis, resolveUserCredential } from "@/lib/security/user-credentials";
+import { getComposioClient } from "@/lib/composio-client";
 
 async function handler(req: NextRequest) {
   try {
@@ -61,13 +58,10 @@ async function handler(req: NextRequest) {
       const telegram = await getBotIntegration({ userId, platform: "telegram" });
       if (
         telegram &&
-        process.env.UPSTASH_REDIS_REST_URL &&
-        process.env.UPSTASH_REDIS_REST_TOKEN
+        await getUserRedis(userId)
       ) {
-        const redis = new Redis({
-          url: process.env.UPSTASH_REDIS_REST_URL,
-          token: process.env.UPSTASH_REDIS_REST_TOKEN,
-        });
+        const redis = await getUserRedis(userId);
+        if (!redis) throw new Error("Redis connection unavailable");
         const chatKeys = await redis.keys(`tg:chat:${userId}:*`);
         await Promise.all(
           chatKeys.map(async (key) => {
@@ -88,7 +82,8 @@ async function handler(req: NextRequest) {
     // We only include non-UI tools (no artifacts/documents)
     let composioTools: Record<string, any> = {};
     try {
-      const composioSession = await composioStatus.create(userId, {
+      const composioClient = await getComposioClient(userId);
+      const composioSession = await composioClient.create(userId, {
         manageConnections: true,
         multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
       });
@@ -249,13 +244,10 @@ Be direct, professional, and efficient. Do not ask for user confirmation.`;
       const telegram = await getBotIntegration({ userId, platform: "telegram" });
       if (
         telegram &&
-        process.env.UPSTASH_REDIS_REST_URL &&
-        process.env.UPSTASH_REDIS_REST_TOKEN
+        await getUserRedis(userId)
       ) {
-        const redis = new Redis({
-          url: process.env.UPSTASH_REDIS_REST_URL,
-          token: process.env.UPSTASH_REDIS_REST_TOKEN,
-        });
+        const redis = await getUserRedis(userId);
+        if (!redis) throw new Error("Redis connection unavailable");
         const chatKeys = await redis.keys(`tg:chat:${userId}:*`);
         const notification = result.text?.trim() || `Reminder: ${message}`;
         await Promise.all(
@@ -272,11 +264,20 @@ Be direct, professional, and efficient. Do not ask for user confirmation.`;
     }
 
     if (schedule) {
-      await updateAgentSchedule(userId, taskId, { status: schedule.kind === "reminder" ? "completed" : "active", lastError: null });
-      await createAgentScheduleEvent({ id: generateUUID(), scheduleId: taskId, userId, eventKey: `${taskId}:completed:${body.messageId ?? new Date().toISOString()}`, type: "completed", metadata: { toolCount: result.toolCalls?.length ?? 0 } });
+      await updateAgentSchedule(userId, taskId, {
+        status: schedule.kind === "reminder" ? "completed" : "active",
+        lastError: null,
+      });
+      await createAgentScheduleEvent({
+        id: generateUUID(),
+        scheduleId: taskId,
+        userId,
+        eventKey: `${taskId}:completed:${body.messageId ?? new Date().toISOString()}`,
+        type: "completed",
+        metadata: { toolCount: result.toolCalls?.length ?? 0 },
+      });
     }
 
-    // 5. Update AgentTask status if it exists
     if (taskId) {
       try {
         await updateAgentTask({

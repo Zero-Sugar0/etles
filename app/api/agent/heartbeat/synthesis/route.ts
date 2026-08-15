@@ -49,7 +49,8 @@ export const { POST } = serve<SynthesisPayload>(async (context) => {
       return results
         .map((r) => {
           const m = r.metadata as any;
-          return m?.content ? `[${m.key ?? "memory"}] ${m.content}` : null;
+          const date = m?.reportedAt ?? m?.updatedAt ?? m?.savedAt;
+          return m?.content ? `[${date ?? "undated"}] [${m.key ?? "memory"}] ${m.content}` : null;
         })
         .filter(Boolean)
         .join("\n");
@@ -134,7 +135,7 @@ If memory is sparse, say so briefly and still provide the best possible plan.`,
     return text.trim();
   });
 
-  // ── Step 3: Save to memory (overwrites previous week's brief) ────────────
+  // ── Step 3: Save a dated brief and keep the latest-summary alias ─────────
   await context.run("save-to-memory", async () => {
     const index = new Index({
       url: process.env.UPSTASH_VECTOR_REST_URL!,
@@ -142,15 +143,25 @@ If memory is sparse, say so briefly and still provide the best possible plan.`,
     });
     const ns = index.namespace(`memory-${userId}`);
 
+    const reportedAt = new Date().toISOString();
+    const metadata = {
+      key: "weekly_synthesis",
+      content: weeklyBrief,
+      tags: ["weekly", "synthesis", "brief"],
+      source: "weekly_synthesis",
+      reportedAt,
+      savedAt: reportedAt,
+      updatedAt: reportedAt,
+    };
+    await ns.upsert({
+      id: `weekly_synthesis_${reportedAt.replace(/[^0-9]/g, "")}`,
+      data: `Weekly synthesis reported ${reportedAt}: ${weeklyBrief}`,
+      metadata,
+    });
     await ns.upsert({
       id: "weekly_synthesis",
       data: weeklyBrief,
-      metadata: {
-        key: "weekly_synthesis",
-        content: weeklyBrief,
-        tags: ["weekly", "synthesis", "brief"],
-        savedAt: new Date().toISOString(),
-      },
+      metadata,
     });
   });
 

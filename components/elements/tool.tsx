@@ -130,6 +130,13 @@ const getStatusIndicator = (state: ToolUIPart["state"]) => {
       </span>
     );
   }
+  if (state === "approval-responded") {
+    return (
+      <span className="text-[11px] font-medium text-emerald-500 ml-1">
+        Approved
+      </span>
+    );
+  }
   return (
     <span className="text-[11px] font-medium text-muted-foreground ml-1 animate-pulse">
       {state === "input-streaming" ? "Thinking…" : "Running…"}

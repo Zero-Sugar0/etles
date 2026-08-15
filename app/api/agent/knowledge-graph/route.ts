@@ -10,7 +10,7 @@ type GraphEntity = {
   summary: string;
   tags: string[];
   aliases: string[];
-  facts: string[];
+  facts: GraphFact[];
   createdAt: string;
   updatedAt: string;
 };
@@ -23,7 +23,38 @@ type GraphRelation = {
   weight: number;
   evidence?: string;
   createdAt: string;
+  updatedAt: string;
 };
+
+type GraphFact = {
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  source?: string;
+};
+
+function normalizeFact(value: unknown, fallbackDate: string): GraphFact | null {
+  if (typeof value === "string") {
+    return { text: value, createdAt: fallbackDate, updatedAt: fallbackDate };
+  }
+  if (!value || typeof value !== "object") return null;
+  const fact = value as Partial<GraphFact>;
+  if (!fact.text) return null;
+  return {
+    text: fact.text,
+    createdAt: fact.createdAt ?? fallbackDate,
+    updatedAt: fact.updatedAt ?? fact.createdAt ?? fallbackDate,
+    ...(fact.source ? { source: fact.source } : {}),
+  };
+}
+
+function normalizeRelation(value: GraphRelation): GraphRelation {
+  return {
+    ...value,
+    createdAt: value.createdAt ?? new Date(0).toISOString(),
+    updatedAt: value.updatedAt ?? value.createdAt ?? new Date(0).toISOString(),
+  };
+}
 
 function getRedis() {
   if (
@@ -62,9 +93,16 @@ async function parseEntity(redis: Redis, userId: string, entityId: string) {
   if (!raw) {
     return null;
   }
-  return typeof raw === "string"
+  const entity = typeof raw === "string"
     ? (JSON.parse(raw) as GraphEntity)
     : (raw as GraphEntity);
+  const fallbackDate = entity.updatedAt ?? entity.createdAt ?? new Date(0).toISOString();
+  return {
+    ...entity,
+    facts: (entity.facts ?? [])
+      .map((fact) => normalizeFact(fact, fallbackDate))
+      .filter((fact): fact is GraphFact => Boolean(fact)),
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -94,11 +132,11 @@ export async function GET(req: NextRequest) {
       if (!raw) {
         continue;
       }
-      relations.push(
+      relations.push(normalizeRelation(
         typeof raw === "string"
           ? (JSON.parse(raw) as GraphRelation)
           : (raw as GraphRelation)
-      );
+      ));
     }
     return NextResponse.json({ entity, relations });
   }
@@ -139,6 +177,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const existingRaw = await redis.get<string>(relationKey(session.user.id, rel.id ?? ""));
+    const existing = existingRaw
+      ? (typeof existingRaw === "string" ? (JSON.parse(existingRaw) as Partial<GraphRelation>) : (existingRaw as Partial<GraphRelation>))
+      : null;
+    const now = new Date().toISOString();
     const relation: GraphRelation = {
       id: rel.id ?? generateUUID(),
       fromEntityId: rel.fromEntityId,
@@ -146,7 +189,8 @@ export async function POST(req: NextRequest) {
       relationType: rel.relationType,
       weight: rel.weight ?? 0.7,
       evidence: rel.evidence,
-      createdAt: new Date().toISOString(),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
     };
     await Promise.all([
       redis.set(
@@ -167,6 +211,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing entity name" }, { status: 400 });
   }
   const now = new Date().toISOString();
+  const existing = entityInput.id
+    ? await parseEntity(redis, session.user.id, entityInput.id)
+    : null;
   const entity: GraphEntity = {
     id: entityInput.id ?? generateUUID(),
     name: entityInput.name,
@@ -174,8 +221,14 @@ export async function POST(req: NextRequest) {
     summary: entityInput.summary ?? "",
     tags: entityInput.tags ?? [],
     aliases: entityInput.aliases ?? [],
-    facts: entityInput.facts ?? [],
-    createdAt: entityInput.createdAt ?? now,
+    facts: (entityInput.facts ?? []).map((fact) => {
+      const text = typeof fact === "string" ? fact : (fact as GraphFact).text;
+      const previous = existing?.facts.find((item) => item.text === text);
+      return previous
+        ? { ...previous, updatedAt: now }
+        : { text, createdAt: now, updatedAt: now };
+    }),
+    createdAt: existing?.createdAt ?? entityInput.createdAt ?? now,
     updatedAt: now,
   };
   await Promise.all([
@@ -203,10 +256,11 @@ export async function DELETE(req: NextRequest) {
       relationKey(session.user.id, relationId)
     );
     if (relRaw) {
-      const rel =
+      const rel = normalizeRelation(
         typeof relRaw === "string"
           ? (JSON.parse(relRaw) as GraphRelation)
-          : (relRaw as GraphRelation);
+          : (relRaw as GraphRelation)
+      );
       await Promise.all([
         redis.del(relationKey(session.user.id, relationId)),
         redis.srem(relationSetKey(session.user.id), relationId),

@@ -72,6 +72,7 @@ export const saveMemory = ({ userId }: { userId: string }) =>
             content,
             tags: tags ?? [],
             savedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           },
         });
 
@@ -144,6 +145,8 @@ export const recallMemory = ({ userId }: { userId: string }) =>
           content: (r.metadata as any)?.content,
           tags: (r.metadata as any)?.tags ?? [],
           savedAt: (r.metadata as any)?.savedAt,
+          updatedAt: (r.metadata as any)?.updatedAt,
+          reportedAt: (r.metadata as any)?.reportedAt,
           relevanceScore: r.score,
         }));
 
@@ -171,6 +174,8 @@ export const updateMemory = ({ userId }: { userId: string }) =>
       try {
         const index = getMemoryIndex();
         const ns = index.namespace(`memory-${userId}`);
+        const [existing] = await ns.fetch([key]);
+        const existingMetadata = existing?.metadata as any;
 
         // Upsert overwrites the existing record with the same id (key)
         await ns.upsert({
@@ -180,6 +185,7 @@ export const updateMemory = ({ userId }: { userId: string }) =>
             key,
             content: newContent,
             tags: tags ?? [],
+            savedAt: existingMetadata?.savedAt ?? new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
         });

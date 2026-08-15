@@ -2,7 +2,7 @@
  * Heartbeat endpoint.
  * Route: POST /api/agent/heartbeat/route.ts
  *
- * Called by QStash on an hourly schedule (set up in onboarding).
+ * Called by QStash on a four-hour schedule (set up in onboarding).
  * Body: { userId: string }
  *
  * Validates the QStash signature then fires a durable Workflow so the

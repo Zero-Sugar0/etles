@@ -7,8 +7,6 @@
 // Flow: Composio fires → this handler → resolves user → resolves routes →
 //        runs matched sub-agents → saves results to the user's active chat.
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { generateText, stepCountIs } from "ai";
 import { type NextRequest, NextResponse } from "next/server";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
@@ -39,6 +37,7 @@ import {
   publishToQStash,
 } from "@/lib/workflow/qstash-publish";
 import { generateUUID } from "@/lib/utils";
+import { getComposioClient } from "@/lib/composio-client";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config
@@ -110,7 +109,7 @@ async function resolveUserId(
   connectedAccountId: string
 ): Promise<string | null> {
   try {
-    const composio = new Composio({ provider: new VercelProvider() });
+    const composio = await getComposioClient();
     const account = await composio.connectedAccounts.get(connectedAccountId);
     return (
       (account as any)?.clientUniqueUserId ?? (account as any)?.entityId ?? null
@@ -183,7 +182,7 @@ async function runAgentRoute(
   // Load Composio tools for this user (toolkit filtering done at the router level)
   let composioTools: Record<string, any> = {};
   try {
-    const composio = new Composio({ provider: new VercelProvider() });
+    const composio = await getComposioClient(userId);
     const session = await composio.create(userId, {
       manageConnections: true,
       multiAccount: { enable: true, maxAccountsPerToolkit: 5 },

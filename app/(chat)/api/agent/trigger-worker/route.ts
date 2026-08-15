@@ -5,13 +5,12 @@
 //
 // QStash guarantees: at-least-once delivery, automatic retries, no timeout pressure.
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { Index } from "@upstash/vector";
 import { generateText, stepCountIs } from "ai";
 import { type NextRequest, NextResponse } from "next/server";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
+import { getComposioClient } from "@/lib/composio-client";
 import { getBackgroundModel } from "@/lib/ai/providers";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import {
@@ -228,7 +227,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   // 2. Load Composio tools scoped to this agent's declared toolkits
   let composioTools: Record<string, any> = {};
   try {
-    const composio = new Composio({ provider: new VercelProvider() });
+    const composio = await getComposioClient(userId);
     const session = await composio.create(userId, {
       multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
     });

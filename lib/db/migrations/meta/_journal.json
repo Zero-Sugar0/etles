@@ -134,6 +134,13 @@
       "when": 1786465371492,
       "tag": "0018_cold_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1786667451175,
+      "tag": "0019_lush_doctor_spectrum",
+      "breakpoints": true
     }
   ]
 }

@@ -1,9 +1,6 @@
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { tool } from "ai";
 import { z } from "zod";
-
-const composio = new Composio({ provider: new VercelProvider() });
+import { getComposioClient } from "@/lib/composio-client";
 
 export const setupTrigger = ({ userId }: { userId: string }) =>
   tool({
@@ -25,6 +22,7 @@ export const setupTrigger = ({ userId }: { userId: string }) =>
     }),
     execute: async ({ triggerSlug, config }) => {
       try {
+        const composio = await getComposioClient(userId);
         // Fetch connected accounts for this user
         const userAccounts = await composio.connectedAccounts.list({
           userIds: [userId],
@@ -62,6 +60,7 @@ export const listActiveTriggers = ({ userId }: { userId: string }) =>
     inputSchema: z.object({}),
     execute: async () => {
       try {
+        const composio = await getComposioClient(userId);
         const userAccounts = await composio.connectedAccounts.list({
           userIds: [userId],
         });
@@ -84,7 +83,7 @@ export const listActiveTriggers = ({ userId }: { userId: string }) =>
     },
   });
 
-export const removeTrigger = () =>
+export const removeTrigger = ({ userId }: { userId: string }) =>
   tool({
     description: "Remove an active event trigger by its ID.",
     inputSchema: z.object({
@@ -92,6 +91,7 @@ export const removeTrigger = () =>
     }),
     execute: async ({ triggerId }) => {
       try {
+        const composio = await getComposioClient(userId);
         await (composio.triggers as any).delete(triggerId);
         return { success: true, message: `Trigger ${triggerId} removed.` };
       } catch (error: any) {

@@ -9,8 +9,6 @@
  *   when a lead replies to outreach email, so they resume instantly.
  */
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { generateText, stepCountIs } from "ai";
 import { type NextRequest, NextResponse } from "next/server";
 import { getBackgroundModel } from "@/lib/ai/providers";
@@ -34,8 +32,7 @@ import {
   isWorkflowEnabled,
   triggerComposioWebhookWorkflow,
 } from "@/lib/workflow/client";
-
-const composio = new Composio({ provider: new VercelProvider() });
+import { getComposioClient } from "@/lib/composio-client";
 
 // ── Mission Event Bridge ──────────────────────────────────────────────────────
 // When a lead replies to an outreach email, we notify the leadLifecycleWorkflow
@@ -159,6 +156,7 @@ export async function POST(req: NextRequest) {
       payload = eventData.data || eventData.payload || eventData;
     } else {
       try {
+        const composio = await getComposioClient();
         await (composio.triggers as any).verifyWebhook({
           id: webhookId,
           payload: rawBody,
@@ -267,11 +265,11 @@ export async function POST(req: NextRequest) {
     // ── Fallback: inline AI processing ───────────────────────────────────────
     let composioTools: Record<string, unknown> = {};
     try {
-      const session = await composio.create(userId, {
+      const session = await (await getComposioClient(userId)).create(userId, {
         manageConnections: true,
         multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
       });
-      composioTools = await session.tools();
+      composioTools = (await session.tools()) as Record<string, unknown>;
     } catch (e) {
       console.error("[Composio Webhook] Failed to load tools:", e);
     }

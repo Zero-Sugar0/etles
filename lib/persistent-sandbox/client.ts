@@ -23,6 +23,7 @@
 
 import { Redis } from "@upstash/redis";
 import { Sandbox } from "e2b";
+import { getUserRedis, resolveUserCredential } from "@/lib/security/user-credentials";
 
 // ── Redis key ─────────────────────────────────────────────────────────────────
 // Stores the sandboxId for each user. TTL = 32 days (slightly above E2B's 30-day
@@ -62,7 +63,7 @@ function getRedis(): Redis | null {
 export async function getOrCreatePersistentSandbox(
   userId: string
 ): Promise<{ sandbox: Sandbox; sandboxId: string; isNew: boolean }> {
-  const redis = getRedis();
+  const redis = await getUserRedis(userId) ?? getRedis();
 
   // 1. Check Redis for existing sandboxId
   let sandboxId: string | null = null;
@@ -71,11 +72,13 @@ export async function getOrCreatePersistentSandbox(
   }
 
   // 2. If we have an existing ID, try to connect to it (resumes if paused)
+  const e2bApiKey = await resolveUserCredential(userId, "e2b", "E2B_API_KEY", ["E2B_API_KEY"]);
   if (sandboxId) {
     try {
       const sandbox = await Sandbox.connect(sandboxId, {
+        ...(e2bApiKey ? { apiKey: e2bApiKey } : {}),
         timeoutMs: ACTIVE_TIMEOUT_MS,
-      });
+      } as any);
       console.log(
         `[PersistentSandbox] Connected to sandbox ${sandboxId} for user ${userId}`
       );
@@ -91,13 +94,14 @@ export async function getOrCreatePersistentSandbox(
 
   // 3. Create a fresh sandbox
   const sandbox = await Sandbox.create({
+    ...(e2bApiKey ? { apiKey: e2bApiKey } : {}),
     timeoutMs: ACTIVE_TIMEOUT_MS,
     // Auto-pause on timeout — filesystem + memory state preserved, billing stops
     lifecycle: {
       onTimeout: "pause",
     },
     metadata: { userId },
-  });
+  } as any);
 
   sandboxId = sandbox.sandboxId;
   console.log(

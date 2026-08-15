@@ -135,7 +135,7 @@ Multi-week autonomous campaigns aimed at business goals (e.g., "get 50 beta user
 
 ### Background Intelligence (`app/api/agent/heartbeat/`)
 Proactive health and context scanning that runs without user input.
-- **Hourly Heartbeat**: Triggered by QStash scheduled cron. Scans Calendar, Email, and Tasks via Composio to detect urgent signals (upcoming meetings, high-priority unread emails).
+- **Four-hourly Heartbeat**: Triggered by QStash scheduled cron. Scans Calendar, Email, and Tasks via Composio to detect urgent signals (upcoming meetings, high-priority unread emails).
 - **Weekly Synthesis**: A specialized workflow that generates a week-in-review brief and saves it to Long-Term Memory.
 - **Status Tracking**: Updates heartbeat health in Redis (`agent:status:{userId}:heartbeat`) and provides dashboard "Agent Is Online" indicators.
 - **Signal Delivery**: Urgent items are pushed to the user via Telegram HTML formatted messages.
@@ -180,8 +180,8 @@ Mandatory safety gate for irreversible actions (Emails, Payments, Social Posts).
 
 ### Knowledge Graph (`lib/ai/tools/knowledge-graph.ts`)
 Per-user structured business knowledge stored in Redis:
-- **Entities**: `{ id, name, entityType, summary, tags, aliases, facts }` — stored at `kg:{userId}:entity:{id}`.
-- **Relations**: `{ fromEntityId, toEntityId, relationType, weight, evidence }` — stored at `kg:{userId}:relation:{id}` with inbound/outbound indexes.
+- **Entities**: `{ id, name, entityType, summary, tags, aliases, facts, createdAt, updatedAt }` — stored at `kg:{userId}:entity:{id}`. Each fact is `{ text, createdAt, updatedAt, source? }`; legacy string facts are normalized on read.
+- **Relations**: `{ fromEntityId, toEntityId, relationType, weight, evidence, createdAt, updatedAt }` — stored at `kg:{userId}:relation:{id}` with inbound/outbound indexes. Search adds a recency signal and supports `updatedAfter`.
 - **Tools**: `upsertKnowledgeEntity`, `addKnowledgeRelation`, `getKnowledgeEntity`, `searchKnowledgeGraph`, `deleteKnowledgeEntity`, `deleteKnowledgeRelation`.
 - **Seeded** automatically by `seedBusinessFramework()` on first agent run.
 

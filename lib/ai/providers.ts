@@ -1,5 +1,5 @@
 //lib/ai/providers.ts
-import { gateway } from "@ai-sdk/gateway";
+import { createGateway, gateway } from "@ai-sdk/gateway";
 import { google } from "@ai-sdk/google";
 import {
   customProvider,
@@ -7,6 +7,7 @@ import {
   wrapLanguageModel,
 } from "ai";
 import { isTestEnvironment } from "../constants";
+import { resolveUserCredential } from "@/lib/security/user-credentials";
 import {
   DEFAULT_CHAT_MODEL,
   resolveImageModelId,
@@ -57,6 +58,13 @@ export function getLanguageModel(modelId: string) {
   }
 
   return gateway.languageModel(modelId);
+}
+
+/** Resolve the user's gateway key only when the deployment key is unavailable. */
+export async function getUserLanguageModel(modelId: string, userId?: string) {
+  if (isTestEnvironment && myProvider) return myProvider.languageModel(modelId);
+  const apiKey = await resolveUserCredential(userId, "ai-gateway", "AI_GATEWAY_API_KEY", ["AI_GATEWAY_API_KEY"]);
+  return createGateway(apiKey ? { apiKey } : undefined).languageModel(modelId);
 }
 
 /**

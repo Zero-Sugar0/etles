@@ -2,8 +2,6 @@
 // Durable subagent chat execution via Upstash Workflow.
 // Mirrors app/api/agent/workflow/route.ts but tailored for interactive chat sessions.
 
-import { Composio } from "@composio/core";
-import { VercelProvider } from "@composio/vercel";
 import { Index } from "@upstash/vector";
 import { serve } from "@upstash/workflow/nextjs";
 import { generateText, stepCountIs } from "ai";
@@ -35,10 +33,9 @@ import {
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
 import type { SubagentChatWorkflowPayload } from "@/lib/workflow/client";
+import { getComposioClient } from "@/lib/composio-client";
 
 export const maxDuration = 300;
-
-const composio = new Composio({ provider: new VercelProvider() });
 
 async function recallRelevantMemory(
   userId: string,
@@ -218,7 +215,7 @@ export const { POST } = serve<SubagentChatWorkflowPayload>(async (context) => {
     // Build tools
     let composioTools: Record<string, any> = {};
     try {
-      const session = await composio.create(userId, {
+      const session = await (await getComposioClient(userId)).create(userId, {
         manageConnections: true,
         multiAccount: { enable: true, maxAccountsPerToolkit: 5 },
       });

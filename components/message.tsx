@@ -350,7 +350,14 @@ const PurePreviewMessage = ({
             }
 
             if (type === "tool-getWeather") {
-              const { toolCallId, state } = part;
+              const { toolCallId, state: rawState } = part;
+              const approval = (part as {
+                approval?: { id?: string; approved?: boolean };
+              }).approval;
+              const state =
+                rawState === "approval-requested" && approval?.approved === true
+                  ? "approval-responded"
+                  : rawState;
               const approvalId = (part as { approval?: { id: string } })
                 .approval?.id;
               const isDenied =

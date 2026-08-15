@@ -10,7 +10,7 @@ type GraphEntity = {
   summary: string;
   tags: string[];
   aliases: string[];
-  facts: string[];
+  facts: GraphFact[];
   createdAt: string;
   updatedAt: string;
 };
@@ -23,7 +23,83 @@ type GraphRelation = {
   weight: number;
   evidence?: string;
   createdAt: string;
+  updatedAt: string;
 };
+
+type GraphFact = {
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  source?: string;
+};
+
+function parseJson<T>(value: unknown): T | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return null;
+    }
+  }
+  return value as T;
+}
+
+function normalizeFact(value: unknown, fallbackDate: string): GraphFact | null {
+  if (typeof value === "string") {
+    return { text: value, createdAt: fallbackDate, updatedAt: fallbackDate };
+  }
+  if (!value || typeof value !== "object") return null;
+  const fact = value as Partial<GraphFact>;
+  if (!fact.text) return null;
+  return {
+    text: fact.text,
+    createdAt: fact.createdAt ?? fallbackDate,
+    updatedAt: fact.updatedAt ?? fact.createdAt ?? fallbackDate,
+    ...(fact.source ? { source: fact.source } : {}),
+  };
+}
+
+function normalizeEntity(value: unknown): GraphEntity | null {
+  const entity = parseJson<Partial<GraphEntity>>(value);
+  if (!entity?.id || !entity.name) return null;
+  const fallbackDate = entity.updatedAt ?? entity.createdAt ?? new Date(0).toISOString();
+  return {
+    id: entity.id,
+    name: entity.name,
+    entityType: entity.entityType ?? "concept",
+    summary: entity.summary ?? "",
+    tags: entity.tags ?? [],
+    aliases: entity.aliases ?? [],
+    facts: (entity.facts ?? [])
+      .map((fact) => normalizeFact(fact, fallbackDate))
+      .filter((fact): fact is GraphFact => Boolean(fact)),
+    createdAt: entity.createdAt ?? fallbackDate,
+    updatedAt: entity.updatedAt ?? fallbackDate,
+  };
+}
+
+function normalizeRelation(value: unknown): GraphRelation | null {
+  const relation = parseJson<Partial<GraphRelation>>(value);
+  if (!relation?.id || !relation.fromEntityId || !relation.toEntityId) return null;
+  return {
+    id: relation.id,
+    fromEntityId: relation.fromEntityId,
+    toEntityId: relation.toEntityId,
+    relationType: relation.relationType ?? "related_to",
+    weight: relation.weight ?? 0.7,
+    evidence: relation.evidence,
+    createdAt: relation.createdAt ?? new Date(0).toISOString(),
+    updatedAt: relation.updatedAt ?? relation.createdAt ?? new Date(0).toISOString(),
+  };
+}
+
+function recencyScore(date: string, now = Date.now()): number {
+  const timestamp = Date.parse(date);
+  if (!Number.isFinite(timestamp)) return 0;
+  const ageDays = Math.max(0, (now - timestamp) / 86_400_000);
+  return Math.max(0, 1.5 - Math.min(ageDays, 30) / 20);
+}
 
 function getRedis() {
   if (
@@ -87,11 +163,11 @@ function scoreEntity(entity: GraphEntity, q: string): number {
     }
   }
   for (const fact of entity.facts) {
-    if (fact.toLowerCase().includes(query)) {
+    if (fact.text.toLowerCase().includes(query)) {
       score += 2;
     }
   }
-  return score;
+  return score + recencyScore(entity.updatedAt);
 }
 
 export const upsertKnowledgeEntity = ({ userId }: { userId: string }) =>
@@ -126,10 +202,18 @@ export const upsertKnowledgeEntity = ({ userId }: { userId: string }) =>
       const id = entityId ?? generateUUID();
 
       const existingRaw = await redis.get<string>(entityKey(userId, id));
-      const existing =
-        typeof existingRaw === "string"
-          ? (JSON.parse(existingRaw) as GraphEntity)
-          : ((existingRaw as GraphEntity | null) ?? null);
+      const existing = normalizeEntity(existingRaw);
+      const existingFacts = existing?.facts ?? [];
+      const incomingFacts = (facts ?? []).map((text): GraphFact => {
+        const previous = existingFacts.find((fact) => fact.text === text);
+        return previous
+          ? { ...previous, updatedAt: now }
+          : { text, createdAt: now, updatedAt: now };
+      });
+      const mergedFacts = [
+        ...existingFacts.filter((fact) => !(facts ?? []).includes(fact.text)),
+        ...incomingFacts,
+      ];
 
       const entity: GraphEntity = {
         id,
@@ -138,7 +222,7 @@ export const upsertKnowledgeEntity = ({ userId }: { userId: string }) =>
         summary: summary ?? existing?.summary ?? "",
         tags: [...new Set([...(existing?.tags ?? []), ...(tags ?? [])])],
         aliases: [...new Set([...(existing?.aliases ?? []), ...(aliases ?? [])])],
-        facts: [...new Set([...(existing?.facts ?? []), ...(facts ?? [])])],
+        facts: mergedFacts,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       };
@@ -191,6 +275,10 @@ export const addKnowledgeRelation = ({ userId }: { userId: string }) =>
       }
 
       const id = relationId ?? generateUUID();
+      const existing = normalizeRelation(
+        await redis.get(relationKey(userId, id)),
+      );
+      const now = new Date().toISOString();
       const relation: GraphRelation = {
         id,
         fromEntityId,
@@ -198,7 +286,8 @@ export const addKnowledgeRelation = ({ userId }: { userId: string }) =>
         relationType,
         weight,
         evidence,
-        createdAt: new Date().toISOString(),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
       };
 
       await Promise.all([
@@ -231,10 +320,8 @@ export const getKnowledgeEntity = ({ userId }: { userId: string }) =>
         return { success: false, error: "Entity not found." };
       }
 
-      const entity =
-        typeof raw === "string"
-          ? (JSON.parse(raw) as GraphEntity)
-          : (raw as GraphEntity);
+      const entity = normalizeEntity(raw);
+      if (!entity) return { success: false, error: "Entity is malformed." };
 
       if (!includeRelations) {
         return { success: true, entity };
@@ -255,11 +342,8 @@ export const getKnowledgeEntity = ({ userId }: { userId: string }) =>
         if (!relRaw) {
           continue;
         }
-        const parsed =
-          typeof relRaw === "string"
-            ? (JSON.parse(relRaw) as GraphRelation)
-            : (relRaw as GraphRelation);
-        relations.push(parsed);
+        const parsed = normalizeRelation(relRaw);
+        if (parsed) relations.push(parsed);
       }
 
       return { success: true, entity, relations };
@@ -269,14 +353,16 @@ export const getKnowledgeEntity = ({ userId }: { userId: string }) =>
 export const searchKnowledgeGraph = ({ userId }: { userId: string }) =>
   tool({
     description:
-      "Search entities in the user's knowledge graph by name/type/summary/tags/facts.",
+      "Search entities in the user's knowledge graph by name/type/summary/tags/facts. " +
+      "Results are relevance-ranked with a recency bonus; use updatedAfter or inspect timestamps when freshness matters.",
     inputSchema: z.object({
       query: z.string(),
       entityType: z.string().optional(),
       tag: z.string().optional(),
       limit: z.number().optional().default(10),
+      updatedAfter: z.string().optional().describe("Only return entities updated after this ISO date."),
     }),
-    execute: async ({ query, entityType, tag, limit }) => {
+    execute: async ({ query, entityType, tag, limit, updatedAfter }) => {
       const redis = getRedis();
       if (!redis) {
         return { success: false, error: "Redis is not configured." };
@@ -290,14 +376,15 @@ export const searchKnowledgeGraph = ({ userId }: { userId: string }) =>
         if (!raw) {
           continue;
         }
-        const entity =
-          typeof raw === "string"
-            ? (JSON.parse(raw) as GraphEntity)
-            : (raw as GraphEntity);
+        const entity = normalizeEntity(raw);
+        if (!entity) continue;
         if (entityType && entity.entityType !== entityType) {
           continue;
         }
         if (tag && !entity.tags.includes(tag)) {
+          continue;
+        }
+        if (updatedAfter && Date.parse(entity.updatedAt) <= Date.parse(updatedAfter)) {
           continue;
         }
         const score = scoreEntity(entity, query);
@@ -308,7 +395,11 @@ export const searchKnowledgeGraph = ({ userId }: { userId: string }) =>
       }
 
       const ranked = entities
-        .sort((a, b) => scoreEntity(b, query) - scoreEntity(a, query))
+        .sort((a, b) => {
+          const scoreDelta = scoreEntity(b, query) - scoreEntity(a, query);
+          if (scoreDelta !== 0) return scoreDelta;
+          return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+        })
         .slice(0, limit);
 
       return { success: true, results: ranked, count: ranked.length };
@@ -343,10 +434,8 @@ export const deleteKnowledgeEntity = ({ userId }: { userId: string }) =>
           if (!raw) {
             continue;
           }
-          const rel =
-            typeof raw === "string"
-              ? (JSON.parse(raw) as GraphRelation)
-              : (raw as GraphRelation);
+          const rel = normalizeRelation(raw);
+          if (!rel) continue;
           await Promise.all([
             redis.del(relationKey(userId, rid)),
             redis.srem(relationSetKey(userId), rid),
@@ -382,10 +471,8 @@ export const deleteKnowledgeRelation = ({ userId }: { userId: string }) =>
         return { success: false, error: "Relation not found." };
       }
 
-      const rel =
-        typeof raw === "string"
-          ? (JSON.parse(raw) as GraphRelation)
-          : (raw as GraphRelation);
+      const rel = normalizeRelation(raw);
+      if (!rel) return { success: false, error: "Relation is malformed." };
 
       await Promise.all([
         redis.del(relationKey(userId, relationId)),

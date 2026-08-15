@@ -6,6 +6,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
+import { getComposioClient } from "@/lib/composio-client";
 import { guestRegex } from "@/lib/constants";
 import {
   createAgentTask,
@@ -247,7 +248,7 @@ async function runInlineSubagentChat(params: {
 
       let composioTools: Record<string, any> = {};
       try {
-        const composio = new Composio({ provider: new VercelProvider() });
+        const composio = await getComposioClient(userId);
         const session = await composio.create(userId, {
           manageConnections: true,
           multiAccount: { enable: true, maxAccountsPerToolkit: 5 },

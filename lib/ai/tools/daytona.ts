@@ -16,13 +16,15 @@
 import { Daytona } from "@daytonaio/sdk";
 import { tool } from "ai";
 import { z } from "zod";
+import { resolveUserCredential } from "@/lib/security/user-credentials";
 
 // ── SDK singleton ─────────────────────────────────────────────────────────────
 // Re-use the same client across tool calls in a single request.
 // The SDK reads DAYTONA_API_KEY / DAYTONA_API_URL / DAYTONA_TARGET from env.
-function getDaytona(): Daytona {
+async function getDaytona(userId?: string): Promise<Daytona> {
+  const apiKey = await resolveUserCredential(userId, "daytona", "DAYTONA_API_KEY", ["DAYTONA_API_KEY"]);
   return new Daytona({
-    apiKey: process.env.DAYTONA_API_KEY,
+    apiKey,
     organizationId: process.env.DAYTONA_ORGANIZATION_ID,
     apiUrl: process.env.DAYTONA_API_URL || "https://app.daytona.io/api",
     target: process.env.DAYTONA_TARGET || "us",
@@ -64,7 +66,7 @@ function userLabels(userId: string) {
 
 /** Find an existing sandbox for this user by sandboxId, verified to belong to the user. */
 async function findUserSandbox(userId: string, sandboxId?: string) {
-  const daytona = getDaytona();
+  const daytona = await getDaytona(userId);
   let targetId = sandboxId;
 
   if (!targetId || targetId === "default" || targetId === "pinned") {
@@ -164,7 +166,7 @@ export const createSandbox = ({ userId }: { userId: string }) =>
       autoStopMinutes,
     }) => {
       try {
-        const daytona = getDaytona();
+        const daytona = await getDaytona(userId);
 
         const sandbox = await daytona.create({
           ...(image ? { image } : { language: language ?? "typescript" }),
@@ -215,7 +217,7 @@ export const listSandboxes = ({ userId }: { userId: string }) =>
     inputSchema: z.object({}),
     execute: async () => {
       try {
-        const daytona = getDaytona();
+        const daytona = await getDaytona(userId);
         const result = await daytona.list(userLabels(userId) as any);
         const sandboxes = (result as any)?.items ?? result ?? [];
 

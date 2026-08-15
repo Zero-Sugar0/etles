@@ -10,10 +10,12 @@
 import { Daytona } from "@daytonaio/sdk";
 import { tool } from "ai";
 import { z } from "zod";
+import { resolveUserCredential } from "@/lib/security/user-credentials";
 
-function getDaytona(): Daytona {
+async function getDaytona(userId?: string): Promise<Daytona> {
+  const apiKey = await resolveUserCredential(userId, "daytona", "DAYTONA_API_KEY", ["DAYTONA_API_KEY"]);
   return new Daytona({
-    apiKey: process.env.DAYTONA_API_KEY,
+    apiKey,
     organizationId: process.env.DAYTONA_ORGANIZATION_ID,
     apiUrl: process.env.DAYTONA_API_URL || "https://app.daytona.io/api",
     target: process.env.DAYTONA_TARGET || "us",
@@ -23,7 +25,7 @@ function getDaytona(): Daytona {
 import { getPinnedDaytonaSandboxId } from "./daytona";
 
 async function findUserSandbox(userId: string, sandboxId?: string) {
-  const daytona = getDaytona();
+  const daytona = await getDaytona(userId);
   let targetId = sandboxId;
 
   if (!targetId || targetId === "default" || targetId === "pinned") {
