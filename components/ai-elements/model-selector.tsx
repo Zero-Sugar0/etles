@@ -16,6 +16,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -51,6 +52,9 @@ export const ModelSelectorContent = ({
     {...props}
   >
     <DialogTitle className="sr-only">{title}</DialogTitle>
+    <DialogDescription className="sr-only">
+      Search and choose an AI model.
+    </DialogDescription>
     <Command className="**:data-[slot=command-input-wrapper]:h-auto bg-transparent">
       {children}
     </Command>
