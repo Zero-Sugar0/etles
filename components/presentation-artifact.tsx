@@ -104,7 +104,7 @@ export async function downloadPresentation(content: string, title: string) {
       ], {
         x: 0.7, y: 5.05, w: 7.1, h: 1.45, fontFace: "Aptos", fontSize: 10,
         color: theme.foreground, border: { type: "solid", color: theme.muted, pt: 0.5 },
-        fill: theme.background, margin: 0.05,
+        fill: { color: theme.background }, margin: 0.05,
       });
     }
     if (item.chart?.series?.length) {
