@@ -173,7 +173,7 @@ export const markdownComponents = {
     );
   },
   table: ({ children, className, ...props }: ComponentProps<"table">) => (
-    <div className="my-4 w-full overflow-x-auto rounded-lg border border-border/60 bg-background shadow-xs">
+    <div className="my-4 w-full overflow-x-auto rounded-lg border border-current/15 bg-current/5 shadow-xs">
       <table
         className={cn(
           "w-full min-w-[560px] border-collapse text-left text-sm",
@@ -194,7 +194,7 @@ export const markdownComponents = {
     </thead>
   ),
   tbody: ({ children, className, ...props }: ComponentProps<"tbody">) => (
-    <tbody className={cn("divide-y divide-border/50", className)} {...props}>
+    <tbody className={cn("divide-y divide-current/15", className)} {...props}>
       {children}
     </tbody>
   ),

@@ -1,15 +1,9 @@
 "use client";
 
-import { Download, Printer } from "lucide-react";
 import { useMemo, type CSSProperties } from "react";
-import {
-  downloadPdfFromMarkdown,
-  type PdfTheme,
-  resolvePdfColors,
-} from "@/components/pdf-export";
+import { type PdfTheme, resolvePdfColors } from "@/components/pdf-export";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
-import { Button } from "@/components/ui/button";
 import type { Suggestion } from "@/lib/db/schema";
 
 function splitPdfPages(content: string): string[] {
@@ -24,14 +18,14 @@ function splitPdfPages(content: string): string[] {
 
 export function PdfArtifact({
   content,
+  editMode = false,
   title = "Client document",
-  onDownload,
   onSaveContent,
   suggestions = [],
 }: {
   content: string;
+  editMode?: boolean;
   title?: string;
-  onDownload?: () => void;
   onSaveContent?: (content: string, debounce: boolean) => void;
   suggestions?: Suggestion[];
 }) {
@@ -47,7 +41,7 @@ export function PdfArtifact({
     [content]
   );
   return (
-    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent} suggestions={suggestions}>
+    <ArtifactSourceEditor content={content} editMode={editMode} onSaveContent={onSaveContent} showEditButton={false} suggestions={suggestions}>
     <div className="min-h-full min-w-0 overflow-x-hidden bg-background p-2 text-foreground sm:p-5 lg:p-8 print:bg-white print:p-0">
       <div className="mx-auto max-w-6xl overflow-hidden border border-border/70 bg-background shadow-sm print:border-0 print:shadow-none" style={{ color: `#${colors.body}` }}>
         <header
@@ -99,33 +93,8 @@ export function PdfArtifact({
             </div>
           </div>
         </main>
-        <footer className="flex flex-col items-stretch gap-3 border-t px-4 py-4 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12" style={{ backgroundColor: `#${colors.wash}`, borderColor: `#${colors.accent}55`, color: `#${colors.muted}` }}>
+        <footer className="border-t px-4 py-3 text-xs sm:px-8 lg:px-12" style={{ backgroundColor: `#${colors.wash}`, borderColor: `#${colors.accent}55`, color: `#${colors.muted}` }}>
           <span>Confidential working document</span>
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            <Button
-              className="gap-2"
-              onClick={() => window.print()}
-              size="sm"
-              variant="outline"
-            >
-              <Printer className="size-3" /> Print
-            </Button>
-            <Button
-              className="gap-2"
-              onClick={() => {
-                if (onDownload) {
-                  onDownload();
-                } else {
-                  downloadPdfFromMarkdown(content, title, theme).catch(
-                    () => undefined
-                  );
-                }
-              }}
-              size="sm"
-            >
-              <Download className="size-3" /> Download PDF
-            </Button>
-          </div>
         </footer>
       </div>
     </div>
