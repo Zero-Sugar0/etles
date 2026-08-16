@@ -56,12 +56,28 @@ export function useArtifact() {
     (updaterFn: UIArtifact | ((currentArtifact: UIArtifact) => UIArtifact)) => {
       setLocalArtifact((currentArtifact) => {
         const artifactToUpdate = currentArtifact || initialArtifactData;
+        const nextArtifact =
+          typeof updaterFn === "function"
+            ? updaterFn(artifactToUpdate)
+            : updaterFn;
 
-        if (typeof updaterFn === "function") {
-          return updaterFn(artifactToUpdate);
+        if (
+          nextArtifact === artifactToUpdate ||
+          (nextArtifact.documentId === artifactToUpdate.documentId &&
+            nextArtifact.kind === artifactToUpdate.kind &&
+            nextArtifact.title === artifactToUpdate.title &&
+            nextArtifact.content === artifactToUpdate.content &&
+            nextArtifact.status === artifactToUpdate.status &&
+            nextArtifact.isVisible === artifactToUpdate.isVisible &&
+            nextArtifact.boundingBox.top === artifactToUpdate.boundingBox.top &&
+            nextArtifact.boundingBox.left === artifactToUpdate.boundingBox.left &&
+            nextArtifact.boundingBox.width === artifactToUpdate.boundingBox.width &&
+            nextArtifact.boundingBox.height === artifactToUpdate.boundingBox.height)
+        ) {
+          return artifactToUpdate;
         }
 
-        return updaterFn;
+        return nextArtifact;
       });
     },
     [setLocalArtifact]

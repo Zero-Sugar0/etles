@@ -62,16 +62,6 @@ export function DocumentPreview({
     }
   }, [artifact.documentId, setArtifact]);
 
-  if (result && !artifact.isVisible) {
-    return (
-      <DocumentToolResult
-        isReadonly={isReadonly}
-        result={{ id: result.id, title: result.title, kind: result.kind }}
-        type="create"
-      />
-    );
-  }
-
   if (artifact.isVisible) {
     if (result) {
       return (
@@ -112,6 +102,15 @@ export function DocumentPreview({
       : null;
 
   if (!document) {
+    if (result) {
+      return (
+        <DocumentToolResult
+          isReadonly={isReadonly}
+          result={{ id: result.id, title: result.title, kind: result.kind }}
+          type="create"
+        />
+      );
+    }
     return <LoadingSkeleton artifactKind={artifact.kind} />;
   }
 
@@ -308,7 +307,7 @@ const DocumentContent = ({ document }: { document: Document }) => {
       ) : document.kind === "planner" ? (
         <PlannerArtifact content={document.content ?? ""} />
       ) : document.kind === "presentation" ? (
-        <PresentationArtifact content={document.content ?? ""} />
+        <PresentationArtifact content={document.content ?? ""} title={document.title} />
       ) : document.kind === "pdf" ? (
         <PdfArtifact content={document.content ?? ""} title={document.title} />
       ) : null}

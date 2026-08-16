@@ -7,6 +7,7 @@ import type { UIArtifact } from "./artifact";
 
 export type ArtifactActionContext<M = any> = {
   content: string;
+  title: string;
   handleVersionChange: (type: "next" | "prev" | "toggle" | "latest") => void;
   currentVersionIndex: number;
   isCurrentVersion: boolean;

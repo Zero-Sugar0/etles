@@ -6,11 +6,11 @@ import { RedoIcon, UndoIcon } from "@/components/icons";
 export const dashboardArtifact = new Artifact({
   kind: "dashboard",
   description: "Interactive KPI dashboard with filters, date ranges, charts, and tables.",
-  content: ({ content, isLoading, onSaveContent }) =>
+  content: ({ content, isLoading, onSaveContent, suggestions }) =>
     isLoading ? (
       <DocumentSkeleton artifactKind="dashboard" />
     ) : (
-      <DashboardArtifact content={content} onSaveContent={onSaveContent} />
+      <DashboardArtifact content={content} onSaveContent={onSaveContent} suggestions={suggestions} />
     ),
   actions: [
     {

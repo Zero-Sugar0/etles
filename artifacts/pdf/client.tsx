@@ -7,11 +7,11 @@ export const pdfArtifact = new Artifact({
   kind: "pdf",
   description:
     "Print-ready PDF document with proposal, invoice, contract, and brief layouts.",
-  content: ({ content, isLoading, title, onSaveContent }) =>
+  content: ({ content, isLoading, title, onSaveContent, suggestions }) =>
     isLoading ? (
       <DocumentSkeleton artifactKind="pdf" />
     ) : (
-      <PdfArtifact content={content} onSaveContent={onSaveContent} title={title} />
+      <PdfArtifact content={content} onSaveContent={onSaveContent} title={title} suggestions={suggestions} />
     ),
   actions: [
     {

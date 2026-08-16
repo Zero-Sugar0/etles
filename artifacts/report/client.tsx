@@ -3,6 +3,7 @@ import { Streamdown } from "streamdown";
 import { Artifact } from "@/components/create-artifact";
 import { markdownComponents } from "@/components/elements/markdown-components";
 import { CopyIcon, DownloadIcon, RedoIcon, UndoIcon } from "@/components/icons";
+import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
 
 function downloadReport(content: string, title: string) {
   const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
@@ -29,7 +30,8 @@ export const reportArtifact = new Artifact<"report", Record<string, never>>({
       }));
     }
   },
-  content: ({ content, status }) => (
+  content: ({ content, status, onSaveContent, suggestions }) => (
+    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent} suggestions={suggestions}>
     <article className="min-h-full bg-background px-5 py-8 text-foreground sm:px-10 md:px-16 md:py-12">
       <div className="mx-auto max-w-3xl">
         <div className="mb-8 flex items-center justify-between gap-4 border-b border-border pb-4">
@@ -55,6 +57,7 @@ export const reportArtifact = new Artifact<"report", Record<string, never>>({
         </Streamdown>
       </div>
     </article>
+    </ArtifactSourceEditor>
   ),
   actions: [
     {

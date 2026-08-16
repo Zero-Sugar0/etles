@@ -7,11 +7,11 @@ export const plannerArtifact = new Artifact({
   kind: "planner",
   description:
     "Editable calendar and planner with deadlines, reminders, tasks, and timelines.",
-  content: ({ content, isLoading, onSaveContent }) =>
+  content: ({ content, isLoading, onSaveContent, suggestions }) =>
     isLoading ? (
       <DocumentSkeleton artifactKind="planner" />
     ) : (
-      <PlannerArtifact content={content} onSaveContent={onSaveContent} />
+      <PlannerArtifact content={content} onSaveContent={onSaveContent} suggestions={suggestions} />
     ),
   actions: [
     {

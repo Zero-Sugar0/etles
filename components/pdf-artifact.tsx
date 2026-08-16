@@ -11,22 +11,25 @@ import {
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
 import { Button } from "@/components/ui/button";
+import type { Suggestion } from "@/lib/db/schema";
 
 export function PdfArtifact({
   content,
   title = "Client document",
   onDownload,
   onSaveContent,
+  suggestions = [],
 }: {
   content: string;
   title?: string;
   onDownload?: () => void;
   onSaveContent?: (content: string, debounce: boolean) => void;
+  suggestions?: Suggestion[];
 }) {
   const [theme, setTheme] = useState<PdfTheme>("forest");
 
   return (
-    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent}>
+    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent} suggestions={suggestions}>
     <div className="min-h-full bg-background p-4 text-foreground sm:p-6 lg:p-10 print:bg-white print:p-0">
       <div className="mx-auto max-w-3xl overflow-hidden rounded-lg border border-border bg-card shadow-sm print:shadow-none">
         <header

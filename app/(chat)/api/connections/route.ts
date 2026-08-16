@@ -16,6 +16,25 @@ function isComposioAuthError(error: unknown) {
   return getComposioErrorStatus(error) === 401;
 }
 
+function toolkitKey(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function accountToolkitKeys(account: any) {
+  return [
+    account?.toolkit?.slug,
+    account?.toolkit?.key,
+    account?.toolkit?.name,
+    account?.appName,
+    account?.appId,
+  ]
+    .map(toolkitKey)
+    .filter(Boolean);
+}
+
 // GET: List all toolkits and their connection status
 export async function GET() {
   const session = await auth();
@@ -39,8 +58,9 @@ export async function GET() {
       allApps = allApps?.items || [];
     }
 
-    // Fetch user's connected accounts — no status filter to avoid SDK version issues
-    // Multi-account: group connected accounts by toolkit, preserving alias + id
+    // Fetch the user's connected accounts. Keep the request unfiltered for
+    // compatibility with the installed 0.15 SDK, then apply the documented
+    // ACTIVE status locally so a newer SDK filter cannot break this page.
     const connectedApps = new Map<
       string,
       Array<{ id: string; alias?: string }>
@@ -50,25 +70,23 @@ export async function GET() {
         userIds: [session.user.id],
       });
       const items = userAccounts?.items ?? [];
-      // Only keep ACTIVE connections; use lowercase for case-insensitive matching
       for (const rawAcc of items) {
         const acc = rawAcc as any;
-        if (acc.status && acc.status !== "ACTIVE") {
+        if (acc.status && String(acc.status).toUpperCase() !== "ACTIVE") {
           continue;
         }
-        const slug = (
-          acc.toolkit?.slug ||
-          acc.appName ||
-          acc.appId ||
-          ""
-        ).toLowerCase();
-        if (!slug) {
+        const keys = accountToolkitKeys(acc);
+        if (keys.length === 0 || !acc.id) {
           continue;
         }
         const entry = { id: acc.id, alias: acc.alias || undefined };
-        const existing = connectedApps.get(slug) ?? [];
-        existing.push(entry);
-        connectedApps.set(slug, existing);
+        for (const key of keys) {
+          const existing = connectedApps.get(key) ?? [];
+          if (!existing.some((account) => account.id === entry.id)) {
+            existing.push(entry);
+          }
+          connectedApps.set(key, existing);
+        }
       }
     } catch (accountError) {
       console.error("Failed to fetch connected accounts:", accountError);
@@ -86,7 +104,13 @@ export async function GET() {
       toolkits: allApps.map((t: any) => {
         const slug = t.slug || t.key || "";
         const requiresAuth = !t.noAuth && !t.no_auth;
-        const accounts = connectedApps.get(slug.toLowerCase()) ?? [];
+        const accounts = [
+          ...(connectedApps.get(toolkitKey(slug)) ?? []),
+          ...(connectedApps.get(toolkitKey(t.name)) ?? []),
+        ].filter(
+          (account, index, all) =>
+            all.findIndex((candidate) => candidate.id === account.id) === index
+        );
         return {
           slug,
           name: formatAppName(t.name || slug),

@@ -8,6 +8,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import useSWR, { useSWRConfig } from "swr";
@@ -23,6 +24,7 @@ import { sheetArtifact } from "@/artifacts/sheet/client";
 import { textArtifact } from "@/artifacts/text/client";
 import { useArtifact } from "@/hooks/use-artifact";
 import type { Document, Vote } from "@/lib/db/schema";
+import type { Suggestion } from "@/lib/db/schema";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetcher } from "@/lib/utils";
 import { ArtifactActions } from "./artifact-actions";
@@ -108,10 +110,17 @@ function PureArtifact({
       : null,
     fetcher
   );
+  const { data: persistedSuggestions } = useSWR<Suggestion[]>(
+    artifact.documentId !== "init"
+      ? `/api/suggestions?documentId=${artifact.documentId}`
+      : null,
+    fetcher
+  );
 
   const [mode, setMode] = useState<"edit" | "diff">("edit");
   const [document, setDocument] = useState<Document | null>(null);
   const [currentVersionIndex, setCurrentVersionIndex] = useState(-1);
+  const initializedArtifactRef = useRef<string | null>(null);
 
   const { open: isSidebarOpen } = useSidebar();
 
@@ -265,13 +274,23 @@ function PureArtifact({
   const artifactDefinition = artifactDefinitions.find(
     (definition) => definition.kind === artifact.kind
   );
+  const suggestions =
+    (metadata as { suggestions?: Suggestion[] } | null)?.suggestions ??
+    persistedSuggestions ??
+    [];
 
   if (!artifactDefinition) {
     throw new Error("Artifact definition not found!");
   }
 
   useEffect(() => {
-    if (artifact.documentId !== "init" && artifactDefinition.initialize) {
+    const initializationKey = `${artifact.kind}:${artifact.documentId}`;
+    if (
+      artifact.documentId !== "init" &&
+      artifactDefinition.initialize &&
+      initializedArtifactRef.current !== initializationKey
+    ) {
+      initializedArtifactRef.current = initializationKey;
       artifactDefinition.initialize({
         documentId: artifact.documentId,
         setMetadata,
@@ -495,7 +514,7 @@ function PureArtifact({
                 onSaveContent={saveContent}
                 setMetadata={setMetadata}
                 status={artifact.status}
-                suggestions={[]}
+                suggestions={suggestions}
                 title={artifact.title}
               />
 

@@ -186,6 +186,7 @@ export default function ProfilePage() {
                     className="object-cover"
                     fill
                     src={`https://avatar.vercel.sh/${user.email}?size=128`}
+                    sizes="(min-width: 640px) 112px, 96px"
                   />
                 ) : (
                   <UserIcon className="absolute inset-0 m-auto size-12 text-muted-foreground" />

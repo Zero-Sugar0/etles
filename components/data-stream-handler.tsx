@@ -44,6 +44,13 @@ export function DataStreamHandler() {
         }));
       }
 
+      if (delta.type === "data-suggestion" && activeKind !== "text") {
+        setMetadata((metadata: any) => ({
+          ...(metadata ?? {}),
+          suggestions: [...(metadata?.suggestions ?? []), delta.data],
+        }));
+      }
+
       const artifactDefinition = artifactDefinitions.find(
         (currentArtifactDefinition) =>
           currentArtifactDefinition.kind === activeKind

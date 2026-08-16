@@ -6,6 +6,7 @@ import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { Suggestion } from "@/lib/db/schema";
 
 type PlannerEvent = {
   date?: string;
@@ -25,10 +26,12 @@ export function PlannerArtifact({
   content,
   onDownload,
   onSaveContent,
+  suggestions = [],
 }: {
   content: string;
   onDownload?: () => void;
   onSaveContent?: (content: string, debounce: boolean) => void;
+  suggestions?: Suggestion[];
 }) {
   const [isEditing, setIsEditing] = useState(false);
   let planner: PlannerContent = {};
@@ -66,7 +69,7 @@ export function PlannerArtifact({
   };
 
   return (
-    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent}>
+    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent} suggestions={suggestions}>
       <div className="min-h-full bg-background p-4 text-foreground sm:p-6">
         <div className="mx-auto max-w-4xl">
           <div className="flex items-end justify-between gap-3">

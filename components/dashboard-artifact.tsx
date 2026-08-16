@@ -7,16 +7,19 @@ import { Button } from "@/components/ui/button";
 import { ChartDisplay } from "@/components/elements/chart-display";
 import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
 import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
+import type { Suggestion } from "@/lib/db/schema";
 
 const bars = [42, 68, 51, 82, 63, 91, 74, 96];
 export function DashboardArtifact({
   content,
   onDownload,
   onSaveContent,
+  suggestions = [],
 }: {
   content: string;
   onDownload?: () => void;
   onSaveContent?: (content: string, debounce: boolean) => void;
+  suggestions?: Suggestion[];
 }) {
   const [range, setRange] = useState("Last 30 days");
   const data = useMemo(() => {
@@ -33,7 +36,7 @@ export function DashboardArtifact({
   ];
   const charts = (data.charts ?? data.series ?? []) as ChartToolPayload[];
   return (
-    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent}>
+    <ArtifactSourceEditor content={content} onSaveContent={onSaveContent} suggestions={suggestions}>
     <div className="min-h-full bg-background p-5 text-foreground sm:p-8">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -82,7 +85,7 @@ export function DashboardArtifact({
             ) => (
               <div
                 className="rounded-lg border border-border bg-card p-5 text-card-foreground shadow-sm"
-                key={kpi.label}
+                key={`${kpi.label}-${index}`}
               >
                 <div className="flex justify-between text-xs uppercase tracking-wider text-muted-foreground">
                   <span>{kpi.label}</span>
@@ -111,7 +114,7 @@ export function DashboardArtifact({
               {bars.map((height, index) => (
                 <div
                   className="flex flex-1 flex-col justify-end gap-2"
-                  key={`bar-${height}`}
+                  key={`bar-${index}`}
                 >
                   <div
                     className="rounded-t-md bg-primary"
@@ -130,10 +133,10 @@ export function DashboardArtifact({
               <Filter className="size-5 text-muted-foreground" />
             </div>
             <div className="mt-5 grid gap-3">
-              {["All regions", "All channels", "All owners"].map((label) => (
+              {["All regions", "All channels", "All owners"].map((label, index) => (
                 <button
                   className="flex items-center justify-between rounded-md border border-border bg-background px-4 py-3 text-left text-sm"
-                  key={label}
+                  key={`${label}-${index}`}
                   type="button"
                 >
                   {label}
@@ -146,7 +149,7 @@ export function DashboardArtifact({
         {charts.length > 0 ? (
           <section className="mt-6 grid gap-6 lg:grid-cols-2">
             {charts.map((chart, index) => (
-              <div className="rounded-lg border border-border bg-card p-4" key={chart.title || `chart-${index}`}>
+              <div className="rounded-lg border border-border bg-card p-4" key={`${chart.title || "chart"}-${index}`}>
                 <ChartDisplay spec={chart} />
               </div>
             ))}

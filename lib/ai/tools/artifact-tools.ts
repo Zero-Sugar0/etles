@@ -64,16 +64,17 @@ export const createPresentation = ({ session, dataStream, modelId }: Props) => {
     inputSchema: z.object({
       ...baseInput,
       kind: z.literal("presentation").default("presentation"),
+      theme: z.enum(["midnight", "ocean", "sunset", "forest", "violet", "mono"]).optional(),
       charts: z.array(chartSpecSchema).max(8).optional(),
       tables: z.array(tableSchema).max(8).optional(),
       visuals: z.array(visualSchema).max(8).optional(),
     }),
-    execute: async ({ charts, tables, visuals, ...input }) =>
+    execute: async ({ charts, tables, visuals, theme, ...input }) =>
       documentTool.execute?.(
         {
           ...input,
           kind: "presentation",
-          data: { ...(input.data ?? {}), charts, tables, visuals },
+          data: { ...(input.data ?? {}), charts, tables, visuals, theme },
         },
         {} as never
       ),

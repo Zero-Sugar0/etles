@@ -43,6 +43,7 @@ function PureArtifactActions({
 
   const actionContext: ArtifactActionContext = {
     content: artifact.content,
+    title: artifact.title,
     handleVersionChange,
     currentVersionIndex,
     isCurrentVersion,

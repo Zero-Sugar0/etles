@@ -278,7 +278,7 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
                   strokeWidth: 2,
                   stroke: "#000",
                 }}
-                key={s.name}
+                key={`${s.name}-${i}`}
                 stroke={pickSeriesColor(i, s.color, spec.colors)}
                 strokeDasharray={s.lineStyle === "dashed" ? "5 5" : undefined}
                 strokeWidth={3}
@@ -330,7 +330,7 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
                 animationDuration={1500}
                 dataKey={s.name}
                 fill={`url(#barGradient-${i})`}
-                key={s.name}
+                key={`${s.name}-${i}`}
                 radius={isHorizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]}
                 stackId={stacking}
               />
@@ -382,7 +382,7 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
                   animationDuration={1500}
                   dataKey={s.name}
                   fill={`url(#areaGradient-${i})`}
-                  key={s.name}
+                  key={`${s.name}-${i}`}
                   stackId={stacking}
                   stroke={c}
                   strokeWidth={2}
@@ -413,7 +413,7 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
               {pieData.map((entry, index) => (
                 <Cell
                   fill={pickSeriesColor(index, undefined, spec.colors)}
-                  key={entry.name}
+                key={`${entry.name}-${index}`}
                 />
               ))}
             </Pie>
@@ -454,7 +454,7 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
                 dataKey={s.name}
                 fill={pickSeriesColor(i, s.color, spec.colors)}
                 fillOpacity={0.35}
-                key={s.name}
+                key={`${s.name}-${i}`}
                 stroke={pickSeriesColor(i, s.color, spec.colors)}
                 strokeWidth={2}
               />
@@ -486,12 +486,12 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
               }
             />
             <Legend {...legendProps} />
-            {scatterSeries.map((ss) => (
+            {scatterSeries.map((ss, i) => (
               <Scatter
                 data={ss.points}
                 dataKey="y"
                 fill={ss.color}
-                key={ss.key}
+                key={`${ss.key}-${i}`}
                 name={ss.name}
               />
             ))}
@@ -531,7 +531,7 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
                   <Line
                     dataKey={s.name}
                     dot={false}
-                    key={s.name}
+                    key={`${s.name}-${i}`}
                     stroke={c}
                     strokeWidth={2}
                     type="natural"
@@ -544,7 +544,7 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
                     dataKey={s.name}
                     fill={c}
                     fillOpacity={0.3}
-                    key={s.name}
+                    key={`${s.name}-${i}`}
                     stroke={c}
                     type="natural"
                   />
@@ -554,7 +554,7 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
                 <Bar
                   dataKey={s.name}
                   fill={c}
-                  key={s.name}
+                  key={`${s.name}-${i}`}
                   radius={[3, 3, 0, 0]}
                 />
               );
@@ -644,7 +644,7 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
           {spec.description}
         </p>
       ) : null}
-      <div className="h-[260px] w-full overflow-hidden sm:h-[300px] md:h-[min(52vh,340px)] md:min-h-[280px]">
+      <div className="h-[260px] min-h-[1px] min-w-[1px] w-full overflow-hidden sm:h-[300px] md:h-[min(52vh,340px)] md:min-h-[280px]">
         <ResponsiveContainer
           height="100%"
           minHeight={1}
