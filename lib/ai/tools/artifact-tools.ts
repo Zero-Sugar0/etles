@@ -36,6 +36,32 @@ const tableSchema = z.object({
   rows: z.array(z.array(z.union([z.string(), z.number()]))),
 });
 
+const dashboardKpiSchema = z.object({
+  label: z.string().min(1),
+  value: z.union([z.string(), z.number()]),
+  change: z.string().optional(),
+  target: z.string().optional(),
+  status: z.enum(["positive", "negative", "neutral"]).optional(),
+  description: z.string().optional(),
+});
+
+const dashboardFilterSchema = z.object({
+  label: z.string().min(1),
+  options: z.array(z.string()).min(1),
+  value: z.string().optional(),
+});
+
+const dashboardInsightSchema = z.object({
+  title: z.string().min(1),
+  body: z.string().min(1),
+  tone: z.enum(["positive", "warning", "neutral"]).optional(),
+});
+
+const dashboardRowSchema = z.record(
+  z.string(),
+  z.union([z.string(), z.number(), z.boolean(), z.null()])
+);
+
 const visualSchema = z.object({
   url: z.string().url().optional(),
   prompt: z.string().optional(),
@@ -118,15 +144,18 @@ export const createDashboard = ({ session, dataStream, modelId }: Props) => {
       kind: z.literal("dashboard").default("dashboard"),
       metrics: z.array(z.string()).optional(),
       charts: z.array(chartSpecSchema).max(8).optional(),
-      filters: z.array(z.string()).optional(),
+      kpis: z.array(dashboardKpiSchema).max(12).optional(),
+      filters: z.array(dashboardFilterSchema).max(8).optional(),
+      insights: z.array(dashboardInsightSchema).max(8).optional(),
+      rows: z.array(dashboardRowSchema).max(100).optional(),
       dateRange: z.string().optional(),
     }),
-    execute: async ({ metrics, charts, filters, dateRange, ...input }) =>
+    execute: async ({ metrics, charts, kpis, filters, insights, rows, dateRange, ...input }) =>
       documentTool.execute?.(
         {
           ...input,
           kind: "dashboard",
-          data: { ...(input.data ?? {}), metrics, charts, filters, dateRange },
+          data: { ...(input.data ?? {}), metrics, charts, kpis, filters, insights, rows, dateRange },
         },
         {} as never
       ),

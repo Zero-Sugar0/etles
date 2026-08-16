@@ -1,19 +1,30 @@
 import { Artifact } from "@/components/create-artifact";
 import { RedoIcon, UndoIcon } from "@/components/icons";
 import { DocumentSkeleton } from "@/components/document-skeleton";
-import { PlannerArtifact } from "@/components/planner-artifact";
+import { downloadPlannerCalendar, PlannerArtifact } from "@/components/planner-artifact";
+import { Download, Pencil } from "lucide-react";
 
 export const plannerArtifact = new Artifact({
   kind: "planner",
   description:
     "Editable calendar and planner with deadlines, reminders, tasks, and timelines.",
-  content: ({ content, isLoading, onSaveContent, suggestions }) =>
+  content: ({ content, isLoading, onSaveContent, suggestions, metadata, title }) =>
     isLoading ? (
       <DocumentSkeleton artifactKind="planner" />
     ) : (
-      <PlannerArtifact content={content} onSaveContent={onSaveContent} suggestions={suggestions} />
+      <PlannerArtifact content={content} editMode={Boolean(metadata?.editMode)} onSaveContent={onSaveContent} suggestions={suggestions} title={title} />
     ),
   actions: [
+    {
+      icon: <Download size={16} />,
+      description: "Download calendar file",
+      onClick: ({ content, title }) => downloadPlannerCalendar(content, title),
+    },
+    {
+      icon: <Pencil size={16} />,
+      description: "Edit planner content",
+      onClick: ({ metadata, setMetadata }) => setMetadata({ ...(metadata ?? {}), editMode: true }),
+    },
     {
       icon: <UndoIcon size={18} />,
       description: "View previous version",

@@ -303,9 +303,9 @@ const DocumentContent = ({ document }: { document: Document }) => {
           title={document.title}
         />
       ) : document.kind === "dashboard" ? (
-        <DashboardArtifact content={document.content ?? ""} />
+        <DashboardArtifact content={document.content ?? ""} title={document.title} />
       ) : document.kind === "planner" ? (
-        <PlannerArtifact content={document.content ?? ""} />
+        <PlannerArtifact content={document.content ?? ""} title={document.title} />
       ) : document.kind === "presentation" ? (
         <PresentationArtifact content={document.content ?? ""} title={document.title} />
       ) : document.kind === "pdf" ? (

@@ -61,8 +61,41 @@ function parseChartSource(
 }
 
 export const markdownComponents = {
+  h1: ({ children, className, ...props }: ComponentProps<"h1">) => (
+    <h1 className={cn("font-serif text-3xl font-semibold tracking-tight text-foreground", className)} {...props}>{children}</h1>
+  ),
+  h2: ({ children, className, ...props }: ComponentProps<"h2">) => (
+    <h2 className={cn("mt-7 font-serif text-2xl font-semibold tracking-tight text-foreground", className)} {...props}>{children}</h2>
+  ),
+  h3: ({ children, className, ...props }: ComponentProps<"h3">) => (
+    <h3 className={cn("mt-5 text-lg font-semibold text-foreground", className)} {...props}>{children}</h3>
+  ),
   p: ({ children }: ComponentProps<"p">) => (
-    <div className="mb-4 last:mb-0">{children}</div>
+    <div className="mb-4 text-foreground/90 last:mb-0">{children}</div>
+  ),
+  ul: ({ children, className, ...props }: ComponentProps<"ul">) => (
+    <ul className={cn("my-3 list-disc space-y-1 pl-5 text-foreground/90", className)} {...props}>{children}</ul>
+  ),
+  ol: ({ children, className, ...props }: ComponentProps<"ol">) => (
+    <ol className={cn("my-3 list-decimal space-y-1 pl-5 text-foreground/90", className)} {...props}>{children}</ol>
+  ),
+  li: ({ children, className, ...props }: ComponentProps<"li">) => (
+    <li className={cn("pl-1 leading-6 marker:text-muted-foreground", className)} {...props}>{children}</li>
+  ),
+  blockquote: ({ children, className, ...props }: ComponentProps<"blockquote">) => (
+    <blockquote className={cn("my-4 border-l-2 bg-muted/40 px-4 py-2 text-foreground/90 italic", className)} {...props}>{children}</blockquote>
+  ),
+  hr: ({ className, ...props }: ComponentProps<"hr">) => (
+    <hr className={cn("my-6 border-border", className)} {...props} />
+  ),
+  a: ({ children, className, ...props }: ComponentProps<"a">) => (
+    <a className={cn("font-medium text-primary underline underline-offset-2", className)} rel="noreferrer" target="_blank" {...props}>{children}</a>
+  ),
+  del: ({ children, className, ...props }: ComponentProps<"del">) => (
+    <del className={cn("text-muted-foreground", className)} {...props}>{children}</del>
+  ),
+  input: ({ className, ...props }: ComponentProps<"input">) => (
+    <input className={cn("mr-2 accent-primary", className)} disabled {...props} />
   ),
   pre: ({ children, className, ...props }: ComponentProps<"pre">) => {
     if (

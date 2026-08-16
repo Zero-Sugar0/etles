@@ -10,12 +10,16 @@ export function ArtifactSourceEditor({
   onSaveContent,
   suggestions = [],
   editMode = false,
+  showEditButton = true,
+  renderEditor,
   children,
 }: {
   content: string;
   onSaveContent?: (content: string, debounce: boolean) => void;
   suggestions?: Suggestion[];
   editMode?: boolean;
+  showEditButton?: boolean;
+  renderEditor?: (draft: string, setDraft: (value: string) => void) => ReactNode;
   children: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
@@ -41,7 +45,7 @@ export function ArtifactSourceEditor({
 
   return (
     <div className="relative min-h-full">
-      <div className="sticky top-0 z-20 flex justify-end border-b border-border/60 bg-background/95 p-2 backdrop-blur">
+      {showEditButton ? <div className="sticky top-0 z-20 flex justify-end border-b border-border/60 bg-background/95 p-2 backdrop-blur">
         {editing ? (
           <div className="flex gap-2">
             <Button
@@ -69,15 +73,17 @@ export function ArtifactSourceEditor({
             <Pencil /> Edit content
           </Button>
         )}
-      </div>
+      </div> : null}
       {editing ? (
-        <textarea
-          aria-label="Edit artifact content"
-          className="min-h-[calc(100dvh-120px)] w-full resize-y bg-background p-5 font-mono text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          onChange={(event) => setDraft(event.target.value)}
-          spellCheck={false}
-          value={draft}
-        />
+        renderEditor ? renderEditor(draft, setDraft) : (
+          <textarea
+            aria-label="Edit artifact content"
+            className="min-h-[calc(100dvh-120px)] w-full resize-y bg-background p-5 font-mono text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onChange={(event) => setDraft(event.target.value)}
+            spellCheck={false}
+            value={draft}
+          />
+        )
       ) : (
         <>
           {children}

@@ -2,10 +2,14 @@ import { Index } from "@upstash/vector";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
 
-const index = new Index({
-  url: process.env.UPSTASH_VECTOR_REST_URL!,
-  token: process.env.UPSTASH_VECTOR_REST_TOKEN!,
-});
+function getIndex() {
+  const url = process.env.UPSTASH_VECTOR_REST_URL;
+  const token = process.env.UPSTASH_VECTOR_REST_TOKEN;
+
+  // Keep route collection/builds safe when optional memory infrastructure is
+  // not configured. The route reports availability at request time instead.
+  return url && token ? new Index({ url, token }) : null;
+}
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -14,6 +18,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const index = getIndex();
+    if (!index) {
+      return NextResponse.json(
+        { error: "Vector memory is not configured" },
+        { status: 503 }
+      );
+    }
     const ns = index.namespace(`memory-${session.user.id}`);
 
     // List memories by querying with an empty string or using range/list if supported.
@@ -47,6 +58,13 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
+    const index = getIndex();
+    if (!index) {
+      return NextResponse.json(
+        { error: "Vector memory is not configured" },
+        { status: 503 }
+      );
+    }
     const { searchParams } = new URL(req.url);
     const key = searchParams.get("key");
 

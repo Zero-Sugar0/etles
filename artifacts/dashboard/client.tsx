@@ -1,18 +1,29 @@
 import { Artifact } from "@/components/create-artifact";
-import { DashboardArtifact } from "@/components/dashboard-artifact";
+import { DashboardArtifact, downloadDashboardCsv } from "@/components/dashboard-artifact";
 import { DocumentSkeleton } from "@/components/document-skeleton";
 import { RedoIcon, UndoIcon } from "@/components/icons";
+import { Download, Pencil } from "lucide-react";
 
 export const dashboardArtifact = new Artifact({
   kind: "dashboard",
   description: "Interactive KPI dashboard with filters, date ranges, charts, and tables.",
-  content: ({ content, isLoading, onSaveContent, suggestions }) =>
+  content: ({ content, isLoading, onSaveContent, suggestions, title, metadata }) =>
     isLoading ? (
       <DocumentSkeleton artifactKind="dashboard" />
     ) : (
-      <DashboardArtifact content={content} onSaveContent={onSaveContent} suggestions={suggestions} />
+      <DashboardArtifact content={content} editMode={Boolean(metadata?.editMode)} onSaveContent={onSaveContent} suggestions={suggestions} title={title} />
     ),
   actions: [
+    {
+      icon: <Download size={16} />,
+      description: "Download dashboard CSV",
+      onClick: ({ content, title }) => downloadDashboardCsv(content, title),
+    },
+    {
+      icon: <Pencil size={16} />,
+      description: "Edit dashboard content",
+      onClick: ({ metadata, setMetadata }) => setMetadata({ ...(metadata ?? {}), editMode: true }),
+    },
     {
       icon: <UndoIcon size={18} />,
       description: "View previous version",
