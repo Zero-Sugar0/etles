@@ -174,7 +174,7 @@ export async function downloadPresentation(content: string, title: string) {
         showTitle: Boolean(item.chart.title), title: item.chart.title, showLegend: item.chart.series.length > 1,
         chartColors: item.chart.colors ?? [theme.accent], showValue: false,
         catAxisLabelColor: theme.muted, valAxisLabelColor: theme.muted,
-        valGridLine: { color: theme.muted, transparency: 70, size: 1 },
+        valGridLine: { color: theme.muted, size: 1 },
       });
     }
     if (item.notes) slide.addNotes(item.notes);
@@ -267,7 +267,7 @@ export function PresentationArtifact({
 
   return (
     <ArtifactSourceEditor content={content} editMode={editMode} onSaveContent={onSaveContent} renderEditor={renderSlideEditor} showEditButton={false} suggestions={suggestions}>
-      <div className="flex min-h-full flex-col bg-background p-4 text-foreground sm:p-8">
+      <div className="flex min-h-full min-w-0 flex-col overflow-x-hidden bg-background p-3 text-foreground sm:p-6 lg:p-8">
       <div className="mx-auto flex max-w-6xl flex-col items-start gap-3 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -309,7 +309,7 @@ export function PresentationArtifact({
                     {slide.layout || "Narrative"}
                   </span>
                 </div>
-                <h2 className="max-w-xl font-serif text-3xl font-semibold leading-tight sm:text-4xl">
+                <h2 className="max-w-full break-words font-serif text-2xl font-semibold leading-tight sm:text-4xl">
                   {slide.title || "Untitled slide"}
                 </h2>
                 {slide.body ? (

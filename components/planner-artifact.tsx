@@ -151,11 +151,11 @@ export function PlannerArtifact({ title, content, editMode = false, onDownload, 
 
   return (
     <ArtifactSourceEditor content={content} onSaveContent={onSaveContent} showEditButton={false} suggestions={suggestions}>
-      <div className="min-h-full bg-background p-4 text-foreground sm:p-7">
+      <div className="min-h-full min-w-0 overflow-x-hidden bg-background p-3 text-foreground sm:p-5 lg:p-7">
         <div className="mx-auto max-w-6xl">
           <header className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
-            <div className="min-w-0"><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"><CalendarDays className="size-3.5" /> Planner</p><h1 className="mt-1 truncate font-serif text-2xl font-semibold sm:text-3xl">{planner.title || title || "Planner"}</h1>{planner.description ? <RichArtifactMarkdown className="mt-2 max-w-3xl text-sm text-foreground prose-p:text-foreground">{planner.description}</RichArtifactMarkdown> : null}</div>
-            <div className="flex shrink-0 items-center gap-2">{planner.period ? <span className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{planner.period}</span> : null}{onDownload ? <Button className="gap-2" onClick={onDownload} size="sm" variant="outline"><Download className="size-4" /> Export</Button> : null}</div>
+            <div className="min-w-0"><p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground"><CalendarDays className="size-3.5" /> Planner</p><h1 className="mt-1 break-words font-serif text-2xl font-semibold sm:text-3xl">{planner.title || title || "Planner"}</h1>{planner.description ? <RichArtifactMarkdown className="mt-2 max-w-3xl text-sm text-foreground prose-p:text-foreground">{planner.description}</RichArtifactMarkdown> : null}</div>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">{planner.period ? <span className="max-w-full break-words rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">{planner.period}</span> : null}{onDownload ? <Button className="gap-2" onClick={onDownload} size="sm" variant="outline"><Download className="size-4" /> Export</Button> : null}</div>
           </header>
 
           {planner.goals?.length ? <section className="mt-5 rounded-lg border border-border bg-card p-4"><h2 className="font-semibold">Focus</h2><ul className="mt-2 grid gap-1 text-sm text-foreground/90 sm:grid-cols-2">{planner.goals.map((goal, index) => <li className="flex gap-2" key={`${goal}-${index}`}><span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />{goal}</li>)}</ul></section> : null}

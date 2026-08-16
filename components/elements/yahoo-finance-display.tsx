@@ -4,11 +4,11 @@ import { ArrowDownRight, ArrowUpRight, CandlestickChart } from "lucide-react";
 import {
   Area,
   AreaChart,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import { SafeResponsiveContainer } from "@/components/elements/chart-display";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -132,7 +132,7 @@ export function YahooFinanceDisplay({ data }: { data: YahooFinancePayload }) {
                 No historical chart data available.
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <SafeResponsiveContainer minHeight={160}>
                 <AreaChart
                   data={data.points}
                   margin={{ top: 8, right: 4, left: 0, bottom: 0 }}
@@ -189,7 +189,7 @@ export function YahooFinanceDisplay({ data }: { data: YahooFinancePayload }) {
                   isAnimationActive={false}
                 />
                 </AreaChart>
-              </ResponsiveContainer>
+              </SafeResponsiveContainer>
             )}
           </div>
         </div>

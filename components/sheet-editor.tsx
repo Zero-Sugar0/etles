@@ -423,7 +423,7 @@ const PureSpreadsheetEditor = ({
 
   return (
     <div
-      className="flex min-h-0 h-full flex-col"
+      className="flex min-h-0 h-full min-w-0 flex-col overflow-hidden"
       style={{
         backgroundColor: palette.canvas,
         color: palette.ink,
@@ -431,7 +431,7 @@ const PureSpreadsheetEditor = ({
     >
       {/* Excel-style Title Bar */}
       <div
-        className="flex shrink-0 items-center justify-between border-b px-4 py-3 sm:px-6 sm:py-4"
+        className="flex shrink-0 flex-wrap items-start justify-between gap-2 border-b px-3 py-3 sm:px-6 sm:py-4"
         style={{
           backgroundColor: palette.header,
           borderColor: palette.line,
@@ -448,7 +448,7 @@ const PureSpreadsheetEditor = ({
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2 text-xs opacity-90">
+        <div className="hidden items-center gap-2 text-xs opacity-90 sm:flex">
           <span
             className="rounded-full border px-2.5 py-1 font-medium"
             style={{ borderColor: palette.line }}

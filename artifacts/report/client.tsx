@@ -32,8 +32,8 @@ export const reportArtifact = new Artifact<"report", Record<string, never>>({
   },
   content: ({ content, status, onSaveContent, suggestions }) => (
     <ArtifactSourceEditor content={content} onSaveContent={onSaveContent} suggestions={suggestions}>
-    <article className="min-h-full bg-background px-5 py-8 text-foreground sm:px-10 md:px-16 md:py-12">
-      <div className="mx-auto max-w-3xl">
+    <article className="min-h-full min-w-0 overflow-x-hidden bg-background px-3 py-5 text-foreground sm:px-6 sm:py-8 md:px-16 md:py-12">
+      <div className="mx-auto min-w-0 max-w-3xl">
         <div className="mb-8 flex items-center justify-between gap-4 border-b border-border pb-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary">
@@ -50,7 +50,7 @@ export const reportArtifact = new Artifact<"report", Record<string, never>>({
           </span>
         </div>
         <Streamdown
-          className="report-markdown text-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.9em] [&_h1]:font-serif [&_h1]:text-3xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:mt-8 [&_h2]:border-b [&_h2]:border-border [&_h2]:pb-2 [&_h2]:font-serif [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-5 [&_h3]:font-semibold [&_h3]:text-primary [&_li]:leading-7 [&_ol]:my-4 [&_ol]:pl-6 [&_p]:leading-7 [&_strong]:font-semibold [&_table]:text-foreground [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6"
+          className="report-markdown min-w-0 max-w-full text-foreground [&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.9em] [&_h1]:font-serif [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:tracking-tight sm:[&_h1]:text-3xl [&_h2]:mt-8 [&_h2]:border-b [&_h2]:border-border [&_h2]:pb-2 [&_h2]:font-serif [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-5 [&_h3]:font-semibold [&_h3]:text-primary [&_li]:leading-7 [&_ol]:my-4 [&_ol]:pl-6 [&_p]:leading-7 [&_strong]:font-semibold [&_table]:text-foreground [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6"
           components={markdownComponents as any}
         >
           {content}

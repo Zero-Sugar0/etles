@@ -98,7 +98,7 @@ export function DashboardArtifact({ title, content, editMode = false, onDownload
 
   return (
     <ArtifactSourceEditor content={content} editMode={editMode} onSaveContent={onSaveContent} showEditButton={false} suggestions={suggestions}>
-      <div className="min-h-full bg-background p-4 text-foreground sm:p-7">
+      <div className="min-h-full min-w-0 overflow-x-hidden bg-background p-3 text-foreground sm:p-5 lg:p-7">
         <div className="mx-auto max-w-7xl">
           <header className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
@@ -124,7 +124,7 @@ export function DashboardArtifact({ title, content, editMode = false, onDownload
             })}
           </section> : null}
 
-          {filters.length ? <section className="mt-5 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-3"><Filter className="mr-1 size-4 text-muted-foreground" />{filters.map((filter, index) => <label className="flex items-center gap-2 text-sm" key={`${filter.label}-${index}`}><span className="text-muted-foreground">{filter.label}</span><select aria-label={filter.label} className="max-w-[12rem] rounded-md border border-border bg-background px-2.5 py-1.5 text-sm" onChange={(event) => setFilterValues((current) => ({ ...current, [filter.label]: event.target.value }))} value={selectedFilters[filter.label]}>{filter.options.map((option, optionIndex) => <option key={`${option}-${optionIndex}`}>{option}</option>)}</select></label>)}</section> : null}
+          {filters.length ? <section className="mt-5 flex flex-wrap items-start gap-3 rounded-lg border border-border bg-muted/20 p-3"><Filter className="mt-2 size-4 shrink-0 text-muted-foreground" />{filters.map((filter, index) => <label className="flex min-w-0 flex-1 flex-col gap-1 text-sm sm:flex-none" key={`${filter.label}-${index}`}><span className="text-muted-foreground">{filter.label}</span><select aria-label={filter.label} className="w-full max-w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm sm:max-w-[12rem]" onChange={(event) => setFilterValues((current) => ({ ...current, [filter.label]: event.target.value }))} value={selectedFilters[filter.label]}>{filter.options.map((option, optionIndex) => <option key={`${option}-${optionIndex}`}>{option}</option>)}</select></label>)}</section> : null}
 
           {charts.length ? <section className="mt-5 grid gap-4 lg:grid-cols-2">{charts.map((chart, index) => <article className="min-w-0 rounded-lg border border-border bg-card p-4 shadow-sm" key={`${chart.title || "chart"}-${index}`}><ChartDisplay spec={chart} /></article>)}</section> : null}
 

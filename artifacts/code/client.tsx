@@ -102,7 +102,7 @@ export const codeArtifact = new Artifact<"code", Metadata>({
     return (
       <>
         {showPreview ? (
-          <div className="h-full overflow-hidden rounded-md border border-border bg-background">
+          <div className="h-full min-w-0 overflow-hidden rounded-md border border-border bg-background">
             <iframe
               className="h-full min-h-[70dvh] w-full"
               sandbox="allow-scripts allow-forms allow-modals"
@@ -111,7 +111,7 @@ export const codeArtifact = new Artifact<"code", Metadata>({
             />
           </div>
         ) : (
-          <div className="h-full px-1">
+          <div className="h-full min-w-0 px-1">
             <CodeEditor {...props} />
           </div>
         )}

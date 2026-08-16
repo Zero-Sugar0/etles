@@ -457,7 +457,7 @@ function PureArtifact({
                   }
             }
           >
-            <div className="flex flex-wrap items-start justify-between gap-2 border-b p-2 md:flex-nowrap">
+            <div className="flex min-w-0 flex-wrap items-start justify-between gap-2 border-b p-2 sm:p-3 md:flex-nowrap">
               <div className="flex min-w-0 flex-1 flex-row items-start gap-3">
                 <ArtifactCloseButton />
 
@@ -484,7 +484,7 @@ function PureArtifact({
                 </div>
               </div>
 
-              <div className="w-full md:w-auto">
+              <div className="w-full min-w-0 md:w-auto">
                 <ArtifactActions
                   artifact={artifact}
                   currentVersionIndex={currentVersionIndex}

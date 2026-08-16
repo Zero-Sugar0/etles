@@ -49,7 +49,11 @@
 - **Missions**: Multi-week autonomous campaigns (e.g., "get 50 beta users") with daily check-ins.
 - **File Storage**: Store and retrieve files with Vercel Blob.
 - **Generative UI**: Interactive components natively stream charts, documents, and real-time weather into the chat.
+- **Rich Artifacts**: Persisted, editable Markdown reports, planners, dashboards, presentations, PDFs, and spreadsheets. Presentations support generated images, native charts, tables, speaker notes, varied slide layouts, and `.pptx` export; dashboards support filters, responsive charts, detail rows, and CSV export.
+- **Artifact Guidance**: Built-in wiki playbooks teach the agent how to create high-quality presentations, planners, and dashboards without mock data or repetitive layouts.
 - **Sandboxed Code Execution**: Secure Daytona sandboxes for code execution, Git operations, and browser automation.
+- **Persistent Browser**: User-scoped Daytona browser profiles preserve Playwright storage state across sessions while enforcing strict sandbox ownership.
+- **BYOK Fallback**: Environment credentials remain primary; encrypted per-user profile credentials are used only when deployment credentials are unavailable.
 - **Cloud Infrastructure Tools**: AWS (S3, EC2, Lambda), GCP (Storage, Compute, Functions), Azure (Storage, VM, Functions).
 - **Database Tools**: Direct query access to PostgreSQL, MySQL, and MongoDB.
 - **Legal Tools**: Contract analysis and comparison.
@@ -75,12 +79,12 @@
 
 ## Model Providers
 
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default model is `moonshotai/kimi-k2.5`, with support for:
+This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default model is `openai/gpt-5.6-luna`, with capabilities and availability defined in [`lib/ai/models.ts`](lib/ai/models.ts). The registry includes models from:
 
 - **Anthropic**: Claude Haiku 4.5, Sonnet 4.5/4.8, Opus 4.8, and thinking variants
 - **OpenAI**: GPT-4o, GPT-4.1, GPT-5 Mini/Nano, GPT OSS 120B
 - **Google**: Gemini 3 Flash/Pro, Gemini 3.1/3.5 Flash, Gemma 4 26B
-- **DeepSeek**: V3.1, V4 Flash/Pro, R1
+- **DeepSeek**: V3.1 and V4 Flash/Pro variants
 - **xAI**: Grok 3, Grok Build 0.1
 - **Alibaba**: Qwen 3.6 Max, Qwen 3 Coder Plus, Qwen 3.8 Max
 - **Moonshot AI**: Kimi K2.5/K2.6/K2.7 Code

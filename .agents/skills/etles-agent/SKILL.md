@@ -6,7 +6,7 @@ description: >
 
 # Etles Agent Infrastructure
 
-This document is the authoritative guide for the Etles Agent architecture. It covers real-time chat, session persistence, long-term memory, durable subagents, proactive heartbeats, autonomous missions, and secure execution sandboxes.
+This document is the authoritative guide for the Etles Agent architecture. It covers real-time chat, structured artifacts, BYOK credential resolution, session persistence, long-term memory, durable subagents, proactive heartbeats, autonomous missions, and secure persistent execution sandboxes.
 
 ## 1. Core Chat Interaction (`app/(chat)/api/chat/route.ts`)
 The primary entry point for user interaction. It manages the conversation lifecycle and tool injection.
@@ -39,17 +39,35 @@ Etles uses a sophisticated routing layer to balance cost, speed, and capability.
 - **AI Gateway**: Most traffic (including Title and Artifact models) routes through an AI Gateway for logging and load balancing.
 - **Direct Providers**: Critical background tasks (Subagents, Heartbeats) use `getGoogleModel` to bypass the gateway and talk directly to Google Gemini for maximum reliability.
 - **Model Selection & Tiering**:
-  - **Default Chat Model**: `moonshotai/kimi-k2.5`.
+  - **Default Chat Model**: `openai/gpt-5.6-luna`.
   - **Title Model**: `google/gemma-4-26b-a4b-it` (via `titleModel.id`).
   - **Subagent Model**: Configurable via `SUBAGENT_MODEL` env var, defaults to `minimax/minimax-m3`.
   - **Premium Models**: `anthropic/claude-sonnet-4.8`, `anthropic/claude-opus-4.8`, `openai/gpt-5-mini`.
   - **Lightweight Models**: `google/gemini-3-flash`, `openai/gpt-4.1-nano`, `openai/gpt-5-nano`.
-  - **Reasoning Models**: Models with `provider: "reasoning"` (e.g., `deepseek/deepseek-r1`, `anthropic/claude-sonnet-4.8-thinking`, `xai/grok-3-thinking`).
-  - **Gateway Order**: Each model specifies `gatewayOrder` for provider failover (e.g., `["anthropic", "bedrock"]`).
+  - **Reasoning Models**: Models declare reasoning capability in the curated model registry; do not assume every model supports tools, reasoning, or vision.
+  - **Gateway Order**: Each model may specify provider failover; use the registry rather than hardcoding a provider order.
   - **Reasoning Effort**: Configurable per-model via `reasoningEffort` field (`none` | `minimal` | `low` | `medium` | `high`).
   - **Dynamic Capabilities**: `getCapabilities()` fetches real-time model capabilities (tools, vision, reasoning) from the AI Gateway.
   - **Model Availability**: `getModelAvailability()` checks endpoint health (uptime, latency) for proactive incident detection.
 - **Mocking**: Full support for `isTestEnvironment` using `models.mock` for local development.
+
+### Artifact System (`lib/ai/tools/artifact-tools.ts`, `artifacts/`, `components/*-artifact.tsx`)
+Etles creates persisted, editable artifacts instead of burying complex output in chat text:
+- **Text/report**: Rich Markdown with headings, lists, emphasis, links, tables, charts, and code.
+- **Presentation**: Structured `{ theme, slides }` JSON with narrative, split, image-led, chart-led, comparison, and closing layouts; generated images, native charts, tables, speaker notes, structured slide editing, and `.pptx` export.
+- **Dashboard**: Structured KPIs, filters, chart specs, insights, and detail rows with responsive rendering and CSV export. Never invent metrics or use static mock data.
+- **Planner**: Structured goals and dated events with priorities, completion state, dependencies, buffers, editable fields, Markdown notes, and calendar export.
+- **PDF and spreadsheet**: Use the dedicated artifact tools and preserve the shared document persistence/update path.
+
+Read `.wiki/presentation.md`, `.wiki/dashboard.md`, `.wiki/planner.md`, and `.wiki/document.md` before creating or updating those artifact types. Stream deltas while generating, validate structured payloads defensively, and ensure closing an artifact does not remove its persisted document from chat history.
+
+### BYOK and Credential Resolution (`lib/security/user-credentials.ts`)
+Provider credentials are resolved with strict environment-first precedence:
+1. Deployment `.env` value.
+2. Authenticated user's encrypted profile credential when the environment value is absent.
+3. Existing unavailable/error behavior when neither exists.
+
+This applies to AI Gateway, Composio, Upstash Redis, QStash, E2B, Daytona, and Oracle integrations where supported. Credentials are AES-256-GCM encrypted in the database, decrypted only in server memory, masked in model-visible output, and isolated with `AsyncLocalStorage` for background workflows. Never log, serialize, return, or place raw credentials in prompts. A user credential must never be used for another user.
 
 ## 4. Autonomous Agents, Executive Layer & Tasks
 
@@ -135,7 +153,8 @@ Multi-week autonomous campaigns aimed at business goals (e.g., "get 50 beta user
 
 ### Background Intelligence (`app/api/agent/heartbeat/`)
 Proactive health and context scanning that runs without user input.
-- **Four-hourly Heartbeat**: Triggered by QStash scheduled cron. Scans Calendar, Email, and Tasks via Composio to detect urgent signals (upcoming meetings, high-priority unread emails).
+- **Four-hourly Heartbeat**: Triggered by QStash scheduled cron. When connections are available, it checks the latest three relevant emails, calendar events, and tasks through Composio; unavailable integrations are skipped and reported with a useful connection explanation.
+- **Temporal memory**: Reads recent heartbeat history, goals, durable memory, and knowledge-graph context before analysis. Each run saves a dated structured report and compares findings with prior runs to distinguish `urgent`, `informational`, `already_reported`, and `resolved` items.
 - **Weekly Synthesis**: A specialized workflow that generates a week-in-review brief and saves it to Long-Term Memory.
 - **Status Tracking**: Updates heartbeat health in Redis (`agent:status:{userId}:heartbeat`) and provides dashboard "Agent Is Online" indicators.
 - **Signal Delivery**: Urgent items are pushed to the user via Telegram HTML formatted messages.
@@ -161,10 +180,13 @@ Etles uses a custom proxy layer to manage session security and role-based access
 
 ## 7. Developer & Safety Tools
 
-### Daytona Sandbox (`lib/ai/tools/daytona.ts`)
+### Daytona Sandbox and Persistent Browser (`lib/ai/tools/daytona.ts`, `lib/ai/tools/daytona-browser.ts`)
 Secure, isolated environments for code execution and Git operations.
 - **Tools**: `createSandbox`, `executeCommand`, `runCode`, `readFile`, `writeFile`, `listFiles`, `gitClone`, `gitCommit`, `gitPush`, etc.
-- **Lifecycle**: Sandboxes auto-stop after inactivity (default 30m) and auto-delete after 2 hours to manage costs. Requires `DAYTONA_API_KEY`.
+- **Lifecycle**: A user's sandbox is pinned in Redis and may stop when idle, but is not automatically deleted after two hours; it resumes on demand. Requires `DAYTONA_API_KEY`.
+- **Ownership**: Every sandbox must carry the matching `etles_user_id` label. Unlabeled or cross-user sandboxes are rejected.
+- **Browser sessions**: Playwright profiles use `/home/daytona/.browser-profiles/{sessionId}-state.json`; browser tools load and save storage state so approved logins can persist across conversations. Never expose cookies or tokens in chat output.
+- **Safety**: Login, uploads, purchases, sending, and other consequential actions require explicit user approval where the workflow marks them irreversible.
 
 ### Human-in-the-Loop (HITL) Approvals (`lib/ai/tools/queue-approval.ts`)
 Mandatory safety gate for irreversible actions (Emails, Payments, Social Posts).

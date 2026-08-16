@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
 import {
   Area,
@@ -33,6 +34,51 @@ import {
 } from "recharts";
 import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 import { cn } from "@/lib/utils";
+
+type SafeResponsiveContainerProps = {
+  children: ReactNode;
+  className?: string;
+  minHeight?: number;
+};
+
+/** Wait for a measurable layout before mounting Recharts. Hidden tabs and dialogs can report -1. */
+export function SafeResponsiveContainer({
+  children,
+  className,
+  minHeight = 1,
+}: SafeResponsiveContainerProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isMeasured, setIsMeasured] = useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const measure = () => {
+      const { width, height } = element.getBoundingClientRect();
+      setIsMeasured(width > 0 && height > 0);
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      className={cn("h-full min-h-0 min-w-0 w-full", className)}
+      style={{ minHeight }}
+    >
+      {isMeasured ? (
+        <ResponsiveContainer height="100%" minHeight={1} minWidth={1} width="100%">
+          {children}
+        </ResponsiveContainer>
+      ) : null}
+    </div>
+  );
+}
 
 const DEFAULT_SERIES_COLORS = [
   "hsl(158 94% 30%)", // Emerald
@@ -645,14 +691,9 @@ export function ChartDisplay({ spec, className }: ChartDisplayProps) {
         </p>
       ) : null}
       <div className="h-[260px] min-h-[1px] min-w-[1px] w-full overflow-hidden sm:h-[300px] md:h-[min(52vh,340px)] md:min-h-[280px]">
-        <ResponsiveContainer
-          height="100%"
-          minHeight={1}
-          minWidth={1}
-          width="100%"
-        >
+        <SafeResponsiveContainer minHeight={260}>
           {chartInner}
-        </ResponsiveContainer>
+        </SafeResponsiveContainer>
       </div>
     </div>
   );

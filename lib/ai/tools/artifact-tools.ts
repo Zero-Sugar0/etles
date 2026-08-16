@@ -118,16 +118,24 @@ export const createPdf = ({ session, dataStream, modelId }: Props) => {
       theme: z
         .enum(["forest", "ocean", "plum", "cobalt", "terracotta", "slate"])
         .optional(),
+      palette: z.object({
+        ink: z.string().regex(/^[0-9a-fA-F]{6}$/).optional(),
+        accent: z.string().regex(/^[0-9a-fA-F]{6}$/).optional(),
+        wash: z.string().regex(/^[0-9a-fA-F]{6}$/).optional(),
+        paper: z.string().regex(/^[0-9a-fA-F]{6}$/).optional(),
+        body: z.string().regex(/^[0-9a-fA-F]{6}$/).optional(),
+        muted: z.string().regex(/^[0-9a-fA-F]{6}$/).optional(),
+      }).optional().describe("Optional six-digit hex palette chosen for this document"),
       charts: z.array(chartSpecSchema).max(8).optional(),
       tables: z.array(tableSchema).max(12).optional(),
     }),
-    execute: async ({ theme, charts, tables, ...input }) =>
+    execute: async ({ theme, palette, charts, tables, ...input }) =>
       documentTool.execute?.(
         {
           ...input,
           kind: "pdf",
           style: `${input.style ?? ""}\nPDF theme: ${theme ?? "forest"}`,
-          data: { ...(input.data ?? {}), charts, tables },
+          data: { ...(input.data ?? {}), charts, tables, palette, theme },
         },
         {} as never
       ),
