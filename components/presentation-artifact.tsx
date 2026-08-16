@@ -74,7 +74,6 @@ export async function downloadPresentation(content: string, title: string) {
   pptx.subject = title;
   pptx.title = title;
   pptx.company = "Etles";
-  pptx.lang = "en-US";
 
   for (const [index, item] of slides.entries()) {
     const slide = pptx.addSlide();
@@ -99,7 +98,10 @@ export async function downloadPresentation(content: string, title: string) {
       slide.addImage({ path: item.imageUrl || item.image || "", x: 7.25, y: 1.15, w: 5.15, h: 3.05 });
     }
     if (item.table?.headers?.length) {
-      slide.addTable([item.table.headers, ...item.table.rows.map((row) => row.map(String))], {
+      slide.addTable([
+        item.table.headers.map((text) => ({ text })),
+        ...item.table.rows.map((row) => row.map((value) => ({ text: String(value) }))),
+      ], {
         x: 0.7, y: 5.05, w: 7.1, h: 1.45, fontFace: "Aptos", fontSize: 10,
         color: theme.foreground, border: { type: "solid", color: theme.muted, pt: 0.5 },
         fill: theme.background, margin: 0.05,
