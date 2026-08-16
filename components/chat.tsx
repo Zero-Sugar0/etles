@@ -129,7 +129,9 @@ export function Chat({
                 return false;
               }
               const state = (part as { state?: string }).state;
-              return state === "approval-responded" || state === "output-denied";
+              return (
+                state === "approval-responded" || state === "output-denied"
+              );
             }) ??
               false);
 
@@ -164,6 +166,9 @@ export function Chat({
     generateId: generateUUID,
     sendAutomaticallyWhen,
     transport,
+    // Limit React renders while token and data chunks arrive. AI SDK documents
+    // this as the fix for maximum update depth errors in streaming UIs.
+    experimental_throttle: 50,
     onData: (dataPart) => {
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
 
