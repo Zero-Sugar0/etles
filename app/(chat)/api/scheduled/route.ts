@@ -1,8 +1,8 @@
 //app/(chat)/api/scheduled/route.ts
 
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { Receiver } from "@upstash/qstash";
 import { generateText, stepCountIs } from "ai";
-import { type NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getBackgroundModel } from "@/lib/ai/providers";
 import { readAgentSkill } from "@/lib/ai/tools/agent-skills";
 import { getWeather } from "@/lib/ai/tools/get-weather";
@@ -24,6 +24,13 @@ import { generateUUID } from "@/lib/utils";
 import { sendLongMessage } from "@/lib/telegram/api";
 import { getUserRedis, resolveUserCredential } from "@/lib/security/user-credentials";
 import { getComposioClient } from "@/lib/composio-client";
+
+function getReceiver() {
+  const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
+  const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
+  if (!currentSigningKey || !nextSigningKey) return null;
+  return new Receiver({ currentSigningKey, nextSigningKey });
+}
 
 async function handler(req: NextRequest) {
   try {
@@ -306,4 +313,37 @@ Be direct, professional, and efficient. Do not ask for user confirmation.`;
   }
 }
 
-export const POST = verifySignatureAppRouter(handler);
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  const receiver = getReceiver();
+  if (receiver) {
+    const rawBody = await req.text();
+    const signature = req.headers.get("upstash-signature") ?? "";
+    const valid = await receiver
+      .verify({ signature, body: rawBody, clockTolerance: 5 })
+      .catch(() => false);
+
+    if (!valid) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid QStash signature" },
+        { status: 401 }
+      );
+    }
+
+    return handler(
+      new NextRequest(req.url, {
+        method: "POST",
+        headers: req.headers,
+        body: rawBody,
+      })
+    );
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { ok: false, error: "QStash signing keys are not configured" },
+      { status: 500 }
+    );
+  }
+
+  return handler(req);
+}
