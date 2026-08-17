@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  Image as ImageIcon,
-  LayoutTemplate,
-  Mic2,
-} from "lucide-react";
+import { Image as ImageIcon, LayoutTemplate } from "lucide-react";
 import pptxgen from "pptxgenjs";
 import { useEffect, useMemo, useState } from "react";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
@@ -30,6 +26,11 @@ type Slide = {
   table?: { headers: string[]; rows: (string | number)[][] };
   notes?: string;
   layout?: string;
+  accent?: string;
+  background?: string;
+  foreground?: string;
+  visualPosition?: "left" | "right" | "full" | "bottom";
+  stats?: { label: string; value: string; detail?: string }[];
 };
 
 type PresentationDocument = {
@@ -86,6 +87,18 @@ const normalizeSlide = (value: unknown, index: number): Slide => {
     table: asTable(source.table),
     notes: asText(source.notes ?? source.speakerNotes),
     layout: asText(source.layout ?? source.type) || "narrative",
+    accent: asText(source.accent),
+    background: asText(source.background),
+    foreground: asText(source.foreground),
+    visualPosition: ["left", "right", "full", "bottom"].includes(asText(source.visualPosition))
+      ? asText(source.visualPosition) as Slide["visualPosition"]
+      : undefined,
+    stats: Array.isArray(source.stats)
+      ? source.stats.map((stat) => {
+          const item = stat && typeof stat === "object" ? stat as Record<string, unknown> : {};
+          return { label: asText(item.label), value: asText(item.value), detail: asText(item.detail) };
+        }).filter((stat) => stat.label && stat.value)
+      : undefined,
   };
 };
 
@@ -178,9 +191,6 @@ export async function downloadPresentation(content: string, title: string) {
       });
     }
     if (item.notes) slide.addNotes(item.notes);
-    slide.addText(`${String(index + 1).padStart(2, "0")}  •  ${item.layout ?? "Narrative"}`, {
-      x: 0.65, y: 7.05, w: 4, h: 0.2, fontFace: "Arial", fontSize: 8, color: theme.muted, margin: 0,
-    });
   }
   await pptx.writeFile({ fileName: `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "presentation"}.pptx` });
 }
@@ -296,18 +306,18 @@ export function PresentationArtifact({
         <div className="order-1 flex min-h-0 min-w-0 flex-1 flex-col lg:order-2">
           {slide && (
           <article
-            className={`group relative min-h-[420px] flex-1 overflow-y-auto rounded-lg border border-border p-5 shadow-sm sm:p-8 ${isImageLed ? "ring-1 ring-white/10" : ""}`}
+            className={`group relative aspect-video min-h-[420px] flex-1 overflow-y-auto rounded-lg border border-border p-5 shadow-sm sm:p-8 lg:min-h-0 ${isImageLed ? "ring-1 ring-white/10" : ""}`}
             key={`slide-${activeSlide}`}
-            style={{ backgroundColor: `#${deckTheme.background}`, color: `#${deckTheme.foreground}` }}
+            style={{
+              backgroundColor: `#${slide.background || deckTheme.background}`,
+              color: `#${slide.foreground || deckTheme.foreground}`,
+            }}
           >
             <div className="flex h-full flex-col justify-between">
               <div className={isSplit ? "grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.8fr)] lg:items-start" : ""}>
                 <div>
                 <div className="mb-8 flex items-center justify-between text-xs uppercase tracking-[0.18em] opacity-70">
                   <span>{String(activeSlide + 1).padStart(2, "0")}</span>
-                  <span>
-                    {slide.layout || "Narrative"}
-                  </span>
                 </div>
                 <h2 className="max-w-full break-words font-serif text-2xl font-semibold leading-tight sm:text-4xl">
                   {slide.title || "Untitled slide"}
@@ -382,12 +392,9 @@ export function PresentationArtifact({
                   </div>
                 ) : null}
               </div>
-              <div className="flex items-end justify-between gap-4">
-                <div className="flex items-center gap-2 text-xs opacity-70">
-                  <Mic2 className="size-3.5" /> Speaker notes included
-                </div>
+              <div className="flex items-end justify-end gap-4">
                 {slide.visual ? (
-                    <div className="flex items-center gap-2 rounded-full bg-foreground/10 px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2 rounded-full bg-foreground/10 px-3 py-2 text-xs">
                     <ImageIcon className="size-3.5" /> {slide.visual}
                   </div>
                 ) : null}
