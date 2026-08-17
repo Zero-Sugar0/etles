@@ -1,5 +1,4 @@
 import { toast } from "sonner";
-import { CodeEditor } from "@/components/code-editor";
 import {
   Console,
   type ConsoleOutput,
@@ -9,6 +8,7 @@ import { Artifact } from "@/components/create-artifact";
 import {
   CodeIcon,
   CopyIcon,
+  DownloadIcon,
   EyeIcon,
   LogsIcon,
   MessageIcon,
@@ -16,6 +16,7 @@ import {
   RedoIcon,
   UndoIcon,
 } from "@/components/icons";
+import { type CodeLanguage, CodeEditor } from "@/components/code-editor";
 import { generateUUID } from "@/lib/utils";
 
 const OUTPUT_HANDLERS = {
@@ -67,16 +68,87 @@ function detectRequiredHandlers(code: string): string[] {
 type Metadata = {
   outputs: ConsoleOutput[];
   activeView: "code" | "preview";
+  language: CodeLanguage;
+  documentId?: string;
 };
+
+function inferCodeLanguage(title: string, content: string): CodeLanguage {
+  const lowerTitle = title.toLowerCase();
+  if (/\.(ts|tsx)$/.test(lowerTitle)) return "typescript";
+  if (/\.(js|jsx|mjs|cjs)$/.test(lowerTitle)) return "javascript";
+  if (/\.json$/.test(lowerTitle)) return "json";
+  if (/\.html?$/.test(lowerTitle)) return "html";
+  if (/\b(import pandas|import numpy|from [\w.]+ import|def \w+\()/i.test(content)) return "python";
+  if (/\b(interface|type)\s+\w+\s*[={<]|:\s*(string|number|boolean)\b/.test(content)) return "typescript";
+  if (/\b(const|let|function|console\.log|=>)\b/.test(content)) return "javascript";
+  if (/^\s*[\[{]/.test(content) && /[\]}]\s*$/.test(content)) return "json";
+  return "python";
+}
+
+function stripCodeFence(content: string) {
+  return content
+    .replace(/^\s*```[a-z0-9+#-]*\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim();
+}
+
+function fileExtension(language: CodeLanguage) {
+  return {
+    python: "py",
+    javascript: "js",
+    typescript: "ts",
+    json: "json",
+    html: "html",
+    text: "txt",
+  }[language];
+}
+
+function persistCodeMetadata(metadata: Metadata) {
+  if (typeof window === "undefined" || !metadata.documentId) return;
+  window.localStorage.setItem(
+    `code-artifact:${metadata.documentId}`,
+    JSON.stringify(metadata)
+  );
+}
+
+let pyodidePromise: Promise<any> | null = null;
+async function loadPyodide() {
+  if (!pyodidePromise) {
+    pyodidePromise = (async () => {
+      const loader = (globalThis as any).loadPyodide;
+      if (typeof loader !== "function") {
+        throw new Error("Python runtime is not loaded yet. Please try again.");
+      }
+      return loader({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
+    })().catch((error) => {
+      pyodidePromise = null;
+      throw error;
+    });
+  }
+  return pyodidePromise;
+}
 
 export const codeArtifact = new Artifact<"code", Metadata>({
   kind: "code",
   description:
-    "Useful for code generation; Code execution is only available for python code.",
-  initialize: ({ setMetadata }) => {
+    "Useful for code generation with syntax-aware editing, HTML preview, downloads, and optional Python execution.",
+  initialize: ({ documentId, setMetadata }) => {
+    const language: CodeLanguage = "text";
+    let saved: Partial<Metadata> = {};
+    try {
+      if (typeof window !== "undefined") {
+        saved = JSON.parse(
+          window.localStorage.getItem(`code-artifact:${documentId}`) || "{}"
+        );
+      }
+    } catch {
+      saved = {};
+    }
     setMetadata({
-      outputs: [],
-      activeView: "code",
+      documentId,
+      language: saved.language ?? language,
+      outputs: saved.outputs ?? [],
+      activeView: saved.activeView ?? "code",
     });
   },
   onStreamPart: ({ streamPart, setArtifact }) => {
@@ -95,9 +167,13 @@ export const codeArtifact = new Artifact<"code", Metadata>({
     }
   },
   content: ({ metadata, setMetadata, ...props }) => {
+    const language = metadata?.language ?? inferCodeLanguage(props.title, props.content);
+    const code = stripCodeFence(props.content);
     const isHtml =
-      props.content.trim().toLowerCase().startsWith("<!doctype html") ||
-      props.content.trim().toLowerCase().startsWith("<html");
+      code.toLowerCase().startsWith("<!doctype html") ||
+      code.toLowerCase().startsWith("<html");
+    const detectedLanguage =
+      language === "text" ? inferCodeLanguage(props.title, code) : language;
     const showPreview = isHtml && metadata?.activeView === "preview";
     return (
       <>
@@ -106,13 +182,13 @@ export const codeArtifact = new Artifact<"code", Metadata>({
             <iframe
               className="h-full min-h-[70dvh] w-full"
               sandbox="allow-scripts allow-forms allow-modals"
-              srcDoc={props.content}
+              srcDoc={code}
               title="HTML Preview"
             />
           </div>
         ) : (
           <div className="h-full min-w-0 px-1">
-            <CodeEditor {...props} />
+            <CodeEditor {...props} content={code} language={detectedLanguage} />
           </div>
         )}
 
@@ -120,9 +196,10 @@ export const codeArtifact = new Artifact<"code", Metadata>({
           <Console
             consoleOutputs={metadata.outputs}
             setConsoleOutputs={() => {
-              setMetadata({
-                ...metadata,
-                outputs: [],
+              setMetadata((current) => {
+                const next = { ...current, outputs: [] };
+                persistCodeMetadata(next);
+                return next;
               });
             }}
           />
@@ -165,27 +242,43 @@ export const codeArtifact = new Artifact<"code", Metadata>({
       icon: <PlayIcon size={18} />,
       label: "Run",
       description: "Execute code",
-      onClick: async ({ content, setMetadata }) => {
+      isDisabled: ({ content, metadata, title }) =>
+        (metadata?.language === "text"
+          ? inferCodeLanguage(title, stripCodeFence(content))
+          : metadata?.language) !== "python" ||
+        (metadata?.outputs ?? []).some((output) =>
+          ["in_progress", "loading_packages"].includes(output.status)
+        ),
+      onClick: async ({ content, metadata, setMetadata }) => {
+        const language =
+          metadata?.language === "text"
+            ? inferCodeLanguage("", stripCodeFence(content))
+            : metadata?.language;
+        if (language !== "python") {
+          toast.info("Run is currently available for Python code.");
+          return;
+        }
         const runId = generateUUID();
         const outputContent: ConsoleOutputContent[] = [];
 
-        setMetadata((metadata) => ({
-          ...metadata,
-          outputs: [
-            ...metadata.outputs,
-            {
-              id: runId,
-              contents: [],
-              status: "in_progress",
-            },
-          ],
-        }));
+        const updateRun = (nextOutput: ConsoleOutput) => {
+          setMetadata((current) => {
+            const next = {
+              ...current,
+              outputs: [
+                ...current.outputs.filter((output) => output.id !== runId),
+                nextOutput,
+              ],
+            };
+            persistCodeMetadata(next);
+            return next;
+          });
+        };
+
+        updateRun({ id: runId, contents: [], status: "in_progress" });
 
         try {
-          // @ts-expect-error - loadPyodide is not defined
-          const currentPyodideInstance = await globalThis.loadPyodide({
-            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/",
-          });
+          const currentPyodideInstance = await loadPyodide();
 
           currentPyodideInstance.setStdout({
             batched: (output: string) => {
@@ -200,17 +293,11 @@ export const codeArtifact = new Artifact<"code", Metadata>({
 
           await currentPyodideInstance.loadPackagesFromImports(content, {
             messageCallback: (message: string) => {
-              setMetadata((metadata) => ({
-                ...metadata,
-                outputs: [
-                  ...metadata.outputs.filter((output) => output.id !== runId),
-                  {
-                    id: runId,
-                    contents: [{ type: "text", value: message }],
-                    status: "loading_packages",
-                  },
-                ],
-              }));
+              updateRun({
+                id: runId,
+                contents: [{ type: "text", value: message }],
+                status: "loading_packages",
+              });
             },
           });
 
@@ -229,31 +316,20 @@ export const codeArtifact = new Artifact<"code", Metadata>({
             }
           }
 
-          await currentPyodideInstance.runPythonAsync(content);
+          await Promise.race([
+            currentPyodideInstance.runPythonAsync(stripCodeFence(content)),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Execution timed out after 30 seconds.")), 30_000)
+            ),
+          ]);
 
-          setMetadata((metadata) => ({
-            ...metadata,
-            outputs: [
-              ...metadata.outputs.filter((output) => output.id !== runId),
-              {
-                id: runId,
-                contents: outputContent,
-                status: "completed",
-              },
-            ],
-          }));
+          updateRun({ id: runId, contents: outputContent, status: "completed" });
         } catch (error: any) {
-          setMetadata((metadata) => ({
-            ...metadata,
-            outputs: [
-              ...metadata.outputs.filter((output) => output.id !== runId),
-              {
-                id: runId,
-                contents: [{ type: "text", value: error.message }],
-                status: "failed",
-              },
-            ],
-          }));
+          updateRun({
+            id: runId,
+            contents: [{ type: "text", value: error?.message || "Execution failed." }],
+            status: "failed",
+          });
         }
       },
     },
@@ -291,6 +367,25 @@ export const codeArtifact = new Artifact<"code", Metadata>({
       onClick: ({ content }) => {
         navigator.clipboard.writeText(content);
         toast.success("Copied to clipboard!");
+      },
+    },
+    {
+      icon: <DownloadIcon size={18} />,
+      description: "Download code",
+      onClick: ({ content, metadata, title }) => {
+        const language =
+          metadata?.language === "text" || !metadata?.language
+            ? inferCodeLanguage(title, stripCodeFence(content))
+            : metadata.language;
+        const objectUrl = URL.createObjectURL(
+          new Blob([stripCodeFence(content)], { type: "text/plain;charset=utf-8" })
+        );
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "code"}.${fileExtension(language)}`;
+        link.click();
+        URL.revokeObjectURL(objectUrl);
+        toast.success("Code download started.");
       },
     },
   ],
