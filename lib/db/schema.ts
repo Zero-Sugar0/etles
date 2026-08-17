@@ -25,6 +25,57 @@ export const user = pgTable("User", {
 
 export type User = InferSelectModel<typeof user>;
 
+export const workspace = pgTable(
+  "Workspace",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    name: varchar("name", { length: 160 }).notNull(),
+    slug: varchar("slug", { length: 96 }).notNull(),
+    ownerId: uuid("ownerId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    slugUnique: unique("Workspace_slug_unique").on(table.slug),
+  })
+);
+
+export type Workspace = InferSelectModel<typeof workspace>;
+
+export const workspaceMember = pgTable(
+  "WorkspaceMember",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    workspaceId: uuid("workspaceId")
+      .notNull()
+      .references(() => workspace.id, { onDelete: "cascade" }),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: varchar("role", {
+      enum: ["owner", "admin", "member", "viewer"],
+    })
+      .notNull()
+      .default("member"),
+    status: varchar("status", { enum: ["active", "invited", "suspended"] })
+      .notNull()
+      .default("active"),
+    invitedEmail: varchar("invitedEmail", { length: 320 }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    workspaceUserUnique: unique("WorkspaceMember_workspace_user_unique").on(
+      table.workspaceId,
+      table.userId
+    ),
+  })
+);
+
+export type WorkspaceMember = InferSelectModel<typeof workspaceMember>;
+
 export const userCredential = pgTable(
   "UserCredential",
   {
@@ -57,6 +108,7 @@ export const chat = pgTable("Chat", {
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),
+  workspaceId: uuid("workspaceId").references(() => workspace.id),
   visibility: varchar("visibility", { enum: ["public", "private"] })
     .notNull()
     .default("private"),
@@ -258,6 +310,7 @@ export const agentTask = pgTable("AgentTask", {
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),
+  workspaceId: uuid("workspaceId").references(() => workspace.id),
   chatId: uuid("chatId").references(() => chat.id),
   agentType: varchar("agentType", { length: 64 }).notNull(),
   task: text("task").notNull(),
@@ -294,6 +347,7 @@ export const mission = pgTable("Mission", {
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),
+  workspaceId: uuid("workspaceId").references(() => workspace.id),
   chatId: uuid("chatId").references(() => chat.id),
   goal: text("goal").notNull(),
   startupDescription: text("startupDescription"),
@@ -323,10 +377,25 @@ export const campaignQueue = pgTable("CampaignQueue", {
   content: text("content").notNull(),
   scheduledFor: timestamp("scheduledFor").notNull(),
   status: varchar("status", {
-    enum: ["pending_review", "approved", "rejected", "sent", "failed"],
+    enum: [
+      "pending_review",
+      "approved",
+      "dispatching",
+      "rejected",
+      "sent",
+      "failed",
+      "dead_letter",
+    ],
   })
     .notNull()
     .default("pending_review"),
+  attempts: integer("attempts").notNull().default(0),
+  lastError: text("lastError"),
+  claimedAt: timestamp("claimedAt"),
+  sentAt: timestamp("sentAt"),
+  failedAt: timestamp("failedAt"),
+  providerMessageId: text("providerMessageId"),
+  qstashMessageId: varchar("qstashMessageId", { length: 255 }),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });

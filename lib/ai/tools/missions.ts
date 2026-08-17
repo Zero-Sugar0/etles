@@ -1,7 +1,7 @@
 import { Client } from "@upstash/workflow";
 import { tool } from "ai";
 import { z } from "zod";
-import { createAgentTask, createMission } from "@/lib/db/queries";
+import { createAgentTask, createMission, resolveWorkspaceForUser } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 
 function getMissionWorkflowClient(): Client | null {
@@ -15,10 +15,12 @@ export const launchMission = ({
   userId,
   chatId,
   baseUrl,
+  workspaceId,
 }: {
   userId: string;
   chatId?: string;
   baseUrl: string;
+  workspaceId?: string;
 }) =>
   tool({
     description:
@@ -72,11 +74,13 @@ export const launchMission = ({
       const missionUrl = `${baseUrl}/api/agent/mission/mission-workflow`;
 
       try {
+        const workspace = await resolveWorkspaceForUser(userId, workspaceId);
         const { workflowRunId } = await client.trigger({
           url: missionUrl,
           body: {
             missionId,
             userId,
+            workspaceId: workspace.id,
             chatId,
             goal,
             startupDescription,
@@ -93,6 +97,7 @@ export const launchMission = ({
           goal,
           startupDescription,
           productUrl,
+          workspaceId: workspace.id,
         });
 
         // Track in DB so getMissionStatus can find it

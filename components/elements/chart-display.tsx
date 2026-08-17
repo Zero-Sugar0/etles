@@ -90,28 +90,65 @@ export function SafeResponsiveContainer({
 }
 
 const DEFAULT_SERIES_COLORS = [
-  "hsl(158 94% 30%)", // Emerald
-  "hsl(262 83% 58%)", // Violet
-  "hsl(38 92% 50%)", // Amber
-  "hsl(346 87% 43%)", // Rose
-  "hsl(189 94% 43%)", // Cyan
-  "hsl(239 84% 67%)", // Indigo
-  "hsl(292 84% 61%)", // Fuchsia
-  "hsl(84 81% 44%)", // Lime
-  "hsl(199 89% 48%)", // Sky
-  "hsl(174 86% 29%)", // Teal
-  "hsl(322 81% 54%)", // Pink
-  "hsl(217 91% 60%)", // Blue-Grey
-  "hsl(31 97% 55%)", // Orange
-  "hsl(271 91% 65%)", // Purple
-  "hsl(142 71% 45%)", // Green
-  "hsl(11 80% 45%)", // Crimson
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ] as const;
 
 type ChartDisplayProps = {
-  spec: ChartToolPayload;
+  spec: ChartToolPayload | unknown;
   className?: string;
 };
+
+/** Normalize persisted/AI-authored chart payloads before Recharts sees them. */
+export function normalizeChartSpec(input: unknown): ChartToolPayload | null {
+  if (!input || typeof input !== "object") return null;
+  const source = input as Record<string, unknown>;
+  const rawSeries = Array.isArray(source.series) ? source.series : [];
+  const series = rawSeries
+    .map((value, index) => {
+      if (!value || typeof value !== "object") return null;
+      const item = value as Record<string, unknown>;
+      const data = Array.isArray(item.data)
+        ? item.data.map((point) => (typeof point === "number" ? point : Number(point) || 0))
+        : [];
+      return {
+        name: typeof item.name === "string" && item.name.trim() ? item.name : `Series ${index + 1}`,
+        data,
+        ...(typeof item.color === "string" ? { color: item.color } : {}),
+        ...(item.lineStyle === "dashed" ? { lineStyle: "dashed" as const } : {}),
+      };
+    })
+    .filter((value): value is NonNullable<typeof value> => Boolean(value && value.data.length));
+  if (!series.length) return null;
+
+  const rawLabels = source.labels ?? source.x_axis ?? source.xAxis ?? source.categories;
+  const labels = Array.isArray(rawLabels)
+    ? rawLabels.map((label, index) => String(label ?? index))
+    : Array.from({ length: Math.max(...series.map((item) => item.data.length)) }, (_, index) => String(index + 1));
+  if (!labels.length) return null;
+
+  const validChartTypes = ["line", "bar", "area", "pie", "radar", "scatter", "composed", "funnel", "radial"] as const;
+  const chartType = validChartTypes.includes(source.chartType as (typeof validChartTypes)[number])
+    ? source.chartType as ChartToolPayload["chartType"]
+    : "line";
+  return {
+    chartType,
+    labels,
+    series,
+    ...(typeof source.title === "string" ? { title: source.title } : {}),
+    ...(typeof source.description === "string" ? { description: source.description } : {}),
+    ...(source.layout === "horizontal" ? { layout: "horizontal" as const } : {}),
+    ...(typeof source.stacked === "boolean" ? { stacked: source.stacked } : {}),
+    ...(Array.isArray(source.colors) ? { colors: source.colors.filter((color): color is string => typeof color === "string") } : {}),
+    ...(source.valueFormatter === "currency" || source.valueFormatter === "percent" || source.valueFormatter === "compact" || source.valueFormatter === "none"
+      ? { valueFormatter: source.valueFormatter }
+      : {}),
+    ...(Array.isArray(source.seriesKinds) ? { seriesKinds: source.seriesKinds.filter((kind): kind is "line" | "bar" | "area" => kind === "line" || kind === "bar" || kind === "area") } : {}),
+  };
+}
 
 function useChartThemeColors() {
   const { resolvedTheme } = useTheme();
@@ -223,8 +260,16 @@ function buildScatterSeries(spec: ChartToolPayload): {
   }));
 }
 
-export function ChartDisplay({ spec, className }: ChartDisplayProps) {
+export function ChartDisplay({ spec: input, className }: ChartDisplayProps) {
   const colors = useChartThemeColors();
+  const spec = normalizeChartSpec(input);
+  if (!spec) {
+    return (
+      <div className={cn("flex min-h-32 items-center justify-center rounded-lg border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground", className)}>
+        Chart data is unavailable.
+      </div>
+    );
+  }
   const rows = buildRows(spec);
   const radarData = buildRadarData(spec);
   const pieData = buildPieData(spec);

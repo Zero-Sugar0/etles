@@ -25,6 +25,7 @@ import {
   getChatById,
   saveChat,
   saveMessages,
+  resolveWorkspaceForUser,
   updateAgentTask,
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
@@ -76,6 +77,8 @@ export async function POST(req: NextRequest) {
   const taskText = task.trim();
   const taskId = generateUUID();
   const startedAt = new Date().toISOString();
+  const workspaceId = req.cookies.get("etles-workspace-id")?.value ?? session.user.workspaceId;
+  const workspace = await resolveWorkspaceForUser(userId, workspaceId);
 
   // ── Ensure chat exists ─────────────────────────────────────────────────────
   const chat = await getChatById({ id: chatId });
@@ -89,6 +92,7 @@ export async function POST(req: NextRequest) {
       userId,
       title: taskText.slice(0, 100),
       visibility,
+      workspaceId: workspace.id,
     });
   }
 
@@ -115,6 +119,7 @@ export async function POST(req: NextRequest) {
     chatId,
     agentType: "agent_run",
     task: taskText,
+    workspaceId: workspace.id,
   });
 
   // ── Guard: workflow must be configured ────────────────────────────────────

@@ -25,6 +25,7 @@ export async function proxy(request: NextRequest) {
     lowerPath.startsWith("/api/agent/notify") ||
     lowerPath.startsWith("/api/agent/delegate") ||
     lowerPath.startsWith("/api/agent/handoff") ||
+    lowerPath.startsWith("/api/agent/campaign/dispatch") ||
     lowerPath.startsWith("/api/telegram") ||
     lowerPath.startsWith("/api/scheduled") ||
     lowerPath.startsWith("/api/approval") ||

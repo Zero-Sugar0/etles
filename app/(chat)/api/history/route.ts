@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import { deleteAllChatsByUserId, getChatsByUserId } from "@/lib/db/queries";
+import { deleteAllChatsByUserId, getChatsByUserId, resolveWorkspaceForUser } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 
 export async function GET(request: NextRequest) {
@@ -23,11 +23,14 @@ export async function GET(request: NextRequest) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
 
+  const workspaceId = request.cookies.get("etles-workspace-id")?.value ?? session.user.workspaceId;
+  const workspace = await resolveWorkspaceForUser(session.user.id, workspaceId);
   const chats = await getChatsByUserId({
     id: session.user.id,
     limit,
     startingAfter,
     endingBefore,
+    workspaceId: workspace.id,
   });
 
   return Response.json(chats);

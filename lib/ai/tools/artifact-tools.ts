@@ -88,21 +88,27 @@ export const createPresentation = ({ session, dataStream, modelId }: Props) => {
   const documentTool = createDocument({ session, dataStream, modelId });
   return tool({
     description:
-      "Create one editable 16:9 PowerPoint-grade presentation with a coherent narrative, one dominant idea per slide, varied visual layouts, native charts/tables, image-led composition, and speaker notes stored separately from visible slide content. When a slide needs a generated image, call generateImage first, then pass its exact returned public URL in visuals[].url so the image is embedded in the saved deck.",
+      "Create one editable 16:9 PowerPoint-grade presentation with a coherent narrative, one dominant idea per slide, varied visual layouts including hero, split, card-grid, chart-led, comparison, and closing slides, native charts/tables, image-led composition, and speaker notes stored separately from visible slide content. When a slide needs a generated image, call generateImage first, then pass its exact returned public URL in visuals[].url so the image is embedded in the saved deck.",
     inputSchema: z.object({
       ...baseInput,
       kind: z.literal("presentation").default("presentation"),
-      theme: z.enum(["midnight", "ocean", "sunset", "forest", "violet", "mono"]).optional(),
+      theme: z.enum(["system", "midnight", "ocean", "sunset", "forest", "violet", "mono"]).optional(),
+      palette: z.object({
+        background: z.string().optional(),
+        foreground: z.string().optional(),
+        accent: z.string().optional(),
+        muted: z.string().optional(),
+      }).optional().describe("Optional palette chosen by the agent; omit it to follow the application theme"),
       charts: z.array(chartSpecSchema).max(8).optional(),
       tables: z.array(tableSchema).max(8).optional(),
       visuals: z.array(visualSchema).max(8).optional(),
     }),
-    execute: async ({ charts, tables, visuals, theme, ...input }) =>
+    execute: async ({ charts, tables, visuals, theme, palette, ...input }) =>
       documentTool.execute?.(
         {
           ...input,
           kind: "presentation",
-          data: { ...(input.data ?? {}), charts, tables, visuals, theme },
+          data: { ...(input.data ?? {}), charts, tables, visuals, theme, palette },
         },
         {} as never
       ),

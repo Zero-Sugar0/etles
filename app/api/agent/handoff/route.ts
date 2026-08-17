@@ -28,7 +28,13 @@ type HandoffBody = {
 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-agent-secret");
-  const expected = process.env.AGENT_DELEGATE_SECRET ?? "dev-internal";
+  const expected = process.env.AGENT_DELEGATE_SECRET?.trim();
+  if (!expected) {
+    return NextResponse.json(
+      { ok: false, error: "AGENT_DELEGATE_SECRET is not configured" },
+      { status: 500 }
+    );
+  }
   if (secret !== expected) {
     return NextResponse.json(
       { ok: false, error: "Unauthorized" },

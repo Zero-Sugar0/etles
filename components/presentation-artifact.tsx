@@ -1,19 +1,20 @@
 "use client";
 
-import { Image as ImageIcon, LayoutTemplate } from "lucide-react";
+import { LayoutTemplate } from "lucide-react";
 import pptxgen from "pptxgenjs";
 import { useEffect, useMemo, useState } from "react";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Suggestion } from "@/lib/db/schema";
-import { ChartDisplay } from "@/components/elements/chart-display";
+import { ChartDisplay, normalizeChartSpec } from "@/components/elements/chart-display";
 import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
 import type { ChartToolPayload } from "@/lib/ai/tools/render-chart";
 
 const palette = { mode: "theme tokens" };
 
-export type PresentationTheme = "midnight" | "ocean" | "sunset" | "forest" | "violet" | "mono";
+export type PresentationTheme = "system" | "midnight" | "ocean" | "sunset" | "forest" | "violet" | "mono";
+type PresentationPalette = { background?: string; foreground?: string; accent?: string; muted?: string };
 
 type Slide = {
   title?: string;
@@ -35,10 +36,12 @@ type Slide = {
 
 type PresentationDocument = {
   theme?: PresentationTheme;
+  palette?: PresentationPalette;
   slides?: Slide[];
 };
 
 const presentationThemes: Record<PresentationTheme, { background: string; foreground: string; accent: string; muted: string }> = {
+  system: { background: "var(--background)", foreground: "var(--foreground)", accent: "var(--primary)", muted: "var(--muted-foreground)" },
   midnight: { background: "111827", foreground: "F8FAFC", accent: "38BDF8", muted: "CBD5E1" },
   ocean: { background: "0C4A6E", foreground: "F0F9FF", accent: "67E8F9", muted: "BAE6FD" },
   sunset: { background: "431407", foreground: "FFF7ED", accent: "FDBA74", muted: "FED7AA" },
@@ -46,6 +49,19 @@ const presentationThemes: Record<PresentationTheme, { background: string; foregr
   violet: { background: "2E1065", foreground: "FAF5FF", accent: "D8B4FE", muted: "E9D5FF" },
   mono: { background: "18181B", foreground: "FAFAFA", accent: "A1A1AA", muted: "D4D4D8" },
 };
+
+function resolvePresentationTheme(deck: PresentationDocument) {
+  const base = presentationThemes[deck.theme ?? "system"] ?? presentationThemes.system;
+  return { ...base, ...deck.palette };
+}
+
+function uiColor(value: string) {
+  return /^[0-9a-f]{6}$/i.test(value) ? `#${value}` : value;
+}
+
+function pptxColor(value: string, fallback: string) {
+  return /^[#]?[0-9a-f]{6}$/i.test(value) ? value.replace(/^#/, "") : fallback;
+}
 
 const asText = (value: unknown): string => {
   if (typeof value === "string") return value;
@@ -83,7 +99,7 @@ const normalizeSlide = (value: unknown, index: number): Slide => {
     visual: asText(source.visual),
     image: asText(source.image),
     imageUrl: asText(source.imageUrl ?? visual.url ?? visual.imageUrl),
-    chart: source.chart as ChartToolPayload | undefined,
+    chart: normalizeChartSpec(source.chart) ?? undefined,
     table: asTable(source.table),
     notes: asText(source.notes ?? source.speakerNotes),
     layout: asText(source.layout ?? source.type) || "narrative",
@@ -115,7 +131,10 @@ function parsePresentation(content: string): { deck: PresentationDocument; slide
     const nested = record.deck && typeof record.deck === "object" ? record.deck as Record<string, unknown> : record;
     const rawSlides = nested.slides ?? nested.sections ?? nested.pages ?? record.slides ?? [];
     return {
-      deck: { theme: asText(nested.theme) as PresentationTheme | undefined },
+      deck: {
+        theme: asText(nested.theme) as PresentationTheme | undefined,
+        palette: nested.palette && typeof nested.palette === "object" ? nested.palette as PresentationPalette : undefined,
+      },
       slides: Array.isArray(rawSlides) ? rawSlides.map(normalizeSlide) : [],
     };
   } catch {
@@ -132,7 +151,7 @@ const plainText = (value: string) => value
 export async function downloadPresentation(content: string, title: string) {
   const { deck, slides } = parsePresentation(content);
   const pptx = new pptxgen();
-  const theme = presentationThemes[deck.theme ?? "midnight"] ?? presentationThemes.midnight;
+  const theme = resolvePresentationTheme(deck);
   pptx.layout = "LAYOUT_WIDE";
   pptx.author = "Etles";
   pptx.subject = title;
@@ -145,21 +164,21 @@ export async function downloadPresentation(content: string, title: string) {
     const imageLed = layout.includes("hero") || layout.includes("image");
     const chartLed = layout.includes("chart") || layout.includes("data");
     const contentWidth = imageLed || chartLed ? 6.1 : 11.9;
-    slide.background = { color: theme.background };
+    slide.background = { color: pptxColor(theme.background, "FFFFFF") };
     slide.addText(item.title || `Slide ${index + 1}`, {
       x: 0.6, y: 0.55, w: contentWidth, h: 0.7, fontFace: "Cambria", fontSize: imageLed ? 30 : 26,
-      bold: true, color: theme.foreground, margin: 0,
+      bold: true, color: pptxColor(theme.foreground, "111111"), margin: 0,
     });
     if (item.body) {
       slide.addText(plainText(item.body), {
         x: 0.65, y: 1.45, w: contentWidth, h: 1.35, fontFace: "Arial", fontSize: 15,
-        color: theme.muted, breakLine: false, fit: "shrink", margin: 0.02,
+        color: pptxColor(theme.muted, "555555"), breakLine: false, fit: "shrink", margin: 0.02,
       });
     }
     if (item.bullets?.length) {
       slide.addText(item.bullets.map((bullet) => ({ text: plainText(bullet), options: { bullet: { indent: 14 } } })), {
         x: 0.75, y: item.body ? 2.9 : 1.55, w: contentWidth - 0.4, h: 2.35, fontFace: "Arial", fontSize: 15,
-        color: theme.foreground, breakLine: true, fit: "shrink", margin: 0.03,
+        color: pptxColor(theme.foreground, "111111"), breakLine: true, fit: "shrink", margin: 0.03,
       });
     }
     if (item.imageUrl || item.image) {
@@ -171,8 +190,8 @@ export async function downloadPresentation(content: string, title: string) {
         ...item.table.rows.map((row) => row.map((value) => ({ text: String(value) }))),
       ], {
         x: 0.7, y: 5.05, w: 7.1, h: 1.45, fontFace: "Arial", fontSize: 10,
-        color: theme.foreground, border: { type: "solid", color: theme.muted, pt: 0.5 },
-        fill: { color: theme.background, transparency: 12 }, margin: 0.05,
+        color: pptxColor(theme.foreground, "111111"), border: { type: "solid", color: pptxColor(theme.muted, "AAAAAA"), pt: 0.5 },
+        fill: { color: pptxColor(theme.background, "FFFFFF"), transparency: 12 }, margin: 0.05,
         bold: false,
       });
     }
@@ -185,9 +204,9 @@ export async function downloadPresentation(content: string, title: string) {
       slide.addChart(chartType, item.chart.series.map((series) => ({ name: series.name, labels: item.chart?.labels ?? [], values: series.data })), {
         x: chartLed ? 0.7 : 7.25, y: chartLed ? 2.55 : 4.4, w: chartLed ? 11.9 : 5.15, h: chartLed ? 3.8 : 2.25,
         showTitle: Boolean(item.chart.title), title: item.chart.title, showLegend: item.chart.series.length > 1,
-        chartColors: item.chart.colors ?? [theme.accent], showValue: false,
-        catAxisLabelColor: theme.muted, valAxisLabelColor: theme.muted,
-        valGridLine: { color: theme.muted, size: 1 },
+        chartColors: item.chart.colors ?? [pptxColor(theme.accent, "2563EB")], showValue: false,
+        catAxisLabelColor: pptxColor(theme.muted, "555555"), valAxisLabelColor: pptxColor(theme.muted, "555555"),
+        valGridLine: { color: pptxColor(theme.muted, "AAAAAA"), size: 1 },
       });
     }
     if (item.notes) slide.addNotes(item.notes);
@@ -213,7 +232,7 @@ export function PresentationArtifact({
   const slides = useMemo(() => parsePresentation(content).slides, [content]);
   const [activeSlide, setActiveSlide] = useState(0);
   const deckTheme = useMemo(
-    () => presentationThemes[parsePresentation(content).deck.theme ?? "midnight"] ?? presentationThemes.midnight,
+    () => resolvePresentationTheme(parsePresentation(content).deck),
     [content]
   );
 
@@ -226,13 +245,14 @@ export function PresentationArtifact({
   const isImageLed = slideLayout.includes("hero") || slideLayout.includes("image");
   const isDataLed = slideLayout.includes("chart") || slideLayout.includes("data");
   const isSplit = slideLayout.includes("split") || slideLayout.includes("comparison") || isImageLed || isDataLed;
+  const isCardGrid = slideLayout.includes("card") || slideLayout.includes("grid") || slideLayout.includes("solution") || slideLayout.includes("features");
   const renderSlideEditor = (draft: string, setDraft: (value: string) => void) => {
     const parsed = parsePresentation(draft);
     const current = parsed.slides[activeSlide] ?? parsed.slides[0] ?? { title: "", body: "", bullets: [] };
     const update = (changes: Partial<Slide>) => {
       const nextSlides = parsed.slides.length ? [...parsed.slides] : [{ title: "Slide 1", body: "", bullets: [] }];
       nextSlides[activeSlide] = { ...nextSlides[activeSlide], ...changes };
-      setDraft(JSON.stringify({ theme: parsed.deck.theme, slides: nextSlides }, null, 2));
+      setDraft(JSON.stringify({ theme: parsed.deck.theme, palette: parsed.deck.palette, slides: nextSlides }, null, 2));
     };
     return (
       <div className="mx-auto grid w-full max-w-3xl gap-4 p-4 sm:p-8">
@@ -298,8 +318,17 @@ export function PresentationArtifact({
               onClick={() => setActiveSlide(index)}
               type="button"
             >
-              <span className="block text-[9px] font-semibold uppercase text-muted-foreground">{String(index + 1).padStart(2, "0")}</span>
-              <span className="mt-1 block line-clamp-2 text-[10px] font-semibold text-foreground">{thumbnail.title}</span>
+              <div className="absolute inset-0 bg-card">
+                {thumbnail.imageUrl || thumbnail.image ? <img alt="" aria-hidden="true" className="absolute inset-0 size-full object-cover opacity-60" loading="lazy" src={thumbnail.imageUrl || thumbnail.image} /> : null}
+                <div className="absolute inset-0 bg-background/55" />
+              </div>
+              <div className="relative z-10 flex h-full flex-col justify-between">
+                <span className="block text-[9px] font-semibold uppercase text-foreground/70">{String(index + 1).padStart(2, "0")}</span>
+                <div>
+                  <span className="mt-1 block line-clamp-2 text-[10px] font-semibold text-foreground">{thumbnail.title}</span>
+                  {thumbnail.bullets?.length ? <span className="mt-1 block line-clamp-2 text-[8px] leading-tight text-foreground/70">{thumbnail.bullets.slice(0, 2).join(" · ")}</span> : null}
+                </div>
+              </div>
             </button>
           ))}
         </nav>
@@ -309,11 +338,23 @@ export function PresentationArtifact({
             className={`group relative aspect-video min-h-[420px] flex-1 overflow-y-auto rounded-lg border border-border p-5 shadow-sm sm:p-8 lg:min-h-0 ${isImageLed ? "ring-1 ring-white/10" : ""}`}
             key={`slide-${activeSlide}`}
             style={{
-              backgroundColor: `#${slide.background || deckTheme.background}`,
-              color: `#${slide.foreground || deckTheme.foreground}`,
+              backgroundColor: uiColor(slide.background || deckTheme.background),
+              color: uiColor(slide.foreground || deckTheme.foreground),
             }}
           >
-            <div className="flex h-full flex-col justify-between">
+            {slide.visualPosition === "full" && (slide.imageUrl || slide.image) ? (
+              <>
+                <img
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 size-full object-cover opacity-45"
+                  loading="lazy"
+                  src={slide.imageUrl || slide.image}
+                />
+                <div className="absolute inset-0 bg-background/45" />
+              </>
+            ) : null}
+            <div className="relative z-10 flex h-full flex-col justify-between">
               <div className={isSplit ? "grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.8fr)] lg:items-start" : ""}>
                 <div>
                 <div className="mb-8 flex items-center justify-between text-xs uppercase tracking-[0.18em] opacity-70">
@@ -323,23 +364,50 @@ export function PresentationArtifact({
                   {slide.title || "Untitled slide"}
                 </h2>
                 {slide.body ? (
-                  <RichArtifactMarkdown className="mt-4 max-w-full text-sm text-foreground prose-headings:text-foreground prose-p:my-2 prose-p:leading-6 prose-p:text-foreground prose-li:text-foreground prose-ul:my-2 prose-ol:my-2 prose-table:min-w-[420px] prose-code:text-[0.85em]">
+                  <RichArtifactMarkdown className="mt-4 max-w-full text-sm text-current prose-headings:text-current prose-p:my-2 prose-p:leading-6 prose-p:text-current prose-li:text-current prose-ul:my-2 prose-ol:my-2 prose-table:min-w-[420px] prose-code:text-[0.85em]">
                     {slide.body}
                   </RichArtifactMarkdown>
                 ) : null}
                 {slide.bullets?.length ? (
-                  <ul className="mt-4 grid gap-2 text-sm leading-5">
-                    {slide.bullets.map((bullet, bulletIndex) => (
-                      <li className="flex gap-2" key={`${bullet}-${bulletIndex}`}>
-                        <span className="mt-2 size-1.5 shrink-0 rounded-full bg-current" />
-                        {bullet}
-                      </li>
+                  isCardGrid ? (
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                      {slide.bullets.map((bullet, bulletIndex) => {
+                        const separator = bullet.indexOf(":");
+                        const label = separator > 0 ? bullet.slice(0, separator) : `Point ${bulletIndex + 1}`;
+                        const detail = separator > 0 ? bullet.slice(separator + 1).trim() : bullet;
+                        return (
+                          <div className="min-h-24 rounded-xl border border-current/15 bg-foreground/5 p-4" key={`${bullet}-${bulletIndex}`}>
+                            <p className="text-sm font-semibold leading-5">{label}</p>
+                            <p className="mt-2 text-xs leading-5 opacity-75">{detail}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <ul className="mt-4 grid gap-2 text-sm leading-5">
+                      {slide.bullets.map((bullet, bulletIndex) => (
+                        <li className="flex gap-2" key={`${bullet}-${bulletIndex}`}>
+                          <span className="mt-2 size-1.5 shrink-0 rounded-full bg-current" />
+                          {bullet}
+                        </li>
+                      ))}
+                    </ul>
+                  )
+                ) : null}
+                {slide.stats?.length ? (
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {slide.stats.map((stat) => (
+                      <div className="rounded-xl border border-current/15 bg-foreground/5 p-4" key={`${stat.label}-${stat.value}`}>
+                        <p className="text-2xl font-semibold tracking-tight">{stat.value}</p>
+                        <p className="mt-1 text-xs font-medium uppercase tracking-[0.12em] opacity-70">{stat.label}</p>
+                        {stat.detail ? <p className="mt-2 text-xs leading-5 opacity-70">{stat.detail}</p> : null}
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 ) : null}
                 </div>
-                {isImageLed && (slide.imageUrl || slide.image) ? (
-                  <div className="overflow-hidden rounded-xl border border-current/15 bg-black/20 lg:sticky lg:top-0">
+                {isImageLed && slide.visualPosition !== "full" && (slide.imageUrl || slide.image) ? (
+                  <div className="overflow-hidden rounded-xl border border-current/15 bg-foreground/5 lg:sticky lg:top-0">
                     <img
                       alt={slide.visual || slide.title || "Presentation visual"}
                       className="max-h-[28rem] min-h-48 w-full object-cover"
@@ -354,7 +422,7 @@ export function PresentationArtifact({
                 {slide.table?.headers?.length ? (
                   <div className="mt-5 overflow-x-auto rounded-lg border border-current/15 bg-foreground/5">
                     <table className="w-full min-w-[420px] text-left text-xs">
-                      <thead className="border-b border-current/15 bg-foreground/5">
+                      <thead className="border-b border-current/15 bg-foreground/10">
                         <tr>
                           {slide.table.headers.map((header, headerIndex) => (
                             <th className="px-3 py-2 font-semibold" key={`${header}-${headerIndex}`}>{header}</th>
@@ -363,7 +431,7 @@ export function PresentationArtifact({
                       </thead>
                       <tbody>
                         {slide.table.rows.map((row, rowIndex) => (
-                          <tr className="border-b border-current/10 last:border-0" key={`row-${rowIndex}`}>
+                          <tr className="border-b border-current/10 even:bg-foreground/5 last:border-0" key={`row-${rowIndex}`}>
                             {row.map((value, columnIndex) => (
                               <td className="px-3 py-2" key={`${rowIndex}-${columnIndex}`}>{String(value)}</td>
                             ))}
@@ -374,11 +442,11 @@ export function PresentationArtifact({
                   </div>
                 ) : null}
                 {slide.chart ? (
-                  <div className="mt-5 rounded-xl border border-border/60 bg-background/80 p-2 text-foreground">
+                  <div className="mt-5 rounded-xl border border-current/15 bg-foreground/5 p-2 text-current">
                     <ChartDisplay spec={slide.chart} />
                   </div>
                 ) : null}
-                {(slide.imageUrl || slide.image) ? (
+                {(slide.imageUrl || slide.image) && slide.visualPosition !== "full" ? (
                   <div className={`${isImageLed ? "hidden" : "mt-5"} overflow-hidden rounded-xl border border-border/60 bg-muted/40`}>
                     <img
                       alt={slide.visual || slide.title || "Presentation visual"}
@@ -392,13 +460,7 @@ export function PresentationArtifact({
                   </div>
                 ) : null}
               </div>
-              <div className="flex items-end justify-end gap-4">
-                {slide.visual ? (
-                  <div className="flex items-center gap-2 rounded-full bg-foreground/10 px-3 py-2 text-xs">
-                    <ImageIcon className="size-3.5" /> {slide.visual}
-                  </div>
-                ) : null}
-              </div>
+              <div className="flex items-end justify-end gap-4" />
             </div>
           </article>
           )}

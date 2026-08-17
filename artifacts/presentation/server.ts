@@ -12,7 +12,8 @@ export const presentationDocumentHandler = createDocumentHandler({
       prompt: `${prompt ?? `Create an editable real-world presentation deck titled "${title}".`}
 Audience: ${audience ?? "business decision makers"}
 Style: ${style ?? "clear, polished, high-contrast editorial design"}
-Source data: ${JSON.stringify(data ?? {})}`,
+Source data: ${JSON.stringify(data ?? {})}
+Design review before returning JSON: choose a visual archetype for every slide, use supplied image URLs when available, and do not expose visual prompts or speaker notes in visible slide copy. If the source data does not support a chart, use a layout, image, card grid, or truthful stat instead of inventing data.`,
     });
     let content = "";
     for await (const delta of result.textStream) {
@@ -29,7 +30,7 @@ Source data: ${JSON.stringify(data ?? {})}`,
     const result = streamText({
       model: getLanguageModel(modelId ?? "google/gemini-2.5-flash"),
       system: presentationPrompt,
-      prompt: `Improve this deck according to: ${description}\n\n${document.content}`,
+      prompt: `Improve this deck according to: ${description}\n\nPreserve useful existing image URLs, charts, tables, and speaker notes. Upgrade weak slides into deliberate hero, split, card-grid, comparison, timeline, or closing compositions. Remove visible image prompts and never invent metrics.\n\n${document.content}`,
     });
     let content = "";
     for await (const delta of result.textStream) {

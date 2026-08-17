@@ -82,13 +82,17 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Dev mode (no signing keys) — still require a basic secret
+  // Development mode may use the internal secret, but never a predictable fallback.
   const devSecret =
     req.headers.get("x-heartbeat-secret") || req.headers.get("x-agent-secret");
   const validSecret =
-    process.env.AGENT_DELEGATE_SECRET ||
-    process.env.AUTH_SECRET ||
-    "dev-internal";
+    process.env.AGENT_DELEGATE_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
+  if (!validSecret) {
+    return NextResponse.json(
+      { error: "Internal heartbeat secret is not configured" },
+      { status: 500 }
+    );
+  }
   if (devSecret !== validSecret) {
     return NextResponse.json(
       {

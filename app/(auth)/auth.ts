@@ -3,7 +3,7 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import { DUMMY_PASSWORD } from "@/lib/constants";
-import { getUser } from "@/lib/db/queries";
+import { ensurePersonalWorkspace, getUser } from "@/lib/db/queries";
 import { authConfig } from "./auth.config";
 
 export type UserType = "guest" | "regular";
@@ -15,6 +15,7 @@ declare module "next-auth" {
       type: UserType;
       firstName?: string | null;
       lastName?: string | null;
+      workspaceId?: string;
     } & DefaultSession["user"];
   }
 
@@ -23,6 +24,7 @@ declare module "next-auth" {
     firstName?: string | null;
     id?: string;
     lastName?: string | null;
+    workspaceId?: string;
     type: UserType;
   }
 }
@@ -32,6 +34,7 @@ declare module "next-auth/jwt" {
     firstName?: string | null;
     id: string;
     lastName?: string | null;
+    workspaceId?: string;
     type: UserType;
   }
 }
@@ -88,12 +91,18 @@ export const {
     */
   ],
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id!;
         token.type = user.type;
         token.firstName = user.firstName;
         token.lastName = user.lastName;
+        try {
+          token.workspaceId = (await ensurePersonalWorkspace(user.id!)).id;
+        } catch (error) {
+          // Keep authentication available during rolling deployments before the tenancy migration lands.
+          console.error("Unable to initialize personal workspace", error);
+        }
       }
 
       return token;
@@ -104,6 +113,7 @@ export const {
         session.user.type = token.type;
         session.user.firstName = token.firstName;
         session.user.lastName = token.lastName;
+        session.user.workspaceId = token.workspaceId;
       }
 
       return session;

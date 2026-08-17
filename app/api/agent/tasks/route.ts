@@ -4,6 +4,7 @@ import {
   getActiveAgentTasksByChatId,
   getActiveAgentTasksByUserId,
   getRecentAgentTasksByUserId,
+  resolveWorkspaceForUser,
 } from "@/lib/db/queries";
 
 export async function GET(req: NextRequest) {
@@ -19,18 +20,20 @@ export async function GET(req: NextRequest) {
     200,
     Math.max(1, Number.parseInt(searchParams.get("limit") ?? "80", 10))
   );
+  const workspaceId = req.cookies.get("etles-workspace-id")?.value ?? session.user.workspaceId;
+  const workspace = await resolveWorkspaceForUser(session.user.id, workspaceId);
 
   try {
     let tasks;
     if (all && chatId) {
-      tasks = await getRecentAgentTasksByUserId(session.user.id, limit);
+      tasks = await getRecentAgentTasksByUserId(session.user.id, limit, workspace.id);
       tasks = tasks.filter((task) => task.chatId === chatId);
     } else if (all) {
-      tasks = await getRecentAgentTasksByUserId(session.user.id, limit);
+      tasks = await getRecentAgentTasksByUserId(session.user.id, limit, workspace.id);
     } else if (chatId) {
-      tasks = await getActiveAgentTasksByChatId(chatId, session.user.id);
+      tasks = await getActiveAgentTasksByChatId(chatId, session.user.id, workspace.id);
     } else {
-      tasks = await getActiveAgentTasksByUserId(session.user.id);
+      tasks = await getActiveAgentTasksByUserId(session.user.id, workspace.id);
     }
     return NextResponse.json({ tasks });
   } catch (error: unknown) {

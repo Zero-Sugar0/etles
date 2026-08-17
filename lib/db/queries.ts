@@ -9,6 +9,7 @@ import {
   gt,
   gte,
   inArray,
+  isNull,
   lt,
   lte,
   or,
@@ -21,6 +22,11 @@ import type { ArtifactKind } from "@/components/artifact";
 import type { VisibilityType } from "@/components/visibility-selector";
 import { ChatbotError } from "../errors";
 import { generateUUID } from "../utils";
+import {
+  canAccessWorkspace,
+  canManageWorkspace,
+  canRemoveWorkspaceMember,
+} from "../tenancy/policy";
 import {
   agentSchedule,
   agentScheduleEvent,
@@ -46,6 +52,10 @@ import {
   type UserMedia,
   userMedia,
   userSkill,
+  type Workspace,
+  type WorkspaceMember,
+  workspace,
+  workspaceMember,
   vote,
   voteDeprecated,
 } from "./schema";
@@ -169,6 +179,199 @@ export async function getUserById(id: string): Promise<User[]> {
   }
 }
 
+export async function getWorkspaceMembership(
+  userId: string,
+  workspaceId: string
+): Promise<WorkspaceMember | null> {
+  const [member] = await db
+    .select()
+    .from(workspaceMember)
+    .where(
+      and(
+        eq(workspaceMember.userId, userId),
+        eq(workspaceMember.workspaceId, workspaceId),
+        eq(workspaceMember.status, "active")
+      )
+    );
+  return member ?? null;
+}
+
+export async function getWorkspaceMembers(workspaceId: string) {
+  return db
+    .select({
+      membership: workspaceMember,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+    })
+    .from(workspaceMember)
+    .innerJoin(user, eq(workspaceMember.userId, user.id))
+    .where(eq(workspaceMember.workspaceId, workspaceId))
+    .orderBy(asc(workspaceMember.createdAt));
+}
+
+export async function addWorkspaceMember({
+  actorUserId,
+  workspaceId,
+  email,
+  role = "member",
+}: {
+  actorUserId: string;
+  workspaceId: string;
+  email: string;
+  role?: "admin" | "member" | "viewer";
+}) {
+  const actor = await getWorkspaceMembership(actorUserId, workspaceId);
+  if (!actor || !canManageWorkspace(actor.role)) {
+    throw new ChatbotError("forbidden:auth", "You cannot manage this workspace");
+  }
+  const [targetUser] = await getUser(email.trim().toLowerCase());
+  if (!targetUser) {
+    throw new ChatbotError("bad_request:database", "No user exists with that email");
+  }
+  const [member] = await db
+    .insert(workspaceMember)
+    .values({
+      workspaceId,
+      userId: targetUser.id,
+      role,
+      status: "active",
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [workspaceMember.workspaceId, workspaceMember.userId],
+      set: { role, status: "active", updatedAt: new Date() },
+    })
+    .returning();
+  return member;
+}
+
+export async function removeWorkspaceMember({
+  actorUserId,
+  workspaceId,
+  memberUserId,
+}: {
+  actorUserId: string;
+  workspaceId: string;
+  memberUserId: string;
+}) {
+  const actor = await getWorkspaceMembership(actorUserId, workspaceId);
+  const target = await getWorkspaceMembership(memberUserId, workspaceId);
+  if (!actor || !target || !canRemoveWorkspaceMember(actor.role, target.role)) {
+    throw new ChatbotError("forbidden:auth", "You cannot manage this workspace");
+  }
+  const [removed] = await db
+    .delete(workspaceMember)
+    .where(
+      and(
+        eq(workspaceMember.workspaceId, workspaceId),
+        eq(workspaceMember.userId, memberUserId)
+      )
+    )
+    .returning({ id: workspaceMember.id });
+  return removed ?? null;
+}
+
+export async function resolveWorkspaceForUser(
+  userId: string,
+  workspaceId?: string | null
+): Promise<Workspace> {
+  if (workspaceId) {
+    const membership = await getWorkspaceMembership(userId, workspaceId);
+    if (!membership || !canAccessWorkspace(membership)) {
+      throw new ChatbotError("forbidden:auth", "You do not belong to this workspace");
+    }
+    const [selected] = await db.select().from(workspace).where(eq(workspace.id, workspaceId));
+    if (selected) return selected;
+  }
+  return ensurePersonalWorkspace(userId);
+}
+
+export async function listWorkspacesForUser(userId: string) {
+  return db
+    .select({ workspace, membership: workspaceMember })
+    .from(workspaceMember)
+    .innerJoin(workspace, eq(workspaceMember.workspaceId, workspace.id))
+    .where(
+      and(eq(workspaceMember.userId, userId), eq(workspaceMember.status, "active"))
+    )
+    .orderBy(asc(workspace.createdAt));
+}
+
+export async function ensurePersonalWorkspace(userId: string): Promise<Workspace> {
+  const existing = await listWorkspacesForUser(userId);
+  if (existing[0]?.workspace) return existing[0].workspace;
+
+  const [created] = await db
+    .insert(workspace)
+    .values({
+      name: "Personal Workspace",
+      slug: `personal-${userId.slice(0, 8)}`,
+      ownerId: userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing({ target: workspace.slug })
+    .returning();
+
+  const personal =
+    created ??
+    (
+      await db
+        .select()
+        .from(workspace)
+        .where(eq(workspace.slug, `personal-${userId.slice(0, 8)}`))
+    )[0];
+  if (!personal) throw new ChatbotError("bad_request:database", "Failed to create workspace");
+
+  await db
+    .insert(workspaceMember)
+    .values({
+      workspaceId: personal.id,
+      userId,
+      role: "owner",
+      status: "active",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing();
+
+  return personal;
+}
+
+export async function createWorkspaceForUser({
+  userId,
+  name,
+}: {
+  userId: string;
+  name: string;
+}): Promise<Workspace> {
+  const normalizedName = name.trim();
+  if (!normalizedName) {
+    throw new ChatbotError("bad_request:database", "Workspace name is required");
+  }
+  const baseSlug = normalizedName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 72) || "workspace";
+  const slug = `${baseSlug}-${generateUUID().slice(0, 8)}`;
+  const [created] = await db
+    .insert(workspace)
+    .values({ name: normalizedName, slug, ownerId: userId })
+    .returning();
+  await db.insert(workspaceMember).values({
+    workspaceId: created.id,
+    userId,
+    role: "owner",
+    status: "active",
+  });
+  return created;
+}
+
 export async function listUserCredentials(userId: string) {
   return db
     .select({ id: userCredential.id, provider: userCredential.provider, keyName: userCredential.keyName, valueHint: userCredential.valueHint, updatedAt: userCredential.updatedAt })
@@ -246,18 +449,22 @@ export async function saveChat({
   title,
   visibility,
   platformThreadId,
+  workspaceId,
 }: {
   id: string;
   userId: string;
   title: string;
   visibility: VisibilityType;
   platformThreadId?: string;
+  workspaceId?: string;
 }) {
   try {
+    const resolvedWorkspace = await resolveWorkspaceForUser(userId, workspaceId);
     return await db.insert(chat).values({
       id,
       createdAt: new Date(),
       userId,
+      workspaceId: resolvedWorkspace.id,
       title,
       visibility,
       platformThreadId,
@@ -341,11 +548,13 @@ export async function getChatsByUserId({
   limit,
   startingAfter,
   endingBefore,
+  workspaceId,
 }: {
   id: string;
   limit: number;
   startingAfter: string | null;
   endingBefore: string | null;
+  workspaceId?: string | null;
 }) {
   if (!isValidUUID(id)) {
     return { chats: [], hasMore: false };
@@ -359,14 +568,20 @@ export async function getChatsByUserId({
   try {
     const extendedLimit = limit + 1;
 
+    const ownershipCondition = workspaceId
+      ? or(
+          eq(chat.workspaceId, workspaceId),
+          and(isNull(chat.workspaceId), eq(chat.userId, id))
+        )
+      : eq(chat.userId, id);
     const query = (whereCondition?: SQL<any>) =>
       db
         .select()
         .from(chat)
         .where(
           whereCondition
-            ? and(whereCondition, eq(chat.userId, id))
-            : eq(chat.userId, id)
+            ? and(whereCondition, ownershipCondition)
+            : ownershipCondition
         )
         .orderBy(desc(chat.createdAt))
         .limit(extendedLimit);
@@ -1111,17 +1326,20 @@ export async function createAgentTask({
   chatId,
   agentType,
   task,
+  workspaceId,
 }: {
   id: string;
   userId: string;
   chatId?: string;
   agentType: string;
   task: string;
+  workspaceId?: string;
 }) {
   try {
+    const resolvedWorkspace = await resolveWorkspaceForUser(userId, workspaceId);
     const [created] = await db
       .insert(agentTask)
-      .values({ id, userId, chatId, agentType, task, status: "pending" })
+      .values({ id, userId, workspaceId: resolvedWorkspace.id, chatId, agentType, task, status: "pending" })
       .returning(agentTaskListColumns);
     return created;
   } catch (error) {
@@ -1237,12 +1455,22 @@ export async function updateAgentTask({
   }
 }
 
-export async function getActiveAgentTasksByUserId(userId: string) {
+export async function getActiveAgentTasksByUserId(userId: string, workspaceId?: string) {
   try {
     return await db
       .select(agentTaskListColumns)
       .from(agentTask)
-      .where(and(eq(agentTask.userId, userId), activeAgentStatusFilter))
+      .where(
+        and(
+          workspaceId
+            ? or(
+                eq(agentTask.workspaceId, workspaceId),
+                and(isNull(agentTask.workspaceId), eq(agentTask.userId, userId))
+              )
+            : eq(agentTask.userId, userId),
+          activeAgentStatusFilter
+        )
+      )
       .orderBy(desc(agentTask.createdAt));
   } catch (error) {
     if (isPostgresUndefinedAgentTaskError(error)) {
@@ -1254,7 +1482,8 @@ export async function getActiveAgentTasksByUserId(userId: string) {
 
 export async function getActiveAgentTasksByChatId(
   chatId: string,
-  userId: string
+  userId: string,
+  workspaceId?: string
 ) {
   try {
     return await db
@@ -1263,7 +1492,12 @@ export async function getActiveAgentTasksByChatId(
       .where(
         and(
           eq(agentTask.chatId, chatId),
-          eq(agentTask.userId, userId),
+          workspaceId
+            ? or(
+                eq(agentTask.workspaceId, workspaceId),
+                and(isNull(agentTask.workspaceId), eq(agentTask.userId, userId))
+              )
+            : eq(agentTask.userId, userId),
           activeAgentStatusFilter
         )
       )
@@ -1361,12 +1595,19 @@ export async function deleteUserSkill(userId: string, slug: string) {
   }
 }
 
-export async function getRecentAgentTasksByUserId(userId: string, limit = 100) {
+export async function getRecentAgentTasksByUserId(userId: string, limit = 100, workspaceId?: string) {
   try {
     return await db
       .select(agentTaskListColumns)
       .from(agentTask)
-      .where(eq(agentTask.userId, userId))
+      .where(
+        workspaceId
+          ? or(
+              eq(agentTask.workspaceId, workspaceId),
+              and(isNull(agentTask.workspaceId), eq(agentTask.userId, userId))
+            )
+          : eq(agentTask.userId, userId)
+      )
       .orderBy(desc(agentTask.createdAt))
       .limit(limit);
   } catch (error) {
@@ -1470,6 +1711,7 @@ export async function searchUserMessages({
 
 export async function createMission({
   userId,
+  workspaceId,
   chatId,
   goal,
   startupDescription,
@@ -1477,6 +1719,7 @@ export async function createMission({
   durationDays = 14,
 }: {
   userId: string;
+  workspaceId?: string;
   chatId?: string;
   goal: string;
   startupDescription?: string;
@@ -1484,10 +1727,12 @@ export async function createMission({
   durationDays?: number;
 }): Promise<Mission> {
   try {
+    const resolvedWorkspaceId = await resolveWorkspaceForUser(userId, workspaceId);
     const [created] = await db
       .insert(mission)
       .values({
         userId,
+        workspaceId: resolvedWorkspaceId.id,
         chatId,
         goal,
         startupDescription,
@@ -1537,14 +1782,18 @@ export async function getMissionsByUserId(userId: string): Promise<Mission[]> {
 
 export async function updateMissionStatus(
   id: string,
+  userId: string,
   status: Mission["status"]
 ): Promise<Mission> {
   try {
     const [updated] = await db
       .update(mission)
       .set({ status, updatedAt: new Date() })
-      .where(eq(mission.id, id))
+      .where(and(eq(mission.id, id), eq(mission.userId, userId)))
       .returning();
+    if (!updated) {
+      throw new ChatbotError("not_found:database", "Mission not found");
+    }
     return updated;
   } catch (error) {
     throw new ChatbotError(
@@ -1628,6 +1877,105 @@ export async function getCampaignQueueByMissionId(
   }
 }
 
+export async function getCampaignQueueItemForDispatch(id: string) {
+  try {
+    const [result] = await db
+      .select({ item: campaignQueue, userId: mission.userId })
+      .from(campaignQueue)
+      .innerJoin(mission, eq(campaignQueue.missionId, mission.id))
+      .where(eq(campaignQueue.id, id));
+    return result ?? null;
+  } catch (error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get campaign queue item"
+    );
+  }
+}
+
+export async function claimCampaignQueueItem(id: string, now = new Date()) {
+  try {
+    const [claimed] = await db
+      .update(campaignQueue)
+      .set({
+        status: "dispatching",
+        attempts: sql`${campaignQueue.attempts} + 1`,
+        claimedAt: now,
+        updatedAt: now,
+        lastError: null,
+      })
+      .where(
+        and(
+          eq(campaignQueue.id, id),
+          eq(campaignQueue.status, "approved"),
+          lte(campaignQueue.scheduledFor, now)
+        )
+      )
+      .returning();
+    return claimed ?? null;
+  } catch (error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to claim campaign queue item"
+    );
+  }
+}
+
+export async function markCampaignQueueItemSent(
+  id: string,
+  providerMessageId?: string
+) {
+  try {
+    const now = new Date();
+    const [updated] = await db
+      .update(campaignQueue)
+      .set({
+        status: "sent",
+        sentAt: now,
+        updatedAt: now,
+        providerMessageId: providerMessageId ?? null,
+      })
+      .where(
+        and(eq(campaignQueue.id, id), eq(campaignQueue.status, "dispatching"))
+      )
+      .returning();
+    return updated ?? null;
+  } catch (error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to mark campaign queue item sent"
+    );
+  }
+}
+
+export async function markCampaignQueueItemFailed(
+  id: string,
+  error: string,
+  deadLetter = false
+) {
+  try {
+    const now = new Date();
+    const [updated] = await db
+      .update(campaignQueue)
+      .set({
+        status: deadLetter ? "dead_letter" : "failed",
+        failedAt: now,
+        lastError: error.slice(0, 4000),
+        updatedAt: now,
+      })
+      .where(
+        and(eq(campaignQueue.id, id), eq(campaignQueue.status, "dispatching"))
+      )
+      .returning();
+    return updated ?? null;
+  } catch (error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to mark campaign queue item failed"
+    );
+  }
+}
+
 export async function getPendingCampaignQueueItems(): Promise<
   CampaignQueueItem[]
 > {
@@ -1647,14 +1995,35 @@ export async function getPendingCampaignQueueItems(): Promise<
 
 export async function updateCampaignQueueStatus(
   id: string,
+  userId: string,
   status: CampaignQueueItem["status"]
 ): Promise<CampaignQueueItem> {
   try {
     const [updated] = await db
       .update(campaignQueue)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(campaignQueue.id, id))
+      .set({
+        status,
+        updatedAt: new Date(),
+        ...(status === "pending_review"
+          ? { claimedAt: null, failedAt: null, lastError: null }
+          : {}),
+      })
+      .where(
+        and(
+          eq(campaignQueue.id, id),
+          inArray(
+            campaignQueue.missionId,
+            db
+              .select({ id: mission.id })
+              .from(mission)
+              .where(eq(mission.userId, userId))
+          )
+        )
+      )
       .returning();
+    if (!updated) {
+      throw new ChatbotError("not_found:database", "Campaign item not found");
+    }
     return updated;
   } catch (error) {
     throw new ChatbotError(
@@ -1666,14 +2035,29 @@ export async function updateCampaignQueueStatus(
 
 export async function updateCampaignQueueContent(
   id: string,
+  userId: string,
   content: string
 ): Promise<CampaignQueueItem> {
   try {
     const [updated] = await db
       .update(campaignQueue)
       .set({ content, updatedAt: new Date() })
-      .where(eq(campaignQueue.id, id))
+      .where(
+        and(
+          eq(campaignQueue.id, id),
+          inArray(
+            campaignQueue.missionId,
+            db
+              .select({ id: mission.id })
+              .from(mission)
+              .where(eq(mission.userId, userId))
+          )
+        )
+      )
       .returning();
+    if (!updated) {
+      throw new ChatbotError("not_found:database", "Campaign item not found");
+    }
     return updated;
   } catch (error) {
     throw new ChatbotError(
@@ -1684,13 +2068,28 @@ export async function updateCampaignQueueContent(
 }
 
 export async function deleteCampaignQueueItem(
-  id: string
+  id: string,
+  userId: string
 ): Promise<CampaignQueueItem> {
   try {
     const [deleted] = await db
       .delete(campaignQueue)
-      .where(eq(campaignQueue.id, id))
+      .where(
+        and(
+          eq(campaignQueue.id, id),
+          inArray(
+            campaignQueue.missionId,
+            db
+              .select({ id: mission.id })
+              .from(mission)
+              .where(eq(mission.userId, userId))
+          )
+        )
+      )
       .returning();
+    if (!deleted) {
+      throw new ChatbotError("not_found:database", "Campaign item not found");
+    }
     return deleted;
   } catch (error) {
     throw new ChatbotError(

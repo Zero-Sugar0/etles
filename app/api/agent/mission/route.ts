@@ -408,7 +408,7 @@ const missionWorkflow = createWorkflow(
       context.requestPayload;
 
     await context.run("update-mission-running", async () => {
-      await updateMissionStatus(missionId, "running");
+      await updateMissionStatus(missionId, userId, "running");
     });
 
     // ── Step 1: AI strategist plans the full campaign ────────────────────────
@@ -553,7 +553,7 @@ Tone: crisp, direct. No fluff.`,
 
     // ── Step 5: Mission complete ────────────────────────────────────────────
     await context.run("mission-complete", async () => {
-      await updateMissionStatus(missionId, "completed");
+      await updateMissionStatus(missionId, userId, "completed");
       await postToChat(
         chatId,
         `🏁 **Mission complete: ${goal}**

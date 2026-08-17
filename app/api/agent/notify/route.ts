@@ -2,11 +2,15 @@ import { type NextRequest, NextResponse } from "next/server";
 import { notifyWorkflow } from "@/lib/workflow/client";
 
 const AGENT_NOTIFY_SECRET =
-  process.env.AGENT_DELEGATE_SECRET ??
-  process.env.AUTH_SECRET ??
-  "dev-internal";
+  process.env.AGENT_DELEGATE_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
 
 export async function POST(req: NextRequest) {
+  if (!AGENT_NOTIFY_SECRET) {
+    return NextResponse.json(
+      { error: "Internal agent secret is not configured" },
+      { status: 500 }
+    );
+  }
   const secret = req.headers.get("x-agent-secret");
   if (secret !== AGENT_NOTIFY_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

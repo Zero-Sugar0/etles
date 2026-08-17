@@ -17,6 +17,7 @@ import {
   Mail,
   Shield,
   Activity,
+  Building2,
   Trash2,
   User as UserIcon,
   Zap,
@@ -58,12 +59,83 @@ export default function ProfilePage() {
   const [showSecrets, setShowSecrets] = useState(false);
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
   const [copiedSecret, setCopiedSecret] = useState<string | null>(null);
+  const [workspaces, setWorkspaces] = useState<Array<{ workspace: { id: string; name: string; slug: string }; membership: { role: string } }>>([]);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceStatus, setWorkspaceStatus] = useState("");
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [members, setMembers] = useState<Array<{ membership: { id: string; userId: string; role: string }; user: { id: string; email: string; firstName?: string | null; lastName?: string | null } }>>([]);
+  const [memberEmail, setMemberEmail] = useState("");
 
   useEffect(() => {
     void fetch("/api/user/profile").then(async (response) => {
       if (response.ok) setCredentials((await response.json()).credentials ?? []);
     });
+    void fetch("/api/workspaces").then(async (response) => {
+      if (response.ok) setWorkspaces(await response.json());
+    });
   }, []);
+
+  async function createWorkspace() {
+    if (!workspaceName.trim()) return;
+    const response = await fetch("/api/workspaces", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: workspaceName }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setWorkspaceStatus(data.error ?? "Could not create workspace");
+      return;
+    }
+    setWorkspaceName("");
+    setWorkspaceStatus("Workspace created");
+    setWorkspaces((current) => [...current, { workspace: data, membership: { role: "owner" } }]);
+  }
+
+  async function selectWorkspace(id: string) {
+    const response = await fetch(`/api/workspaces/${id}/select`, { method: "POST" });
+    if (!response.ok) {
+      setWorkspaceStatus("Could not select workspace");
+      return;
+    }
+    setActiveWorkspaceId(id);
+    const membersResponse = await fetch(`/api/workspaces/${id}/members`);
+    if (membersResponse.ok) setMembers(await membersResponse.json());
+    setWorkspaceStatus("Workspace selected");
+  }
+
+  async function addMember() {
+    if (!activeWorkspaceId || !memberEmail.trim()) return;
+    const response = await fetch(`/api/workspaces/${activeWorkspaceId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: memberEmail.trim(), role: "member" }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      setWorkspaceStatus(data.error ?? "Could not add member");
+      return;
+    }
+    setMemberEmail("");
+    setMembers((current) => [...current.filter((item) => item.membership.userId !== data.userId), { membership: data, user: { id: data.userId, email: memberEmail.trim() } }]);
+    setWorkspaceStatus("Member added");
+  }
+
+  async function removeMember(userId: string) {
+    if (!activeWorkspaceId) return;
+    const response = await fetch(`/api/workspaces/${activeWorkspaceId}/members`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (!response.ok) {
+      const data = await response.json();
+      setWorkspaceStatus(data.error ?? "Could not remove member");
+      return;
+    }
+    setMembers((current) => current.filter((item) => item.user.id !== userId));
+    setWorkspaceStatus("Member removed");
+  }
 
   async function saveCredential() {
     if (!credentialValue.trim()) return;
@@ -278,10 +350,11 @@ export default function ProfilePage() {
         </section>
 
         <Tabs className="w-full" defaultValue="profile">
-          <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl border border-border/70 bg-card/70 p-1">
+          <TabsList className="grid h-auto w-full grid-cols-2 rounded-xl border border-border/70 bg-card/70 p-1 sm:grid-cols-4">
             <TabsTrigger className="gap-2 py-2.5" value="profile"><UserIcon className="size-4" /> Profile</TabsTrigger>
             <TabsTrigger className="gap-2 py-2.5" value="integrations"><Bot className="size-4" /> Integrations</TabsTrigger>
             <TabsTrigger className="gap-2 py-2.5" value="secrets"><KeyRound className="size-4" /> Secrets</TabsTrigger>
+            <TabsTrigger className="gap-2 py-2.5" value="workspace"><Building2 className="size-4" /> Workspace</TabsTrigger>
           </TabsList>
           <TabsContent value="profile">
         <Card className="border-border/70 bg-card/70">
@@ -385,6 +458,41 @@ export default function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+          </TabsContent>
+          <TabsContent value="workspace">
+            <Card className="border-border/70 bg-card/70">
+              <CardHeader className="p-5 sm:p-6">
+                <CardTitle className="flex items-center gap-2 text-base"><Building2 className="size-4 text-primary" /> Workspaces</CardTitle>
+                <CardDescription>Separate team members, missions, and operating context by workspace.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 p-5 pt-0 sm:p-6 sm:pt-0">
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <Input aria-label="Workspace name" onChange={(event) => setWorkspaceName(event.target.value)} placeholder="New workspace name" value={workspaceName} />
+                  <Button disabled={!workspaceName.trim()} onClick={() => void createWorkspace()}><Building2 className="size-4" /> Create workspace</Button>
+                </div>
+                {workspaceStatus && <p className="text-xs text-muted-foreground">{workspaceStatus}</p>}
+                <div className="divide-y divide-border overflow-hidden rounded-lg border border-border/70">
+                  {workspaces.map(({ workspace, membership }) => (
+                    <div className="flex flex-wrap items-center gap-3 p-4" key={workspace.id}>
+                      <div className="min-w-0 flex-1"><p className="truncate font-medium">{workspace.name}</p><p className="text-xs text-muted-foreground">{membership.role} · {workspace.slug}</p></div>
+                      <Button onClick={() => void selectWorkspace(workspace.id)} size="sm" variant="outline">Use workspace</Button>
+                    </div>
+                  ))}
+                </div>
+                {activeWorkspaceId && (
+                  <div className="space-y-3 rounded-lg border border-border/70 p-4">
+                    <div><p className="text-sm font-medium">Team members</p><p className="text-xs text-muted-foreground">Add people who already have an Etles account.</p></div>
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <Input aria-label="Member email" onChange={(event) => setMemberEmail(event.target.value)} placeholder="member@example.com" value={memberEmail} />
+                      <Button disabled={!memberEmail.trim()} onClick={() => void addMember()} size="sm">Add member</Button>
+                    </div>
+                    <div className="divide-y divide-border rounded-md border border-border/70">
+                      {members.map(({ membership, user: member }) => <div className="flex items-center gap-3 p-3" key={membership.id}><div className="min-w-0 flex-1"><p className="truncate text-sm">{member.firstName || member.lastName ? `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim() : member.email}</p><p className="text-xs text-muted-foreground">{member.email} · {membership.role}</p></div>{membership.role !== "owner" && <Button aria-label={`Remove ${member.email}`} onClick={() => void removeMember(member.id)} size="icon" variant="ghost"><Trash2 className="size-4" /></Button>}</div>)}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

@@ -164,6 +164,7 @@ import {
   getChatById,
   getMessageCountByUserId,
   getMessagesByChatId,
+  resolveWorkspaceForUser,
   saveChat,
   updateChatTitleById,
   updateMessage,
@@ -289,6 +290,12 @@ export async function POST(request: Request) {
       return new ChatbotError("unauthorized:chat").toResponse();
     }
 
+    const selectedWorkspaceId =
+      request.headers
+        .get("cookie")
+        ?.match(/(?:^|;\s*)etles-workspace-id=([^;]+)/)?.[1] ??
+      session.user.workspaceId;
+
     const isOnboarding = selectedChatModel === "onboarding_specialist";
 
     if (!isOnboarding && !allowedModelIds.has(selectedChatModel)) {
@@ -307,6 +314,9 @@ export async function POST(request: Request) {
     );
 
     const isGuest = guestRegex.test(session?.user?.email ?? "");
+    const activeWorkspace = isGuest
+      ? null
+      : await resolveWorkspaceForUser(session.user.id, selectedWorkspaceId);
     await checkIpRateLimit(ipAddress(request), isGuest);
 
     const userType: UserType = session.user.type;
@@ -330,7 +340,10 @@ export async function POST(request: Request) {
     let titlePromise: Promise<string> | null = null;
 
     if (chat) {
-      if (chat.userId !== session.user.id) {
+      if (
+        chat.userId !== session.user.id &&
+        (!activeWorkspace || chat.workspaceId !== activeWorkspace.id)
+      ) {
         return new ChatbotError("forbidden:chat").toResponse();
       }
       if (!isToolApprovalFlow) {
@@ -342,6 +355,7 @@ export async function POST(request: Request) {
         userId: session.user.id,
         title: "New chat",
         visibility: selectedVisibilityType,
+        workspaceId: activeWorkspace?.id,
       });
       titlePromise = generateTitleFromUserMessage({ message });
     }
@@ -897,6 +911,7 @@ export async function POST(request: Request) {
                   launchMission: launchMission({
                     userId: session.user.id!,
                     chatId: id,
+                    workspaceId: selectedWorkspaceId,
                     baseUrl:
                       process.env.BASE_URL || new URL(request.url).origin,
                   }),
