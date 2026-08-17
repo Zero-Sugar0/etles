@@ -180,6 +180,7 @@ import { getSessionTail, saveSessionTail } from "@/lib/session-tail";
 import type { ChatMessage } from "@/lib/types";
 import { touchUserActivity } from "@/lib/user-activity";
 import { getComposioClient } from "@/lib/composio-client";
+import { isTrustedInternalAgentRequest } from "@/lib/security/internal-agent";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
@@ -223,26 +224,49 @@ export async function POST(request: Request) {
 
     let session = await auth();
 
-    // Fallback for CLI programmatic requests in development
-    if (!session?.user) {
+    // Server-to-server channel bridge. This is deliberately separate from
+    // the development CLI fallback so a public request cannot claim another
+    // user's id by sending `Authorization: Bearer <userId>`.
+    if (!session?.user && isTrustedInternalAgentRequest(request)) {
+      const authHeader = request.headers.get("authorization");
+      const internalUserId = authHeader?.startsWith("Bearer ")
+        ? authHeader.substring(7)
+        : null;
+      if (internalUserId) {
+        try {
+          const { getUserById } = await import("@/lib/db/queries");
+          const users = await getUserById(internalUserId);
+          const userRecord = users[0] ?? null;
+
+          if (userRecord) {
+            session = {
+              user: {
+                id: userRecord.id,
+                email: userRecord.email,
+                type: "regular",
+                firstName: userRecord.firstName,
+                lastName: userRecord.lastName,
+              },
+              expires: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
+            } as any;
+          }
+        } catch (e) {
+          console.error("[Chat API Auth Fallback] Failed resolving user:", e);
+        }
+      }
+    }
+
+    // Keep the old CLI fallback for local development only.
+    if (!session?.user && process.env.NODE_ENV !== "production") {
       const authHeader = request.headers.get("authorization");
       if (authHeader?.startsWith("Bearer ")) {
         const tokenOrKey = authHeader.substring(7);
         try {
           const { getUser, getUserById } = await import("@/lib/db/queries");
-          let userRecord = null;
-          if (tokenOrKey.includes("@")) {
-            const users = await getUser(tokenOrKey);
-            if (users.length > 0) {
-              userRecord = users[0];
-            }
-          } else {
-            const users = await getUserById(tokenOrKey);
-            if (users.length > 0) {
-              userRecord = users[0];
-            }
-          }
-
+          const users = tokenOrKey.includes("@")
+            ? await getUser(tokenOrKey)
+            : await getUserById(tokenOrKey);
+          const userRecord = users[0];
           if (userRecord) {
             session = {
               user: {

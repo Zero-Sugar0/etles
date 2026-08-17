@@ -1,32 +1,20 @@
 import type { SlackAdapter } from "@chat-adapter/slack";
-import { stepCountIs, streamText } from "ai";
-import { type Chat, toAiMessages } from "chat";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import { getLanguageModel } from "@/lib/ai/providers";
-import { BOT_SYSTEM_PROMPT, buildPlatformAgentTools } from "@/lib/bot-ai";
-import { saveChat, saveMessages } from "@/lib/db/queries";
-import { generateUUID } from "@/lib/utils";
+import type { Chat } from "chat";
+import {
+  getOrCreatePlatformChat,
+  postPlatformAgentTurn,
+} from "@/lib/chat/platform-agent";
 
-// Platforms where thread.post(stream) is unsupported — must await text and post markdown.
-// Source: Chat SDK feature matrix — GitHub ❌, Linear ❌, WhatsApp ❌, Resend (email) ❌
-const NON_STREAMING_PLATFORMS = new Set([
-  "github",
-  "linear",
-  "whatsapp",
-  "resend",
-]);
-
-async function postAIResponse(
-  thread: any,
-  fullStream: AsyncIterable<any>,
-  textPromise: PromiseLike<string>,
-  platform: string
-) {
-  if (NON_STREAMING_PLATFORMS.has(platform)) {
-    const text = await textPromise;
-    await thread.post({ markdown: text });
-  } else {
-    await thread.post(fullStream);
+async function postAIResponse(thread: any, text: string) {
+  try {
+    await thread.post({
+      markdown: text || "I completed the request, but there was no text response.",
+    });
+  } catch (error) {
+    console.error(
+      "[bot-handlers] Failed to post error response:",
+      error instanceof Error ? error.message : "unknown error"
+    );
   }
 }
 
@@ -42,68 +30,46 @@ async function handleFirstMessage(
   ownerUserId: string
 ) {
   try {
-    await thread.startTyping("Thinking...");
-  } catch {
-    /* best-effort — no-op on unsupported platforms */
+    try {
+      await thread.startTyping("Thinking...");
+    } catch {
+      /* best-effort — no-op on unsupported platforms */
+    }
+
+    await thread.subscribe();
+
+    const { chatId } = await getOrCreatePlatformChat({
+      userId: ownerUserId,
+      platform,
+      threadId: thread.id,
+      title: `Chat from ${message?.author?.fullName || "External Platform"}`,
+    });
+    await thread.setState({ chatId });
+    const result = await postPlatformAgentTurn(thread, {
+      userId: ownerUserId,
+      platform,
+      threadId: thread.id,
+      chatId,
+      text: message?.text || "",
+      externalMessageId: message?.id,
+      attachments: message?.attachments,
+    });
+    if (!result.text && result.approvalRequested) {
+      await postAIResponse(
+        thread,
+        "This action needs your approval. Open the Etles web chat for this conversation to approve or deny it."
+      );
+    }
+  } catch (error) {
+    console.error(
+      `[bot-handlers] ${platform} first turn failed:`,
+      error instanceof Error ? error.message : "unknown error"
+    );
+    await postAIResponse(
+      thread,
+      "I could not complete that request right now. Please try again in a moment."
+    );
   }
-
-  await thread.subscribe();
-
-  const chatId = generateUUID();
-
-  await thread.setState({ chatId });
-
-  await saveChat({
-    id: chatId,
-    userId: ownerUserId,
-    title: `Chat from ${message?.author?.fullName || "External Platform"}`,
-    visibility: "private",
-    platformThreadId: thread.id,
-  });
-
-  const tools = await buildPlatformAgentTools({ userId: ownerUserId, chatId });
-
-  const botModel = process.env.SUBAGENT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
-  const response = await streamText({
-    model: getLanguageModel(botModel),
-    system: BOT_SYSTEM_PROMPT,
-    prompt: message?.text || "",
-    tools,
-    stopWhen: stepCountIs(8),
-    onFinish: async ({ text, toolCalls }) => {
-      const timestamp = new Date();
-      await saveMessages({
-        messages: [
-          {
-            id: message?.id || generateUUID(),
-            chatId,
-            role: "user",
-            parts: [{ type: "text" as const, text: message?.text || "" }],
-            attachments: [],
-            createdAt: new Date(timestamp.getTime() - 1000),
-          },
-          {
-            id: generateUUID(),
-            chatId,
-            role: "assistant",
-            parts: [
-              { type: "text" as const, text },
-              ...(toolCalls?.map((tc) => ({
-                type: "tool-call" as const,
-                toolCallId: tc.toolCallId,
-                toolName: tc.toolName,
-                args: (tc as any).args,
-              })) || []),
-            ],
-            attachments: [],
-            createdAt: timestamp,
-          },
-        ] as any,
-      });
-    },
-  });
-
-  await postAIResponse(thread, response.fullStream, response.text, platform);
 }
 
 export function attachHandlers(
@@ -138,89 +104,55 @@ export function attachHandlers(
     await handleFirstMessage(thread, message, platform, ownerUserId);
   });
 
-  // ── Any message in an unsubscribed thread ───────────────────────────────────
-  // FIX: This is the missing handler that caused Telegram (and WhatsApp DMs) to
-  // receive zero responses. In a Telegram private chat the user can't @-mention
-  // the bot — they just send a message. That never triggers onNewMention, so the
-  // message was silently dropped.
-  //
-  // Chat SDK routing rules:
-  //   1. Subscribed thread  → onSubscribedMessage
-  //   2. @mention           → onNewMention
-  //   3. Pattern match      → onNewMessage   ← this catches everything else
-  //
-  // We use /.+/ (any non-empty message) so commands like /start, plain text,
-  // and everything else in a fresh Telegram or WhatsApp DM all get handled.
-  bot.onNewMessage(/.+/, async (thread, message) => {
+  // ── Direct messages ─────────────────────────────────────────────────────────
+  // Use the SDK's DM route instead of a broad regex handler. This prevents a
+  // channel message from being processed twice and covers Telegram/WhatsApp
+  // DMs where users cannot mention the bot.
+  bot.onDirectMessage(async (thread, message) => {
     await handleFirstMessage(thread, message, platform, ownerUserId);
   });
 
   // ── Follow-up messages in subscribed threads ────────────────────────────────
   bot.onSubscribedMessage(async (thread, message) => {
     try {
-      await thread.startTyping("Thinking...");
-    } catch {
-      /* best-effort */
+      try {
+        await thread.startTyping("Thinking...");
+      } catch {
+        /* best-effort */
+      }
+
+      const state = (await thread.state) as { chatId: string } | null;
+      const chatId = state?.chatId;
+
+      if (!chatId) {
+        console.error("[bot-handlers] No chatId in thread state for follow-up");
+        return;
+      }
+
+      const result = await postPlatformAgentTurn(thread, {
+        userId: ownerUserId,
+        platform,
+        threadId: thread.id,
+        chatId,
+        text: message?.text || "",
+        externalMessageId: message?.id,
+        attachments: message?.attachments,
+      });
+      if (!result.text && result.approvalRequested) {
+        await postAIResponse(
+          thread,
+          "This action needs your approval. Open the Etles web chat for this conversation to approve or deny it."
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[bot-handlers] ${platform} follow-up failed:`,
+        error instanceof Error ? error.message : "unknown error"
+      );
+      await postAIResponse(
+        thread,
+        "I could not complete that request right now. Please try again in a moment."
+      );
     }
-
-    const state = (await thread.state) as { chatId: string } | null;
-    const chatId = state?.chatId;
-
-    if (!chatId) {
-      console.error("[bot-handlers] No chatId in thread state for follow-up");
-      return;
-    }
-
-    const messages: any[] = [];
-    for await (const msg of thread.messages) {
-      messages.push(msg);
-    }
-    const history = await toAiMessages(messages);
-    const tools = await buildPlatformAgentTools({
-      userId: ownerUserId,
-      chatId,
-    });
-
-    const botModel = process.env.SUBAGENT_MODEL?.trim() || DEFAULT_CHAT_MODEL;
-    const response = await streamText({
-      model: getLanguageModel(botModel),
-      system: BOT_SYSTEM_PROMPT,
-      messages: history,
-      tools,
-      stopWhen: stepCountIs(8),
-      onFinish: async ({ text, toolCalls }) => {
-        const timestamp = new Date();
-        await saveMessages({
-          messages: [
-            {
-              id: message?.id || generateUUID(),
-              chatId,
-              role: "user",
-              parts: [{ type: "text" as const, text: message?.text || "" }],
-              attachments: [],
-              createdAt: new Date(timestamp.getTime() - 1000),
-            },
-            {
-              id: generateUUID(),
-              chatId,
-              role: "assistant",
-              parts: [
-                { type: "text" as const, text },
-                ...(toolCalls?.map((tc) => ({
-                  type: "tool-call" as const,
-                  toolCallId: tc.toolCallId,
-                  toolName: tc.toolName,
-                  args: (tc as any).args,
-                })) || []),
-              ],
-              attachments: [],
-              createdAt: timestamp,
-            },
-          ] as any,
-        });
-      },
-    });
-
-    await postAIResponse(thread, response.fullStream, response.text, platform);
   });
 }

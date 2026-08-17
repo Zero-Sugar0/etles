@@ -19,6 +19,7 @@ const PLATFORMS = [
   { id: "linear", label: "Linear" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "resend", label: "Resend (Email)" },
+  { id: "sendblue", label: "iMessage (Sendblue)" },
 ];
 
 const MASK_PREFIX = "••••••••";
@@ -144,6 +145,17 @@ const PLATFORM_CONFIGS: Record<
       { id: "fromName", label: "From Name", placeholder: "Etles AI" },
     ],
   },
+  sendblue: {
+    tokenLabel: "Sendblue API Key",
+    tokenPlaceholder: "SB-API-KEY-ID...",
+    secretLabel: "Sendblue API Secret",
+    secretPlaceholder: "SB-API-SECRET-KEY...",
+    extraFields: [
+      { id: "fromNumber", label: "Sendblue Number", placeholder: "+15551234567" },
+      { id: "webhookSecret", label: "Webhook Secret", placeholder: "Optional shared signing secret" },
+      { id: "allowedServices", label: "Allowed Services", placeholder: "iMessage,SMS,RCS" },
+    ],
+  },
 };
 
 function getWebhookUrl(originUrl: string, platform: string, userId: string) {
@@ -230,7 +242,7 @@ export function BotIntegrationsPanel() {
     });
 
     if (res.ok) {
-      toast.success(`${activePlatform} live integration bound successfully!`);
+      toast.success(`${activePlatform} credentials saved securely.`);
 
       // ─── ADD THIS ───────────────────────────────────────────────────────────
       if (activePlatform === "telegram") {

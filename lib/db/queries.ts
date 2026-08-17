@@ -50,6 +50,12 @@ import {
   voteDeprecated,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
+import {
+  decryptExtraConfig,
+  decryptLegacyCredential,
+  encryptCredential,
+  encryptExtraConfig,
+} from "../security/credential-crypto";
 
 // Optionally, if not using email/pass login, you can
 // use the Drizzle adapter for Auth.js / NextAuth
@@ -491,12 +497,20 @@ export async function linkChatToPlatform({
   platformThreadId: string;
 }) {
   try {
-    await db
+    const linked = await db
       .update(chat)
       .set({ platformThreadId })
-      .where(eq(chat.id, chatId));
+      .where(
+        and(
+          eq(chat.id, chatId),
+          sql`${chat.platformThreadId} IS NULL`
+        )
+      )
+      .returning({ id: chat.id });
+    return linked.length > 0;
   } catch (error) {
     console.error("[linkChatToPlatform] error:", error);
+    return false;
   }
 }
 
@@ -999,12 +1013,16 @@ export async function saveBotIntegration({
       );
 
     if (existing) {
-      const updates: Record<string, unknown> = { botToken };
+      const updates: Record<string, unknown> = {
+        botToken: encryptCredential(botToken),
+      };
       if (signingSecret !== undefined) {
-        updates.signingSecret = signingSecret;
+        updates.signingSecret = signingSecret
+          ? encryptCredential(signingSecret)
+          : null;
       }
       if (extraConfig !== undefined) {
-        updates.extraConfig = extraConfig;
+        updates.extraConfig = encryptExtraConfig(extraConfig);
       }
       return await db
         .update(botIntegration)
@@ -1018,9 +1036,9 @@ export async function saveBotIntegration({
       .values({
         userId,
         platform,
-        botToken,
-        signingSecret,
-        extraConfig,
+        botToken: encryptCredential(botToken),
+        signingSecret: signingSecret ? encryptCredential(signingSecret) : null,
+        extraConfig: encryptExtraConfig(extraConfig),
       })
       .returning();
   } catch (error) {
@@ -1048,7 +1066,15 @@ export async function getBotIntegration({
           eq(botIntegration.platform, platform)
         )
       );
-    return integration;
+    if (!integration) return null;
+    return {
+      ...integration,
+      botToken: decryptLegacyCredential(integration.botToken),
+      signingSecret: integration.signingSecret
+        ? decryptLegacyCredential(integration.signingSecret)
+        : null,
+      extraConfig: decryptExtraConfig(integration.extraConfig),
+    };
   } catch (error) {
     throw new ChatbotError(
       "bad_request:database",
@@ -1059,10 +1085,18 @@ export async function getBotIntegration({
 
 export async function getUserBotIntegrations({ userId }: { userId: string }) {
   try {
-    return await db
+    const integrations = await db
       .select()
       .from(botIntegration)
       .where(eq(botIntegration.userId, userId));
+    return integrations.map((integration) => ({
+      ...integration,
+      botToken: decryptLegacyCredential(integration.botToken),
+      signingSecret: integration.signingSecret
+        ? decryptLegacyCredential(integration.signingSecret)
+        : null,
+      extraConfig: decryptExtraConfig(integration.extraConfig),
+    }));
   } catch (error) {
     throw new ChatbotError(
       "bad_request:database",

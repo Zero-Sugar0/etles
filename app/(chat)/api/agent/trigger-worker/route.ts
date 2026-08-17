@@ -5,10 +5,10 @@
 //
 // QStash guarantees: at-least-once delivery, automatic retries, no timeout pressure.
 
-import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
+import { Receiver } from "@upstash/qstash";
 import { Index } from "@upstash/vector";
 import { generateText, stepCountIs } from "ai";
-import { type NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSubAgentBySlug } from "@/lib/agent/subagent-definitions";
 import { getComposioClient } from "@/lib/composio-client";
 import { getBackgroundModel } from "@/lib/ai/providers";
@@ -302,5 +302,42 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   });
 }
 
-// QStash signature verification wraps the handler
-export const POST = verifySignatureAppRouter(handler);
+function getReceiver(): Receiver | null {
+  const currentSigningKey = process.env.QSTASH_CURRENT_SIGNING_KEY;
+  const nextSigningKey = process.env.QSTASH_NEXT_SIGNING_KEY;
+  if (!currentSigningKey || !nextSigningKey) return null;
+  return new Receiver({ currentSigningKey, nextSigningKey });
+}
+
+// Verify lazily so builds without QStash secrets can still collect route data.
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  const receiver = getReceiver();
+  if (receiver) {
+    const rawBody = await req.text();
+    const signature = req.headers.get("upstash-signature") ?? "";
+    const isValid = await receiver
+      .verify({ signature, body: rawBody, clockTolerance: 5 })
+      .catch(() => false);
+
+    if (!isValid) {
+      return NextResponse.json({ ok: false, error: "Invalid QStash signature" }, { status: 401 });
+    }
+
+    return handler(
+      new NextRequest(req.url, {
+        method: "POST",
+        headers: req.headers,
+        body: rawBody,
+      })
+    );
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      { ok: false, error: "QSTASH signing keys are not configured" },
+      { status: 500 }
+    );
+  }
+
+  return handler(req);
+}

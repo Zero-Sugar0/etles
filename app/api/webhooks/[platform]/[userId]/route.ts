@@ -49,7 +49,10 @@ export async function GET(
     return NextResponse.json(
       {
         error: "Webhook verification failed",
-        details: error.message,
+        details:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : undefined,
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 }
@@ -68,7 +71,10 @@ export async function POST(
     return NextResponse.json(
       {
         error: "Webhook processing failed",
-        details: error.message,
+        details:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : undefined,
         stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 }

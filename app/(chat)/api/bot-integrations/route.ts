@@ -8,29 +8,14 @@ import {
   registerTelegramWebhook,
   validateTelegramToken,
 } from "@/lib/telegram/webhook-registration";
+import {
+  isMaskedSecret,
+  maskSecret,
+  SUPPORTED_CHAT_PLATFORMS,
+} from "@/lib/chat/integration-config";
 import { auth } from "../../../(auth)/auth";
 
 const MASK_PREFIX = "••••••••";
-
-const SUPPORTED_PLATFORMS = new Set([
-  "slack",
-  "discord",
-  "teams",
-  "gchat",
-  "telegram",
-  "github",
-  "linear",
-  "whatsapp",
-  "resend",
-]);
-
-function isMasked(value: unknown) {
-  return typeof value === "string" && value.startsWith(MASK_PREFIX);
-}
-
-function maskSecret(value: string | null | undefined) {
-  return value ? `${MASK_PREFIX}${value.slice(-4)}` : "";
-}
 
 function maskExtraConfig(extraConfig: unknown) {
   if (!extraConfig || typeof extraConfig !== "object") {
@@ -66,6 +51,7 @@ function validateExtraConfig(
       "linear",
       "whatsapp",
       "resend",
+      "sendblue",
     ].includes(platform) &&
     !signingSecret
   ) {
@@ -74,9 +60,11 @@ function validateExtraConfig(
         ? "public key"
         : platform === "teams"
           ? "app password"
-          : platform === "whatsapp"
-            ? "verify token"
-            : "signing secret"
+            : platform === "whatsapp"
+              ? "verify token"
+              : platform === "sendblue"
+                ? "API secret"
+              : "signing secret"
     );
   }
 
@@ -103,6 +91,28 @@ function validateExtraConfig(
     }
     if (!extraConfig.fromName) {
       missing.push("from name");
+    }
+  }
+
+  if (platform === "sendblue" && !extraConfig.fromNumber) {
+    missing.push("Sendblue number");
+  }
+
+  if (
+    platform === "sendblue" &&
+    extraConfig.fromNumber &&
+    !/^\+[1-9]\d{6,14}$/.test(String(extraConfig.fromNumber))
+  ) {
+    return "Sendblue number must be in E.164 format, for example +15551234567.";
+  }
+
+  if (platform === "sendblue" && extraConfig.allowedServices) {
+    const allowed = String(extraConfig.allowedServices)
+      .split(",")
+      .map((service) => service.trim())
+      .filter(Boolean);
+    if (allowed.some((service) => !["iMessage", "SMS", "RCS"].includes(service))) {
+      return "Sendblue services must be iMessage, SMS, or RCS.";
     }
   }
 
@@ -134,6 +144,10 @@ export async function GET() {
 
     return NextResponse.json(safeIntegrations);
   } catch (error) {
+    console.error(
+      "[bot-integrations] GET failed:",
+      error instanceof Error ? error.message : "unknown error"
+    );
     return NextResponse.json(
       { error: "Failed to fetch integrations" },
       { status: 500 }
@@ -150,7 +164,12 @@ export async function POST(req: NextRequest) {
   try {
     const { platform, botToken, signingSecret, extraConfig } = await req.json();
 
-    if (!platform || !SUPPORTED_PLATFORMS.has(platform)) {
+    if (
+      !platform ||
+      !SUPPORTED_CHAT_PLATFORMS.includes(
+        platform as (typeof SUPPORTED_CHAT_PLATFORMS)[number]
+      )
+    ) {
       return NextResponse.json(
         { error: "Unsupported bot platform" },
         { status: 400 }
@@ -163,9 +182,11 @@ export async function POST(req: NextRequest) {
     });
 
     const resolvedBotToken =
-      isMasked(botToken) && existing?.botToken ? existing.botToken : botToken;
+      isMaskedSecret(botToken) && existing?.botToken
+        ? existing.botToken
+        : botToken;
     const resolvedSigningSecret =
-      isMasked(signingSecret) && existing?.signingSecret
+      isMaskedSecret(signingSecret) && existing?.signingSecret
         ? existing.signingSecret
         : signingSecret || null;
 
@@ -175,21 +196,21 @@ export async function POST(req: NextRequest) {
     };
 
     for (const [key, value] of Object.entries(resolvedExtraConfig)) {
-      if (isMasked(value)) {
+      if (isMaskedSecret(value)) {
         resolvedExtraConfig[key] =
           (existing?.extraConfig as Record<string, unknown> | null)?.[key] ??
           "";
       }
     }
 
-    if (!resolvedBotToken || isMasked(resolvedBotToken)) {
+    if (!resolvedBotToken || isMaskedSecret(resolvedBotToken)) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    if (isMasked(resolvedSigningSecret)) {
+    if (isMaskedSecret(resolvedSigningSecret)) {
       return NextResponse.json(
         { error: "Please enter new keys to update configuration." },
         { status: 400 }
@@ -264,6 +285,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error(
+      "[bot-integrations] POST failed:",
+      error instanceof Error ? error.message : "unknown error"
+    );
     return NextResponse.json(
       { error: "Failed to save integration" },
       { status: 500 }

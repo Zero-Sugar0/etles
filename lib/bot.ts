@@ -7,21 +7,33 @@ import { createTeamsAdapter } from "@chat-adapter/teams";
 import { createTelegramAdapter } from "@chat-adapter/telegram";
 import { createWhatsAppAdapter } from "@chat-adapter/whatsapp";
 import { createResendAdapter } from "@resend/chat-sdk-adapter";
+import { createSendblueAdapter } from "chat-adapter-sendblue";
 import { Chat, ConsoleLogger } from "chat";
+import { Pool } from "pg";
 import { getBotIntegration } from "@/lib/db/queries";
 import { attachHandlers } from "./bot-handlers";
 
-// FIX: Singleton state adapter — creating a new postgres pool on every webhook
-// request exhausts the database connection limit quickly. Share a single pool
-// across all invocations for the lifetime of the serverless worker instance.
-let _state: ReturnType<typeof createPostgresState> | null = null;
-function getSharedState() {
-  if (!_state) {
-    _state = createPostgresState({
-      url: process.env.POSTGRES_URL || process.env.DATABASE_URL || "",
-    });
+// Share state adapters per user/platform while keeping Chat SDK's locks,
+// subscriptions, and dedupe keys isolated between customer integrations.
+let postgresPool: Pool | null = null;
+const states = new Map<string, ReturnType<typeof createPostgresState>>();
+function getSharedState(userId: string, platform: string) {
+  const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("POSTGRES_URL or DATABASE_URL is required for Chat SDK state");
   }
-  return _state;
+  const pool =
+    (postgresPool ??= new Pool({ connectionString, max: 10 }));
+  const key = `${userId}:${platform}`;
+  let state = states.get(key);
+  if (!state) {
+    state = createPostgresState({
+      client: pool,
+      keyPrefix: `etles:${userId}:${platform}`,
+    });
+    states.set(key, state);
+  }
+  return state;
 }
 
 function parseJsonConfig(value: string, platform: string) {
@@ -42,7 +54,7 @@ export async function buildUserBot(userId: string, platform: string) {
     throw new Error("Integration missing");
   }
 
-  const state = getSharedState();
+  const state = getSharedState(userId, platform);
   const extraConfig =
     (integration.extraConfig as Record<string, any> | null) ?? {};
   let adapter;
@@ -139,6 +151,25 @@ export async function buildUserBot(userId: string, platform: string) {
       break;
     }
 
+    case "sendblue": {
+      const allowedServices = extraConfig.allowedServices
+        ? String(extraConfig.allowedServices)
+            .split(",")
+            .map((service) => service.trim())
+            .filter(Boolean)
+        : undefined;
+      adapter = createSendblueAdapter({
+        apiKey: integration.botToken,
+        apiSecret: integration.signingSecret || undefined,
+        defaultFromNumber: String(extraConfig.fromNumber),
+        webhookSecret: extraConfig.webhookSecret || undefined,
+        allowedServices: allowedServices as
+          | Array<"iMessage" | "SMS" | "RCS">
+          | undefined,
+      });
+      break;
+    }
+
     default:
       throw new Error(`Unsupported platform: ${platform}`);
   }
@@ -147,6 +178,11 @@ export async function buildUserBot(userId: string, platform: string) {
     userName: "Etles",
     adapters: { [platform]: adapter },
     state,
+    // Webhook retries and long AI turns must not create duplicate replies.
+    // PostgreSQL state provides the distributed lock and dedupe store.
+    dedupeTtlMs: 24 * 60 * 60 * 1000,
+    concurrency: "queue",
+    onLockConflict: "drop",
   });
 
   attachHandlers(bot, platform, userId);

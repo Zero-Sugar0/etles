@@ -1,0 +1,1 @@
+ALTER TABLE "BotIntegration" ADD CONSTRAINT "BotIntegration_user_platform_unique" UNIQUE("userId","platform");

@@ -230,17 +230,26 @@ export const event = pgTable("Event", {
 
 export type Event = InferSelectModel<typeof event>;
 
-export const botIntegration = pgTable("BotIntegration", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  userId: uuid("userId")
-    .notNull()
-    .references(() => user.id),
-  platform: varchar("platform", { length: 64 }).notNull(),
-  botToken: text("botToken").notNull(),
-  signingSecret: text("signingSecret"),
-  extraConfig: json("extraConfig"),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-});
+export const botIntegration = pgTable(
+  "BotIntegration",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+    platform: varchar("platform", { length: 64 }).notNull(),
+    botToken: text("botToken").notNull(),
+    signingSecret: text("signingSecret"),
+    extraConfig: json("extraConfig"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    userPlatformUnique: unique("BotIntegration_user_platform_unique").on(
+      table.userId,
+      table.platform
+    ),
+  })
+);
 
 export type BotIntegration = InferSelectModel<typeof botIntegration>;
 
