@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, Check, Loader2, Plus, Send } from "lucide-react";
+import { ArrowRight, Bot, Check, Loader2, Plus, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { initiateComposioAuthFlow } from "@/lib/composio-auth";
 import { cn } from "@/lib/utils";
@@ -419,21 +419,9 @@ export function OnboardingWizard() {
         )}
       </AnimatePresence>
 
-      {/* Etles Sparkle Icon */}
+      {/* Etles assistant mark */}
       <div className="mb-4 sm:mb-6 self-start sm:self-auto sm:absolute sm:top-8 sm:left-8">
-        <svg
-          className="text-amber-500 sm:w-10 sm:h-10"
-          fill="none"
-          height="32"
-          viewBox="0 0 40 40"
-          width="32"
-        >
-          <path
-            d="M20 2L22.5 15.5L36 13L24.5 20L36 27L22.5 24.5L20 38L17.5 24.5L4 27L15.5 20L4 13L17.5 15.5L20 2Z"
-            fill="currentColor"
-            opacity="0.9"
-          />
-        </svg>
+        <Bot aria-hidden="true" className="size-8 text-primary sm:size-10" />
       </div>
 
       {/* Step content */}

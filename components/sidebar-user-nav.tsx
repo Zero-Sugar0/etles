@@ -92,7 +92,7 @@ export function SidebarUserNav({ user }: { user: User }) {
               onSelect={() => router.push("/settings/connections")}
             >
               <Link className="mr-2 size-4" />
-              App Connections
+              App
             </DropdownMenuItem>
             <DropdownMenuItem
               className="cursor-pointer"

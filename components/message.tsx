@@ -152,12 +152,6 @@ const PurePreviewMessage = ({
           "justify-start": role === "assistant" || role === "tool",
         })}
       >
-        {/* {message.role === "assistant" && !hasAgentResult && (
-          <div className="-mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-border">
-            <SparklesIcon size={14} />
-          </div>
-        )} */}
-
         <div
           className={cn("flex flex-col", {
             "ml-11": message.role === "assistant" && hasAgentResult,
@@ -1112,12 +1106,6 @@ export const ThinkingMessage = () => {
       data-testid="message-assistant-loading"
     >
       <div className="flex items-start justify-start gap-3">
-        {/* <div className="-mt-1 flex size-8 shrink-0 items-center justify-center rounded-full bg-background ring-1 ring-border">
-          <div className="animate-pulse">
-            <SparklesIcon size={14} />
-          </div>
-        </div> */}
-
         <div className="flex w-full flex-col gap-2 md:gap-4">
           <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-card/70 px-3 py-1.5 text-muted-foreground text-sm shadow-xs backdrop-blur">
             <Shimmer duration={1.5}>Thinking</Shimmer>

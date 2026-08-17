@@ -19,7 +19,7 @@ export function MessageReasoning({
   reasoning,
   durationMs,
 }: MessageReasoningProps) {
-  const [hasBeenStreaming, setHasBeenStreaming] = useState(isLoading);
+  const [isOpen, setIsOpen] = useState(isLoading);
   const startedAtRef = useRef<number | null>(isLoading ? Date.now() : null);
   const [elapsedMs, setElapsedMs] = useState(durationMs ?? 0);
 
@@ -50,7 +50,10 @@ export function MessageReasoning({
 
   useEffect(() => {
     if (isLoading) {
-      setHasBeenStreaming(true);
+      setIsOpen(true);
+    } else {
+      const timer = window.setTimeout(() => setIsOpen(false), 300);
+      return () => window.clearTimeout(timer);
     }
   }, [isLoading]);
 
@@ -58,7 +61,8 @@ export function MessageReasoning({
     <ChainOfThought
       className="w-full max-w-2xl gap-2"
       data-testid="message-reasoning"
-      defaultOpen={hasBeenStreaming}
+      onOpenChange={setIsOpen}
+      open={isOpen}
     >
       <ChainOfThoughtHeader>
         <span className="flex items-center gap-2">

@@ -388,15 +388,25 @@ export async function downloadPdfFromMarkdown(
     color: hexRgb(colors.muted),
   });
   const bytes = await pdf.save();
-  const blob = new Blob([bytes.buffer as ArrayBuffer], {
+  const byteBuffer = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength
+  ) as ArrayBuffer;
+  const blob = new Blob([byteBuffer], {
     type: "application/pdf",
   });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "document"}.pdf`;
+  anchor.rel = "noopener";
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => {
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
 
 export const pdfThemes = Object.keys(themes) as PdfTheme[];

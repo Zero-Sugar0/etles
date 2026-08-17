@@ -16,7 +16,7 @@ import {
   KeyRound,
   Mail,
   Shield,
-  Sparkles,
+  Activity,
   Trash2,
   User as UserIcon,
   Zap,
@@ -225,7 +225,7 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-3 border-t border-border p-4 sm:grid-cols-4 sm:p-5">
               <Metric icon={Zap} label="Agent tasks" value="482" />
-              <Metric icon={Sparkles} label="Signals" value="1.2k" />
+              <Metric icon={Activity} label="Signals" value="1.2k" />
               <Metric icon={Clock3} label="Schedules" value="12" />
               <Metric icon={Shield} label="Reliability" value="99.4%" />
             </CardContent>

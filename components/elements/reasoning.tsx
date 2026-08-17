@@ -89,11 +89,14 @@ export const Reasoning = memo(
     // Auto-close after streaming ends (once only). Use a ref for the flag so
     // this effect is not re-scheduled when the flag flips (avoids timer churn / loops).
     useEffect(() => {
-      if (
-        !(defaultOpen && !isStreaming && isOpen && !hasAutoClosedRef.current)
-      ) {
+      if (!isStreaming && !isOpen && hasAutoClosedRef.current) {
         return;
       }
+      if (isStreaming) {
+        hasAutoClosedRef.current = false;
+        return;
+      }
+      if (!isOpen || hasAutoClosedRef.current) return;
       const timer = setTimeout(() => {
         setIsOpen(false);
         hasAutoClosedRef.current = true;

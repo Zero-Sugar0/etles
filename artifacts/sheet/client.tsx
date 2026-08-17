@@ -7,9 +7,9 @@ import {
   DownloadIcon,
   LineChartIcon,
   RedoIcon,
-  SparklesIcon,
   UndoIcon,
 } from "@/components/icons";
+import { Wand2 } from "lucide-react";
 import { DocumentSkeleton } from "@/components/document-skeleton";
 import { SpreadsheetEditor } from "@/components/sheet-editor";
 import { isSheetData, type SheetData } from "@/lib/ai/tools/sheet-types";
@@ -171,7 +171,7 @@ export const sheetArtifact = new Artifact<"sheet", Metadata>({
   toolbar: [
     {
       description: "Format and clean data",
-      icon: <SparklesIcon />,
+      icon: <Wand2 size={16} />,
       onClick: ({ sendMessage }) => {
         sendMessage({
           role: "user",

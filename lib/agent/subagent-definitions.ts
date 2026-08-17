@@ -139,6 +139,45 @@ export interface SubAgentDefinition {
   toolkits: string[];
 }
 
+const SHORT_AGENT_NAMES: Partial<Record<AgentSlug, string>> = {
+  inbox_operator: "Inbox",
+  chief_of_staff: "Chief of Staff",
+  project_manager: "Projects",
+  competitive_intel: "Competitive Intel",
+  customer_success: "Customer Success",
+  personal_admin: "Personal Admin",
+  stripe_churn: "Churn Defense",
+  product_analytics: "Product Analytics",
+  code_review: "Code Review",
+  cloud_cost: "Cloud Cost",
+  browser_operator: "Browser",
+  sandbox_specialist: "Sandbox",
+  executive_lead: "Executive Office",
+  product_lead: "Product",
+  analytics_lead: "Analytics",
+  supply_chain_lead: "Supply Chain",
+  partnerships_lead: "Partnerships",
+  security_lead: "Security",
+  finance_lead: "Finance",
+  marketing_lead: "Marketing",
+  sales_lead: "Sales",
+  customer_service_lead: "Customer Service",
+  engineering_lead: "Engineering",
+  operations_lead: "Operations",
+  legal_compliance_lead: "Legal & Compliance",
+  hr_people_lead: "People & HR",
+};
+
+export function getSubAgentDisplayName(slug: AgentSlug, fallback: string): string {
+  const explicit = SHORT_AGENT_NAMES[slug];
+  if (explicit) return explicit;
+  const words = slug
+    .split("_")
+    .filter((word) => !["operator", "specialist", "manager", "coordinator", "strategist", "analyst", "officer", "engineer", "lead"].includes(word));
+  if (words.length === 0) return fallback;
+  return words.map((word) => word.length <= 3 ? word.toUpperCase() : `${word[0].toUpperCase()}${word.slice(1)}`).join(" ");
+}
+
 const UNIVERSAL_COMPOSIO_TOOLKITS = [
   "gmail",
   "outlook",

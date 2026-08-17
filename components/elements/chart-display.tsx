@@ -48,7 +48,7 @@ export function SafeResponsiveContainer({
   minHeight = 1,
 }: SafeResponsiveContainerProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [isMeasured, setIsMeasured] = useState(false);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const element = ref.current;
@@ -56,7 +56,11 @@ export function SafeResponsiveContainer({
 
     const measure = () => {
       const { width, height } = element.getBoundingClientRect();
-      setIsMeasured(width > 0 && height > 0);
+      setDimensions((current) =>
+        current.width === width && current.height === height
+          ? current
+          : { width, height }
+      );
     };
 
     measure();
@@ -71,8 +75,13 @@ export function SafeResponsiveContainer({
       className={cn("h-full min-h-0 min-w-0 w-full", className)}
       style={{ minHeight }}
     >
-      {isMeasured ? (
-        <ResponsiveContainer height="100%" minHeight={1} minWidth={1} width="100%">
+      {dimensions.width > 0 && dimensions.height > 0 ? (
+        <ResponsiveContainer
+          height={dimensions.height}
+          minHeight={1}
+          minWidth={1}
+          width={dimensions.width}
+        >
           {children}
         </ResponsiveContainer>
       ) : null}

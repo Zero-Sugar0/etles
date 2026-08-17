@@ -9,7 +9,6 @@ import {
   Image as ImageIcon,
   Loader2,
   Search,
-  Sparkles,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -136,7 +135,7 @@ export default function MediaLibraryPage() {
               <Upload className="size-3.5" /> Uploads
             </TabsTrigger>
             <TabsTrigger value="generated" className="gap-1.5">
-              <Sparkles className="size-3.5" /> Generated
+              <ImageIcon className="size-3.5" /> Generated
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -189,7 +188,7 @@ export default function MediaLibraryPage() {
                   >
                     {item.source === "generated" ? (
                       <span className="flex items-center gap-1">
-                        <Sparkles className="size-3" /> Generated
+                        <ImageIcon className="size-3" /> Generated
                       </span>
                     ) : (
                       <span className="flex items-center gap-1">

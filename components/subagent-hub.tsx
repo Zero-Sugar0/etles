@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Search, Shield, Sparkles, Wrench } from "lucide-react";
+import { Bot, Search, Shield, Wrench } from "lucide-react";
 import { useState } from "react";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { Badge } from "@/components/ui/badge";
@@ -187,7 +187,7 @@ export function SubAgentHub({ agents }: SubAgentHubProps) {
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-6 sm:p-8 animate-in fade-in duration-500">
             <div className="w-16 h-16 sm:w-24 sm:h-24 bg-muted/30 rounded-[2rem] flex items-center justify-center mb-6 sm:mb-8 shadow-inner ring-1 ring-border/50 relative overflow-hidden backdrop-blur-md">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent opacity-50" />
-              <Sparkles className="w-6 h-6 sm:w-10 sm:h-10 text-primary/40 relative z-10" />
+              <Bot className="relative z-10 h-6 w-6 text-primary/40 sm:h-10 sm:w-10" />
             </div>
             <h2 className="text-lg sm:text-2xl font-bold bg-gradient-to-br from-foreground to-muted-foreground text-transparent bg-clip-text text-center mb-2">
               Select a Sub-Agent

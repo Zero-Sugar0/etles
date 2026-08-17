@@ -5,7 +5,7 @@ import {
   getAgentDepartment,
   getDepartmentLeadSlug,
 } from "@/lib/agent/departments";
-import { SUBAGENT_DEFINITIONS } from "@/lib/agent/subagent-definitions";
+import { getSubAgentDisplayName, SUBAGENT_DEFINITIONS } from "@/lib/agent/subagent-definitions";
 import { guestRegex } from "@/lib/constants";
 
 export default async function SubagentsPage() {
@@ -29,7 +29,7 @@ export default async function SubagentsPage() {
   // Let's sanitize to ensure it can cross the Server Component boundary easily.
 
   const safeAgents = SUBAGENT_DEFINITIONS.map((agent) => ({
-    name: agent.name,
+    name: getSubAgentDisplayName(agent.slug, agent.name),
     slug: agent.slug,
     description: agent.description,
     systemPrompt: agent.systemPrompt,

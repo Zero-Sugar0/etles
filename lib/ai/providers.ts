@@ -1,6 +1,5 @@
 //lib/ai/providers.ts
 import { createGateway, gateway } from "@ai-sdk/gateway";
-import { google } from "@ai-sdk/google";
 import {
   customProvider,
   extractReasoningMiddleware,

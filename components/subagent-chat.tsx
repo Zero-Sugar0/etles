@@ -1,5 +1,6 @@
 import {
   ArrowUp,
+  Bot,
   Loader2,
   Paperclip,
   RefreshCw,
@@ -22,7 +23,6 @@ import {
   ToolInput,
   ToolOutput,
 } from "@/components/elements/tool";
-import { SparklesIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import type { SubAgentDefinition } from "@/lib/agent/subagent-definitions";
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -347,7 +347,7 @@ export function SubAgentChat({
         ) : messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground space-y-3 sm:space-y-4">
             <div className="p-3 sm:p-4 rounded-full bg-muted/50 border border-muted ring-1 ring-border shadow-sm">
-              <SparklesIcon size={24} />
+              <Bot size={24} />
             </div>
             <p className="text-center max-w-sm text-xs sm:text-sm">
               <span className="block font-semibold text-foreground mb-1">
