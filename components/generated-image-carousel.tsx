@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-type GeneratedImage = { url: string; alt?: string };
+type GeneratedImage = { url: string; alt?: string; createdAt?: string; prompt?: string };
 
 export function GeneratedImageCarousel({
   images,
@@ -89,6 +89,16 @@ export function GeneratedImageCarousel({
           ))}
         </div>
       ) : null}
+      {(current.prompt || current.createdAt) && (
+        <div className="space-y-1 px-1 text-xs text-muted-foreground">
+          {current.prompt ? <p className="line-clamp-2">{current.prompt}</p> : null}
+          {current.createdAt ? (
+            <time dateTime={current.createdAt}>
+              {new Date(current.createdAt).toLocaleString()}
+            </time>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

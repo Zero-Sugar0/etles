@@ -21,7 +21,7 @@ function mapAspectRatioToOpenAISize(
   return "1024x1024";
 }
 
-import { saveUserMedia } from "@/lib/db/queries";
+import { saveDocument, saveUserMedia } from "@/lib/db/queries";
 
 export const generateImageTool = ({
   userId,
@@ -68,6 +68,14 @@ export const generateImageTool = ({
         .describe(
           "Resolution size of the generated image. Use 2K or 4K only if specified."
         ),
+      count: z
+        .number()
+        .int()
+        .min(1)
+        .max(12)
+        .optional()
+        .default(1)
+        .describe("Number of image variations to generate and show in the gallery."),
       provider: z
         .enum(["google", "openai", "bytedance", "xai"])
         .optional()
@@ -90,6 +98,7 @@ export const generateImageTool = ({
       provider,
       editReferenceImageUrl,
       modelId: explicitModelId,
+      count,
     }) => {
       const artifactId = generateUUID();
 
@@ -164,21 +173,86 @@ export const generateImageTool = ({
             ? mapAspectRatioToOpenAISize(aspectRatio)
             : undefined;
 
-        const result = await generateImage({
-          model: gateway.imageModel(modelId),
-          prompt: promptInput,
-          ...(provider === "openai" ? { size } : { aspectRatio }),
-        });
+        const images: Array<{
+          url: string;
+          prompt: string;
+          provider: string;
+          model: string;
+          resolution: string;
+          aspectRatio: string;
+          createdAt: string;
+        }> = [];
 
-        const base64Image = result.image.base64;
+        for (let index = 0; index < count; index += 1) {
+          const result = await generateImage({
+            model: gateway.imageModel(modelId),
+            prompt: promptInput,
+            ...(provider === "openai" ? { size } : { aspectRatio }),
+          });
 
-        if (!base64Image) {
-          throw new Error("No image data found in response");
+          const base64Image = result.image.base64;
+          if (!base64Image) throw new Error("No image data found in response");
+
+          dataStream?.write({
+            type: "data-imageDelta",
+            data: base64Image,
+            transient: true,
+          });
+
+          const createdAt = new Date().toISOString();
+          const blobData = await put(
+            `generated-images/${generateUUID()}.png`,
+            Buffer.from(base64Image, "base64"),
+            { access: "public", contentType: "image/png" }
+          );
+
+          images.push({
+            url: blobData.url,
+            prompt,
+            provider,
+            model: modelId,
+            resolution,
+            aspectRatio: aspectRatio ?? "1:1",
+            createdAt,
+          });
+
+          if (userId) {
+            await saveUserMedia({
+              userId,
+              url: blobData.url,
+              name: `Generated Image (${prompt.slice(0, 30)})`,
+              mimeType: "image/png",
+              source: "generated",
+              prompt,
+            }).catch((err) => {
+              console.error(
+                "[generateImageTool] Failed to save generated image to userMedia:",
+                err instanceof Error ? err.message : "unknown error"
+              );
+            });
+          }
         }
 
+        const persistedContent = JSON.stringify({
+          version: 1,
+          type: "image-gallery",
+          images,
+        });
+
+        if (userId) {
+          await saveDocument({
+            id: artifactId,
+            title: prompt,
+            kind: "image",
+            content: persistedContent,
+            userId,
+          });
+        }
+
+        // Replace the transient preview with the durable gallery payload.
         dataStream?.write({
           type: "data-imageDelta",
-          data: base64Image,
+          data: persistedContent,
           transient: true,
         });
         dataStream?.write({
@@ -187,36 +261,13 @@ export const generateImageTool = ({
           transient: true,
         });
 
-        // Upload directly to Vercel blob using generic UUID
-        const buffer = Buffer.from(base64Image, "base64");
-        const filename = `gemini-images/${generateUUID()}.png`;
-        const blobData = await put(filename, buffer, {
-          access: "public",
-          contentType: "image/png",
-        });
-
-        // Save generated image metadata to userMedia library table
-        if (userId && blobData.url) {
-          await saveUserMedia({
-            userId,
-            url: blobData.url,
-            name: `Generated Image (${prompt.slice(0, 30)})`,
-            mimeType: "image/png",
-            source: "generated",
-            prompt,
-          }).catch((err) => {
-            console.error(
-              "[generateImageTool] Failed to save generated image to userMedia:",
-              err
-            );
-          });
-        }
-
         // ONLY Return metadata to the model. Do NOT return the base64 string because
         // doing so bloats the AI message token limit severely and slows down the conversation.
         return {
           status: "SUCCESS",
-          url: blobData.url,
+          artifactId,
+          url: images[0]?.url,
+          images,
           originalPrompt: prompt,
           aspectRatioGenerated: aspectRatio,
           resolution,

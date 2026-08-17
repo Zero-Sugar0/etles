@@ -14,7 +14,7 @@ export const listUserMedia = ({ userId }: { userId: string }) =>
   tool({
     description:
       "Search or list the user's media library (uploaded images, documents, and AI-generated images). " +
-      "Use this tool when the user asks to find an uploaded image, locate a generated poster, or reference an existing asset.",
+      "Use this before reusing or editing an existing asset. Results include createdAt; prefer the newest matching asset unless the user specifies a date.",
     inputSchema: z.object({
       source: z
         .enum(["upload", "generated"])
