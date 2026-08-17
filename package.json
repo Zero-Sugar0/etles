@@ -8,7 +8,7 @@
     "start": "next start",
     "cli": "tsx src/index.tsx",
     "test:cli": "tsx --test tests/composer.test.ts",
-    "test:unit": "tsx --test tests/chat-platform-security.test.ts tests/workspace-tenancy.test.ts",
+    "test:unit": "tsx --test tests/chat-platform-security.test.ts tests/workspace-tenancy.test.ts tests/heartbeat-pause.test.ts tests/security-boundaries.test.ts",
     "test:cli:integration": "tsx src/test-runner.ts",
     "lint": "ultracite check",
     "format": "biome format --write --files-ignore-unknown=true app components hooks lib scripts src tests",

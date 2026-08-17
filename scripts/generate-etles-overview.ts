@@ -6,7 +6,6 @@ pptx.author = "Etles";
 pptx.company = "Etles";
 pptx.subject = "Etles platform overview";
 pptx.title = "Etles — The Autonomous AI Operator";
-pptx.lang = "en-US" as never;
 
 const C = {
   ink: "17202A",
@@ -64,8 +63,8 @@ async function main() {
 {
   const slide = pptx.addSlide();
   addBase(slide, "Platform overview", 1, true);
-  slide.addShape(pptx.ShapeType.arc, { x: 8.45, y: -0.4, w: 5.3, h: 5.3, adjustPoint: 0.25, line: { color: C.teal, pt: 2, transparency: 15 }, fill: { color: C.ink, transparency: 100 } });
-  slide.addShape(pptx.ShapeType.arc, { x: 9.2, y: 1.9, w: 4.2, h: 4.2, adjustPoint: 0.2, line: { color: C.coral, pt: 1.4, transparency: 10 }, fill: { color: C.ink, transparency: 100 } });
+  slide.addShape(pptx.ShapeType.arc, { x: 8.45, y: -0.4, w: 5.3, h: 5.3, line: { color: C.teal, pt: 2, transparency: 15 }, fill: { color: C.ink, transparency: 100 } });
+  slide.addShape(pptx.ShapeType.arc, { x: 9.2, y: 1.9, w: 4.2, h: 4.2, line: { color: C.coral, pt: 1.4, transparency: 10 }, fill: { color: C.ink, transparency: 100 } });
   slide.addShape(pptx.ShapeType.ellipse, { x: 10.55, y: 2.85, w: 1.2, h: 1.2, fill: { color: C.yellow, transparency: 12 }, line: { color: C.yellow, transparency: 100 } });
   pill(slide, "PRODUCT BUILD  /  2026", 0.8, 1.2, C.ink, C.yellow);
   slide.addText("Etles", { x: 0.75, y: 2.0, w: 5.2, h: 0.75, fontFace: "Cambria", fontSize: 42, bold: true, color: "FFFFFF", margin: 0 });

@@ -16,6 +16,7 @@
 import { Redis } from "@upstash/redis";
 import { tool } from "ai";
 import { z } from "zod";
+import { getUserRedis } from "@/lib/security/user-credentials";
 
 function getRedis() {
   if (
@@ -109,7 +110,7 @@ export const getAgentSystemStatus = ({ userId }: { userId: string }) =>
       "'when did the system last run?', or to debug why no proactive messages are appearing.",
     inputSchema: z.object({}),
     execute: async () => {
-      const redis = getRedis();
+      const redis = await getUserRedis(userId);
       if (!redis) {
         return {
           systems: [],
@@ -118,7 +119,7 @@ export const getAgentSystemStatus = ({ userId }: { userId: string }) =>
       }
 
       // Read all status keys in parallel
-      const [heartbeat, synthesis, schedules] = await Promise.all([
+      const [heartbeat, synthesis, schedules, pausedValue] = await Promise.all([
         redis
           .get<{ lastRun: string; status: string }>(
             `agent:status:${userId}:heartbeat`
@@ -132,29 +133,35 @@ export const getAgentSystemStatus = ({ userId }: { userId: string }) =>
         redis
           .get<Record<string, string>>(`agent:heartbeat:schedules:${userId}`)
           .catch(() => null),
+        redis.get(`agent:status:${userId}:paused`).catch(() => false),
       ]);
+      const isPaused = pausedValue === true || pausedValue === "true";
 
       const systems = [
         {
           name: "Four-hour Heartbeat",
           description: "Scans connected apps and fresh news for relevant action",
           lastRun: heartbeat?.lastRun ?? null,
-          status: heartbeat?.status ?? "never_run",
-          schedulesActive: !!schedules?.heartbeatScheduleId,
+          status: isPaused ? "paused" : heartbeat?.status ?? "never_run",
+          schedulesActive: !isPaused && !!schedules?.heartbeatScheduleId,
         },
         {
           name: "Weekly Synthesis",
           description: "Monday 8am UTC: generates weekly operating brief",
           lastRun: synthesis?.lastRun ?? null,
-          status: synthesis?.status ?? "never_run",
-          schedulesActive: !!schedules?.synthesisScheduleId,
+          status: isPaused ? "paused" : synthesis?.status ?? "never_run",
+          schedulesActive: !isPaused && !!schedules?.synthesisScheduleId,
         },
         {
           name: "Morning Briefing",
           description: "Daily at configured morning hour: focused day briefing",
           lastRun: null,
-          status: schedules?.morningScheduleId ? "scheduled" : "not_configured",
-          schedulesActive: !!schedules?.morningScheduleId,
+          status: isPaused
+            ? "paused"
+            : schedules?.morningScheduleId
+              ? "scheduled"
+              : "not_configured",
+          schedulesActive: !isPaused && !!schedules?.morningScheduleId,
           cronTime: schedules?.morningCron ?? null,
         },
       ];
@@ -164,7 +171,9 @@ export const getAgentSystemStatus = ({ userId }: { userId: string }) =>
 
       return {
         systems,
-        overallStatus: noneActive
+        overallStatus: isPaused
+          ? "PAUSED — proactive schedules are paused"
+          : noneActive
           ? "INACTIVE — run activateHeartbeat to start proactive intelligence"
           : allActive
             ? "ACTIVE — all background systems running"
@@ -175,6 +184,60 @@ export const getAgentSystemStatus = ({ userId }: { userId: string }) =>
       };
     },
   });
+
+function heartbeatControl({
+  userId,
+  baseUrl,
+  action,
+}: {
+  userId: string;
+  baseUrl: string;
+  action: "pause" | "resume";
+}) {
+  return tool({
+    description:
+      action === "pause"
+        ? "Pause the user's four-hour heartbeat and all related proactive schedules. Use only when the user explicitly asks to pause or stop proactive check-ins."
+        : "Resume the user's four-hour heartbeat and all related proactive schedules. Use only when the user explicitly asks to resume proactive check-ins.",
+    inputSchema: z.object({}),
+    execute: async () => {
+      const secret = process.env.AGENT_DELEGATE_SECRET?.trim();
+      if (!secret) {
+        return { success: false, error: "Internal agent secret is not configured." };
+      }
+      try {
+        const res = await fetch(`${baseUrl}/api/agent/status/action`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-agent-secret": secret,
+            "x-user-id": userId,
+          },
+          body: JSON.stringify({ action }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          return { success: false, error: body.error ?? `Request failed (${res.status})` };
+        }
+        return {
+          success: true,
+          action,
+          message: action === "pause"
+            ? "Heartbeat and proactive schedules are paused."
+            : "Heartbeat and proactive schedules are resumed.",
+        };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) };
+      }
+    },
+  });
+}
+
+export const pauseHeartbeat = (params: { userId: string; baseUrl: string }) =>
+  heartbeatControl({ ...params, action: "pause" });
+
+export const resumeHeartbeat = (params: { userId: string; baseUrl: string }) =>
+  heartbeatControl({ ...params, action: "resume" });
 
 // ── setMorningBriefingTime ────────────────────────────────────────────────────
 

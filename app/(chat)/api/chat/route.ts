@@ -115,6 +115,8 @@ import {
 import {
   activateHeartbeat,
   getAgentSystemStatus,
+  pauseHeartbeat,
+  resumeHeartbeat,
   setMorningBriefingTime,
 } from "@/lib/ai/tools/proactive";
 import { renderChart } from "@/lib/ai/tools/render-chart";
@@ -659,6 +661,8 @@ export async function POST(request: Request) {
             "getMissionStatus",
             "activateHeartbeat",
             "getAgentSystemStatus",
+            "pauseHeartbeat",
+            "resumeHeartbeat",
             "setMorningBriefingTime",
             "upsertKnowledgeEntity",
             "addKnowledgeRelation",
@@ -925,6 +929,16 @@ export async function POST(request: Request) {
                   }),
                   getAgentSystemStatus: getAgentSystemStatus({
                     userId: session.user.id!,
+                  }),
+                  pauseHeartbeat: pauseHeartbeat({
+                    userId: session.user.id!,
+                    baseUrl:
+                      process.env.BASE_URL || new URL(request.url).origin,
+                  }),
+                  resumeHeartbeat: resumeHeartbeat({
+                    userId: session.user.id!,
+                    baseUrl:
+                      process.env.BASE_URL || new URL(request.url).origin,
                   }),
                   setMorningBriefingTime: setMorningBriefingTime({
                     userId: session.user.id!,

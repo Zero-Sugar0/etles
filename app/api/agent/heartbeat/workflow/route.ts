@@ -30,6 +30,7 @@ import {
   shouldSendSilenceCheckIn,
 } from "@/lib/user-activity";
 import { generateUUID } from "@/lib/utils";
+import { getUserRedis } from "@/lib/security/user-credentials";
 import { WORKFLOW_BASE_URL } from "@/lib/workflow/client";
 import { getComposioClient } from "@/lib/composio-client";
 
@@ -39,8 +40,72 @@ export type HeartbeatPayload = {
   userId: string;
 };
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function isRecentOrFuture(value: unknown, cutoffMs: number): boolean {
+  if (typeof value !== "string") return false;
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp >= cutoffMs;
+}
+
+function normalizeSignals(
+  value: {
+    hasUrgentItems: boolean;
+    hasNews: boolean;
+    hasNewItems: boolean;
+    urgentSummary: string;
+    emailSnapshot: Array<{ subject: string; sender: string; receivedAt: string; importance: string }>;
+    items: Array<{ category: "urgent" | "informational" | "already_reported"; summary: string; source: string; occurredAt: string; fingerprint: string; actionTaken: string; needsUser: boolean }>;
+    news: Array<{ headline: string; source: string; url: string; publishedAt?: string; whyItMatters: string }>;
+    connectionSuggestions: Array<{ service: string; why: string; help: string }>;
+    actionsTaken: string[];
+    actionsNeedingUser: string[];
+  },
+  nowMs: number
+) {
+  const emailCutoff = nowMs - 7 * MS_PER_DAY;
+  const emailSnapshot = value.emailSnapshot.filter((email) =>
+    isRecentOrFuture(email.receivedAt, emailCutoff)
+  );
+  const items = value.items.filter((item) =>
+    item.source.toLowerCase() !== "email" ||
+    isRecentOrFuture(item.occurredAt, emailCutoff)
+  );
+  const hasUrgentItems = items.some((item) => item.category === "urgent");
+  const hasNewItems = items.some((item) => item.category !== "already_reported");
+
+  return {
+    ...value,
+    emailSnapshot,
+    items,
+    hasUrgentItems,
+    hasNewItems,
+    urgentSummary: hasUrgentItems ? value.urgentSummary : "",
+  };
+}
+
 export const { POST } = serve<HeartbeatPayload>(async (context) => {
   const { userId } = context.requestPayload;
+  const runStartedAt = new Date();
+  const currentDateTime = runStartedAt.toISOString();
+  const currentDate = currentDateTime.slice(0, 10);
+  const emailCutoffDate = new Date(
+    runStartedAt.getTime() - 7 * MS_PER_DAY
+  ).toISOString();
+
+  // A schedule pause can race with a delivery that is already in-flight.
+  // Re-check the durable flag before any memory, integration, or model work.
+  const isPaused = await context.run("check-heartbeat-paused", async () => {
+    const redis = await getUserRedis(userId);
+    if (!redis) return false;
+    const paused = await redis.get(`agent:status:${userId}:paused`);
+    return paused === true || paused === "true";
+  });
+
+  if (isPaused) {
+    console.log(`[Heartbeat] Skipped paused workflow for user: ${userId}`);
+    return { ok: true, skipped: "paused" };
+  }
 
   console.log(`[Heartbeat] Starting workflow for user: ${userId}`);
 
@@ -159,7 +224,13 @@ export const { POST } = serve<HeartbeatPayload>(async (context) => {
     try {
       const result = await generateText({
         model: getBackgroundModel(),
-        system: `You are Etles's background intelligence scanner. Before deciding anything, inspect the connected tools available to you. Graph freshness: entities, facts, and relations are dated. Prefer the newest relevant confirmed fact, include dates when freshness changes the conclusion, and do not treat stale conflicting graph data as current without verification.
+        system: `You are Etles's background intelligence scanner. The authoritative current UTC date is ${currentDate}; the authoritative current UTC timestamp is ${currentDateTime}. Before deciding anything, inspect the connected tools available to you. Graph freshness: entities, facts, and relations are dated. Prefer the newest relevant confirmed fact, include dates when freshness changes the conclusion, and do not treat stale conflicting graph data as current without verification.
+
+DATE SAFETY RULES (mandatory):
+- Treat an email as current only when its receivedAt is a valid ISO timestamp on or after ${emailCutoffDate}. Older or undated email may be background context, never an urgent or actionable heartbeat item.
+- Never tell the user to check, reply to, or act on an old billing/payment email merely because it exists in search results. Require a recent message or a current open payment/task status.
+- Calendar checks focus on future events in the next 24 hours. Tasks may remain relevant when overdue, but include their due date and explicitly say they are overdue.
+- Every surfaced item must include a concrete ISO date or say it is undated; undated items cannot be urgent.
 
 You MUST attempt these checks when the relevant Composio tools are available:
 1. Gmail or email: retrieve exactly the 3 newest relevant emails when at least 3 exist. Use newest-first ordering or an explicit recent-date filter. If fewer than 3 exist, return every available email and state the count. Never substitute older search results for the newest messages.
@@ -181,7 +252,7 @@ Return a JSON object with this exact shape:
 "actionsNeedingUser": ["action requiring user approval"]
 }
 
-Check: upcoming calendar events (next 4 hours), unread high-priority emails, overdue tasks.
+Check: upcoming calendar events (next 4 hours), unread high-priority emails received since ${emailCutoffDate}, overdue tasks.
 Also review the supplied current-news results. Include news only when it is relevant and published within the last 48 hours. Never invent headlines, dates, sources, URLs, or implications. Set hasNews true only when at least one supplied result is genuinely useful to this user, even if it is not urgent.
 Be selective — only flag genuinely urgent items. If nothing urgent, set hasUrgentItems: false.
 Compare findings with previous heartbeat reports supplied in context. Mark unchanged findings as already_reported and set hasNewItems false when there is no new or materially changed item.
@@ -193,7 +264,7 @@ Return ONLY the JSON object, no other text.`,
       });
 
       const clean = result.text.replace(/```json|```/g, "").trim();
-      return JSON.parse(clean) as {
+      const parsed = JSON.parse(clean) as {
         hasUrgentItems: boolean;
         hasNews: boolean;
         hasNewItems: boolean;
@@ -205,6 +276,7 @@ Return ONLY the JSON object, no other text.`,
         actionsTaken: string[];
         actionsNeedingUser: string[];
       };
+      return normalizeSignals(parsed, runStartedAt.getTime());
     } catch (error) {
       // Never let a model/tool failure crash the heartbeat — degrade gracefully.
       console.error("[Heartbeat] check-signals failed:", error);

@@ -82,7 +82,9 @@ export async function dispatchCampaignContent({
     limit: 100,
   })) as ToolInfo[];
   const tools = Array.isArray(available) ? available : ((available as any)?.items ?? []);
-  const selected = tools.find((tool) => isCandidate(channel, tool.name ?? tool.slug ?? ""));
+  const selected = tools.find((tool: ToolInfo) =>
+    isCandidate(channel, tool.name ?? tool.slug ?? "")
+  );
 
   if (!selected) {
     throw new Error(`No supported ${channel} publishing tool is available for this connection.`);

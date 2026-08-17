@@ -17,9 +17,9 @@
  */
 
 import { Client } from "@upstash/qstash";
-import { Redis } from "@upstash/redis";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
+import { getUserRedis } from "@/lib/security/user-credentials";
 
 const HEARTBEAT_CRON = "0 */4 * * *"; // every four hours
 const SYNTHESIS_CRON = "0 8 * * 1"; // Mondays at 8am UTC
@@ -40,19 +40,6 @@ function getQStash() {
     return null;
   }
   return new Client({ token: process.env.QSTASH_TOKEN });
-}
-
-function getRedis() {
-  if (
-    !process.env.UPSTASH_REDIS_REST_URL ||
-    !process.env.UPSTASH_REDIS_REST_TOKEN
-  ) {
-    return null;
-  }
-  return new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
 }
 
 function statusKey(userId: string) {
@@ -98,7 +85,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const redis = getRedis();
+  const redis = await getUserRedis(userId);
   if (!redis) {
     return NextResponse.json({ active: false, error: "Redis not configured" });
   }
@@ -164,6 +151,20 @@ export async function POST(req: NextRequest) {
   }
 
   const morningHour = body.morningHour ?? DEFAULT_MORNING_HOUR;
+  const statusRedis = await getUserRedis(userId);
+  const paused = statusRedis
+    ? await statusRedis.get(`agent:status:${userId}:paused`)
+    : false;
+  if (paused === true || paused === "true") {
+    return NextResponse.json(
+      {
+        ok: false,
+        paused: true,
+        error: "Heartbeat is paused. Resume it before activating or changing schedules.",
+      },
+      { status: 409 }
+    );
+  }
   const morningCron = `0 ${morningHour} * * *`;
   const heartbeatSecret = process.env.AGENT_DELEGATE_SECRET ?? "dev-internal";
   const ids = scheduleIds(userId);
@@ -257,7 +258,7 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 5. Persist schedule IDs in Redis for status + deactivation ────────────
-  const redis = getRedis();
+  const redis = await getUserRedis(userId);
   if (redis && Object.keys(results).length > 0) {
     await redis.set(statusKey(userId), JSON.stringify(results), {
       ex: 60 * 60 * 24 * 365, // 1 year
@@ -301,7 +302,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const qstash = getQStash();
-  const redis = getRedis();
+  const redis = await getUserRedis(userId);
 
   if (!qstash) {
     return NextResponse.json(

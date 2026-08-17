@@ -73,6 +73,8 @@ import {
 import {
   activateHeartbeat,
   getAgentSystemStatus,
+  pauseHeartbeat,
+  resumeHeartbeat,
   setMorningBriefingTime,
 } from "@/lib/ai/tools/proactive";
 import {
@@ -145,6 +147,8 @@ export function buildEtlesTelegramTools({
     getMissionStatus: getMissionStatus({ userId }),
     activateHeartbeat: activateHeartbeat({ userId, baseUrl }),
     getAgentSystemStatus: getAgentSystemStatus({ userId }),
+    pauseHeartbeat: pauseHeartbeat({ userId, baseUrl }),
+    resumeHeartbeat: resumeHeartbeat({ userId, baseUrl }),
     setMorningBriefingTime: setMorningBriefingTime({ userId, baseUrl }),
     upsertKnowledgeEntity: upsertKnowledgeEntity({ userId }),
     addKnowledgeRelation: addKnowledgeRelation({ userId }),

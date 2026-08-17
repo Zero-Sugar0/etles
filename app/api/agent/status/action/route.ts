@@ -1,21 +1,8 @@
 import { Client as QStashClient } from "@upstash/qstash";
-import { Redis } from "@upstash/redis";
 import { type NextRequest, NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
+import { getUserRedis } from "@/lib/security/user-credentials";
 import { triggerHeartbeatWorkflow } from "@/lib/workflow/client";
-
-function getRedis(): Redis | null {
-  if (
-    !process.env.UPSTASH_REDIS_REST_URL ||
-    !process.env.UPSTASH_REDIS_REST_TOKEN
-  ) {
-    return null;
-  }
-  return new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN,
-  });
-}
 
 function getQStash(): QStashClient | null {
   if (!process.env.QSTASH_TOKEN) {
@@ -43,7 +30,7 @@ async function setSchedulesPaused(userId: string, paused: boolean) {
     throw new Error("QSTASH_TOKEN not configured");
   }
 
-  const redis = getRedis();
+  const redis = await getUserRedis(userId);
   const stored = redis
     ? await redis.get<Record<string, string>>(statusKey(userId))
     : null;
@@ -61,24 +48,34 @@ async function setSchedulesPaused(userId: string, paused: boolean) {
   );
 
   const failures = settled.filter((result) => result.status === "rejected");
-  if (failures.length === ids.length) {
+  if (failures.length > 0) {
     throw new Error(
-      `Failed to ${paused ? "pause" : "resume"} heartbeat schedules`
+      `Failed to ${paused ? "pause" : "resume"} ${failures.length} heartbeat schedule(s)`
     );
   }
 
-  if (redis) {
-    await redis.set(`agent:status:${userId}:paused`, paused);
+  if (!redis) {
+    throw new Error("Redis is not configured for heartbeat status persistence");
   }
+  await redis.set(`agent:status:${userId}:paused`, paused);
 }
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session?.user?.id) {
+  const internalSecret =
+    req.headers.get("x-agent-secret") || req.headers.get("x-heartbeat-secret");
+  const configuredSecret =
+    process.env.AGENT_DELEGATE_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
+  const internalUserId = req.headers.get("x-user-id")?.trim();
+  const isInternal = Boolean(
+    internalUserId && configuredSecret && internalSecret === configuredSecret
+  );
+  const userId = isInternal ? internalUserId : session?.user?.id;
+
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const userId = session.user.id;
   const { action } = (await req.json()) as {
     action: "sync" | "pause" | "resume";
   };

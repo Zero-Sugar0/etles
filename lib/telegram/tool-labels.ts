@@ -94,6 +94,8 @@ const INTERNAL_TOOL_LABELS: Record<string, string> = {
   mongodbQuery: "🗄 Querying MongoDB",
   // Proactive
   activateHeartbeat: "💓 Setting up heartbeat",
+  pauseHeartbeat: "⏸️ Pausing heartbeat",
+  resumeHeartbeat: "▶️ Resuming heartbeat",
   setMorningBriefingTime: "🌅 Scheduling morning briefing",
   getAgentSystemStatus: "⚙️ Checking system status",
   // Misc
