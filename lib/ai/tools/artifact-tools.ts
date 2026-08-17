@@ -66,6 +66,8 @@ const visualSchema = z.object({
   url: z.string().url().optional(),
   prompt: z.string().optional(),
   alt: z.string().optional(),
+  placement: z.enum(["left", "right", "full", "bottom"]).optional(),
+  crop: z.enum(["cover", "contain"]).optional(),
 });
 
 const baseInput = {
@@ -86,7 +88,7 @@ export const createPresentation = ({ session, dataStream, modelId }: Props) => {
   const documentTool = createDocument({ session, dataStream, modelId });
   return tool({
     description:
-      "Create one editable presentation deck with varied slide layouts, charts, visuals, speaker notes, and a coherent narrative. When a slide needs a generated image, call generateImage first, then pass its returned public URL in visuals[].url so the image is embedded in the saved deck.",
+      "Create one editable 16:9 PowerPoint-grade presentation with a coherent narrative, one dominant idea per slide, varied visual layouts, native charts/tables, image-led composition, and speaker notes stored separately from visible slide content. When a slide needs a generated image, call generateImage first, then pass its exact returned public URL in visuals[].url so the image is embedded in the saved deck.",
     inputSchema: z.object({
       ...baseInput,
       kind: z.literal("presentation").default("presentation"),

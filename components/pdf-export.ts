@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import { PDFDocument, type PDFFont, rgb, StandardFonts } from "pdf-lib";
 
 export type PdfTheme =
   | "forest"
@@ -8,17 +8,65 @@ export type PdfTheme =
   | "terracotta"
   | "slate";
 
-export type PdfColors = { ink: string; accent: string; wash: string; paper: string; body: string; muted: string };
+export type PdfColors = {
+  ink: string;
+  accent: string;
+  wash: string;
+  paper: string;
+  body: string;
+  muted: string;
+};
 
-const themes: Record<PdfTheme, PdfColors> =
-  {
-    forest: { ink: "173f3a", accent: "efb39f", wash: "e3efe8", paper: "fffdf8", body: "29423c", muted: "66756e" },
-    ocean: { ink: "174b63", accent: "63b4c7", wash: "e3f2f5", paper: "fafdff", body: "244455", muted: "617b88" },
-    plum: { ink: "4d315d", accent: "d69ac5", wash: "f3e6f2", paper: "fffbff", body: "493950", muted: "786a7c" },
-    cobalt: { ink: "23457a", accent: "f0b35f", wash: "e8eef9", paper: "fbfdff", body: "2f4260", muted: "687991" },
-    terracotta: { ink: "703b32", accent: "e39a70", wash: "f8e9df", paper: "fffaf7", body: "543b34", muted: "826c63" },
-    slate: { ink: "293943", accent: "7aa4a8", wash: "e7eef0", paper: "fbfcfc", body: "34464e", muted: "6e7d82" },
-  };
+const themes: Record<PdfTheme, PdfColors> = {
+  forest: {
+    ink: "173f3a",
+    accent: "efb39f",
+    wash: "e3efe8",
+    paper: "fffdf8",
+    body: "29423c",
+    muted: "66756e",
+  },
+  ocean: {
+    ink: "174b63",
+    accent: "63b4c7",
+    wash: "e3f2f5",
+    paper: "fafdff",
+    body: "244455",
+    muted: "617b88",
+  },
+  plum: {
+    ink: "4d315d",
+    accent: "d69ac5",
+    wash: "f3e6f2",
+    paper: "fffbff",
+    body: "493950",
+    muted: "786a7c",
+  },
+  cobalt: {
+    ink: "23457a",
+    accent: "f0b35f",
+    wash: "e8eef9",
+    paper: "fbfdff",
+    body: "2f4260",
+    muted: "687991",
+  },
+  terracotta: {
+    ink: "703b32",
+    accent: "e39a70",
+    wash: "f8e9df",
+    paper: "fffaf7",
+    body: "543b34",
+    muted: "826c63",
+  },
+  slate: {
+    ink: "293943",
+    accent: "7aa4a8",
+    wash: "e7eef0",
+    paper: "fbfcfc",
+    body: "34464e",
+    muted: "6e7d82",
+  },
+};
 
 const hexRgb = (hex: string) => {
   const value = Number.parseInt(hex, 16);
@@ -31,7 +79,17 @@ const hexRgb = (hex: string) => {
 
 type PdfLine = {
   text: string;
-  kind: "space" | "h1" | "h2" | "h3" | "bullet" | "quote" | "image" | "table" | "chart" | "body";
+  kind:
+    | "space"
+    | "h1"
+    | "h2"
+    | "h3"
+    | "bullet"
+    | "quote"
+    | "image"
+    | "table"
+    | "chart"
+    | "body";
   url?: string;
   cells?: string[];
   header?: boolean;
@@ -40,26 +98,55 @@ type PdfLine = {
 
 function parseChartBlock(source: string) {
   try {
-    const parsed = JSON.parse(source) as { title?: string; labels?: unknown[]; series?: { name?: string; data?: unknown[] }[] };
-    const values = parsed.series?.[0]?.data?.map(Number).filter(Number.isFinite) ?? [];
-    if (values.length && parsed.labels?.length) return { title: parsed.title, labels: parsed.labels.map(String), values };
+    const parsed = JSON.parse(source) as {
+      title?: string;
+      labels?: unknown[];
+      series?: { name?: string; data?: unknown[] }[];
+    };
+    const values =
+      parsed.series?.[0]?.data?.map(Number).filter(Number.isFinite) ?? [];
+    if (values.length && parsed.labels?.length) {
+      return { title: parsed.title, labels: parsed.labels.map(String), values };
+    }
   } catch {
-    const list = (key: string) => source.match(new RegExp(`(?:^|\\n)\\s*${key}\\s*:\\s*\\[([^\\]]*)\\]`, "i"))?.[1].split(",").map((value) => value.trim().replace(/^['"]|['"]$/g, "")).filter(Boolean) ?? [];
+    const list = (key: string) =>
+      source
+        .match(
+          new RegExp(`(?:^|\\n)\\s*${key}\\s*:\\s*\\[([^\\]]*)\\]`, "i")
+        )?.[1]
+        .split(",")
+        .map((value) => value.trim().replace(/^['"]|['"]$/g, ""))
+        .filter(Boolean) ?? [];
     const title = source.match(/(?:^|\n)\s*title\s*:\s*(.+)/i)?.[1]?.trim();
     const labels = list("labels").length ? list("labels") : list("x_axis");
     const values = list("data").map(Number).filter(Number.isFinite);
-    if (labels.length && values.length) return { title, labels, values };
+    if (labels.length && values.length) {
+      return { title, labels, values };
+    }
   }
   return null;
 }
 
-export function resolvePdfColors(markdown: string, theme: PdfTheme = "forest"): PdfColors {
+export function resolvePdfColors(
+  markdown: string,
+  theme: PdfTheme = "forest"
+): PdfColors {
   const base = themes[theme] ?? themes.forest;
   const match = markdown.match(/<!--\s*pdf-theme:\s*(\{[\s\S]*?\})\s*-->/i);
-  if (!match) return base;
+  if (!match) {
+    return base;
+  }
   try {
-    const candidate = JSON.parse(match[1]) as Partial<PdfColors>;
-    const valid = (value: unknown, fallback: string) => typeof value === "string" && /^[0-9a-f]{6}$/i.test(value) ? value : fallback;
+    const candidate = JSON.parse(match[1]) as Partial<PdfColors> & {
+      theme?: string;
+    };
+    if (candidate.theme && candidate.theme in themes) {
+      return themes[candidate.theme as PdfTheme];
+    }
+    const valid = (value: unknown, fallback: string) =>
+      typeof value === "string" && /^[0-9a-f]{6}$/i.test(value)
+        ? value
+        : fallback;
     return {
       ink: valid(candidate.ink, base.ink),
       accent: valid(candidate.accent, base.accent),
@@ -73,61 +160,115 @@ export function resolvePdfColors(markdown: string, theme: PdfTheme = "forest"): 
   }
 }
 
+function wrapPdfText(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number
+) {
+  const words = text
+    .replace(/[*_`~]/g, "")
+    .split(/\s+/)
+    .filter(Boolean);
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (font.widthOfTextAtSize(candidate, size) > maxWidth && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) {
+    lines.push(current);
+  }
+  return lines.length ? lines : [""];
+}
+
 function markdownLines(markdown: string): PdfLine[] {
   const source = markdown.split(/\r?\n/);
   const output: PdfLine[] = [];
-  const tableCells = (line: string) => line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim());
+  const tableCells = (line: string) =>
+    line
+      .trim()
+      .replace(/^\||\|$/g, "")
+      .split("|")
+      .map((cell) => cell.trim());
   for (let index = 0; index < source.length; index += 1) {
     const line = source[index];
     if (/^\s*```(?:[a-z0-9_-]+)?\s*$/i.test(line)) {
       const chartLines: string[] = [];
       index += 1;
-      while (index < source.length && !/^\s*```\s*$/.test(source[index])) chartLines.push(source[index++]);
+      while (index < source.length && !/^\s*```\s*$/.test(source[index])) {
+        chartLines.push(source[index++]);
+      }
       const chart = parseChartBlock(chartLines.join("\n"));
       if (chart) {
         output.push({ text: "", kind: "chart", chart });
       } else {
-        output.push(...chartLines.map((text) => ({ text, kind: "body" as const })));
+        output.push(
+          ...chartLines.map((text) => ({ text, kind: "body" as const }))
+        );
       }
       continue;
     }
-    if (/^\s*\|.+\|\s*$/.test(line) && /^\s*\|?\s*:?-{3,}/.test(source[index + 1] ?? "")) {
-      output.push({ text: "", kind: "table", cells: tableCells(line), header: true });
+    if (
+      /^\s*\|.+\|\s*$/.test(line) &&
+      /^\s*\|?\s*:?-{3,}/.test(source[index + 1] ?? "")
+    ) {
+      output.push({
+        text: "",
+        kind: "table",
+        cells: tableCells(line),
+        header: true,
+      });
       index += 2;
       while (index < source.length && /^\s*\|.+\|\s*$/.test(source[index])) {
-        output.push({ text: "", kind: "table", cells: tableCells(source[index]) });
+        output.push({
+          text: "",
+          kind: "table",
+          cells: tableCells(source[index]),
+        });
         index += 1;
       }
       index -= 1;
       continue;
     }
     const parsed: PdfLine[] = (() => {
-    if (!line.trim()) {
-      return [{ text: "", kind: "space" }];
-    }
-    if (line.startsWith("### ")) {
-      return [{ text: line.slice(4), kind: "h3" }];
-    }
-    if (line.startsWith("## ")) {
-      return [{ text: line.slice(3), kind: "h2" }];
-    }
-    if (line.startsWith("# ")) {
-      return [{ text: line.slice(2), kind: "h1" }];
-    }
-    if (/^[-*] /.test(line)) {
-      return [{ text: `• ${line.slice(2)}`, kind: "bullet" }];
-    }
-    if (/^\d+\. /.test(line)) {
-      return [{ text: line, kind: "bullet" }];
-    }
-    if (line.startsWith("> ")) {
-      return [{ text: line.slice(2), kind: "quote" }];
-    }
-    const imageMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
-    if (imageMatch) {
-      return [{ text: imageMatch[1] || "Document image", kind: "image", url: imageMatch[2] }];
-    }
-    return [{ text: line.replace(/[*_`~]/g, ""), kind: "body" }];
+      if (!line.trim()) {
+        return [{ text: "", kind: "space" }];
+      }
+      if (line.startsWith("### ")) {
+        return [{ text: line.slice(4), kind: "h3" }];
+      }
+      if (line.startsWith("## ")) {
+        return [{ text: line.slice(3), kind: "h2" }];
+      }
+      if (line.startsWith("# ")) {
+        return [{ text: line.slice(2), kind: "h1" }];
+      }
+      if (/^[-*] /.test(line)) {
+        return [{ text: `• ${line.slice(2)}`, kind: "bullet" }];
+      }
+      if (/^\d+\. /.test(line)) {
+        return [{ text: line, kind: "bullet" }];
+      }
+      if (line.startsWith("> ")) {
+        return [{ text: line.slice(2), kind: "quote" }];
+      }
+      const imageMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+      if (imageMatch) {
+        return [
+          {
+            text: imageMatch[1] || "Document image",
+            kind: "image",
+            url: imageMatch[2],
+          },
+        ];
+      }
+      return [{ text: line.replace(/[*_`~]/g, ""), kind: "body" }];
     })();
     output.push(...parsed);
   }
@@ -180,7 +321,7 @@ export async function downloadPdfFromMarkdown(
       y: 762,
       size: 10,
       font: bold,
-      color: rgb(1, 1, 1),
+      color: hexRgb(colors.paper),
     });
   };
 
@@ -203,7 +344,7 @@ export async function downloadPdfFromMarkdown(
     y: 762,
     size: 10,
     font: bold,
-    color: rgb(1, 1, 1),
+    color: hexRgb(colors.paper),
   });
   page.drawText(title.slice(0, 64), {
     x: margin,
@@ -233,49 +374,103 @@ export async function downloadPdfFromMarkdown(
       const chart = line.chart;
       const chartHeight = 170;
       const chartTop = y;
-      if (y - chartHeight < 65) addPage();
+      if (y - chartHeight < 65) {
+        addPage();
+      }
       const chartWidth = contentWidth;
       const max = Math.max(...chart.values, 1);
-      page.drawText(chart.title ?? "Chart", { x: margin, y: y - 14, size: 11, font: bold, color: hexRgb(colors.ink) });
+      page.drawText(chart.title ?? "Chart", {
+        x: margin,
+        y: y - 14,
+        size: 11,
+        font: bold,
+        color: hexRgb(colors.ink),
+      });
       const plotTop = y - 30;
       const plotBottom = plotTop - 105;
-      page.drawLine({ start: { x: margin, y: plotBottom }, end: { x: margin + chartWidth, y: plotBottom }, thickness: 0.7, color: hexRgb(colors.wash) });
-      const step = chart.values.length > 1 ? chartWidth / (chart.values.length - 1) : chartWidth;
-      const points = chart.values.map((value, index) => ({ x: margin + index * step, y: plotBottom + (value / max) * 90 }));
+      page.drawLine({
+        start: { x: margin, y: plotBottom },
+        end: { x: margin + chartWidth, y: plotBottom },
+        thickness: 0.7,
+        color: hexRgb(colors.wash),
+      });
+      const step =
+        chart.values.length > 1
+          ? chartWidth / (chart.values.length - 1)
+          : chartWidth;
+      const points = chart.values.map((value, index) => ({
+        x: margin + index * step,
+        y: plotBottom + (value / max) * 90,
+      }));
       for (let pointIndex = 1; pointIndex < points.length; pointIndex += 1) {
-        page.drawLine({ start: points[pointIndex - 1], end: points[pointIndex], thickness: 2, color: hexRgb(colors.accent) });
+        page.drawLine({
+          start: points[pointIndex - 1],
+          end: points[pointIndex],
+          thickness: 2,
+          color: hexRgb(colors.accent),
+        });
       }
       points.forEach((point, pointIndex) => {
-        page.drawCircle({ x: point.x, y: point.y, size: 3, color: hexRgb(colors.accent) });
-        page.drawText(chart.labels[pointIndex]?.slice(0, 16) ?? "", { x: point.x - 18, y: plotBottom - 16, size: 7, font: regular, color: hexRgb(colors.muted), maxWidth: 40 });
+        page.drawCircle({
+          x: point.x,
+          y: point.y,
+          size: 3,
+          color: hexRgb(colors.accent),
+        });
+        page.drawText(chart.labels[pointIndex]?.slice(0, 16) ?? "", {
+          x: point.x - 18,
+          y: plotBottom - 16,
+          size: 7,
+          font: regular,
+          color: hexRgb(colors.muted),
+          maxWidth: 40,
+        });
       });
       y = chartTop - chartHeight;
       continue;
     }
     if (line.kind === "table" && line.cells?.length) {
-      const rowHeight = 24;
-      if (y - rowHeight < 65) addPage();
       const columnWidth = contentWidth / line.cells.length;
-      line.cells.forEach((cell, cellIndex) => {
+      const cellFont = line.header ? bold : regular;
+      const cellSize = line.header ? 8.2 : 7.8;
+      const cellLines = line.cells.map((cell) =>
+        wrapPdfText(cell, cellFont, cellSize, Math.max(24, columnWidth - 12))
+      );
+      const rowHeight = Math.max(
+        24,
+        Math.min(
+          72,
+          Math.max(...cellLines.map((cell) => cell.length)) * 10 + 10
+        )
+      );
+      if (y - rowHeight < 65) {
+        addPage();
+      }
+      line.cells.forEach((_, cellIndex) => {
         const x = margin + cellIndex * columnWidth;
         page.drawRectangle({
           x,
           y: y - rowHeight,
           width: columnWidth,
           height: rowHeight,
-          color: line.header ? hexRgb(colors.wash) : hexRgb(colors.paper),
-          borderColor: hexRgb(colors.wash),
-          borderWidth: 0.6,
+          color: hexRgb(
+            line.header
+              ? colors.ink
+              : cellIndex % 2 === 0
+                ? colors.paper
+                : colors.wash
+          ),
+          borderColor: hexRgb(colors.muted),
+          borderWidth: 0.35,
         });
-        const font = line.header ? bold : regular;
-        const value = cell.length > 42 ? `${cell.slice(0, 39)}...` : cell;
-        page.drawText(value, {
-          x: x + 5,
-          y: y - 16,
-          size: 8.5,
-          font,
-          color: hexRgb(line.header ? colors.ink : colors.body),
-          maxWidth: Math.max(10, columnWidth - 10),
+        cellLines[cellIndex].forEach((chunk, chunkIndex) => {
+          page.drawText(chunk, {
+            x: x + 6,
+            y: y - 13 - chunkIndex * 10,
+            size: cellSize,
+            font: cellFont,
+            color: hexRgb(line.header ? colors.paper : colors.body),
+          });
         });
       });
       y -= rowHeight;
@@ -284,19 +479,28 @@ export async function downloadPdfFromMarkdown(
     if (line.kind === "image" && line.url) {
       try {
         const response = await fetch(line.url);
-        if (!response.ok) throw new Error(`Image request failed: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`Image request failed: ${response.status}`);
+        }
         const imageBytes = new Uint8Array(await response.arrayBuffer());
         const contentType = response.headers.get("content-type") ?? "image/png";
-        const image = contentType.includes("jpeg") || contentType.includes("jpg")
-          ? await pdf.embedJpg(imageBytes)
-          : await pdf.embedPng(imageBytes);
+        const image =
+          contentType.includes("jpeg") || contentType.includes("jpg")
+            ? await pdf.embedJpg(imageBytes)
+            : await pdf.embedPng(imageBytes);
         const dimensions = image.scale(1);
         const maxWidth = contentWidth;
         const maxHeight = 240;
-        const scale = Math.min(maxWidth / dimensions.width, maxHeight / dimensions.height, 1);
+        const scale = Math.min(
+          maxWidth / dimensions.width,
+          maxHeight / dimensions.height,
+          1
+        );
         const width = dimensions.width * scale;
         const height = dimensions.height * scale;
-        if (y - height < 65) addPage();
+        if (y - height < 65) {
+          addPage();
+        }
         page.drawImage(image, { x: margin, y: y - height, width, height });
         y -= height + 14;
         continue;
@@ -356,10 +560,19 @@ export async function downloadPdfFromMarkdown(
       }
       if (line.kind === "quote") {
         page.drawRectangle({
-          x: margin - 12,
-          y: y - 3,
+          x: margin - 8,
+          y: y - 5,
+          width: contentWidth + 16,
+          height: lineHeight + 4,
+          color: hexRgb(colors.wash),
+          borderColor: hexRgb(colors.muted),
+          borderWidth: 0.35,
+        });
+        page.drawRectangle({
+          x: margin - 8,
+          y: y - 5,
           width: 3,
-          height: lineHeight - 2,
+          height: lineHeight + 4,
           color: hexRgb(colors.accent),
         });
       }
