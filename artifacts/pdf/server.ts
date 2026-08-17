@@ -4,23 +4,26 @@ import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
 
 function withPdfThemeComment(content: string, data: unknown) {
-  if (/<!--\s*pdf-theme:/i.test(content) || !data || typeof data !== "object") return content;
-  const palette = (data as { palette?: Record<string, unknown> }).palette;
-  const theme = (data as { theme?: string }).theme;
-  const themeDefaults: Record<string, Record<string, string>> = {
-    forest: { ink: "173f3a", accent: "efb39f", wash: "e3efe8", paper: "fffdf8", body: "29423c", muted: "66756e" },
-    ocean: { ink: "174b63", accent: "63b4c7", wash: "e3f2f5", paper: "fafdff", body: "244455", muted: "617b88" },
-    plum: { ink: "4d315d", accent: "d69ac5", wash: "f3e6f2", paper: "fffbff", body: "493950", muted: "786a7c" },
-    cobalt: { ink: "23457a", accent: "f0b35f", wash: "e8eef9", paper: "fbfdff", body: "2f4260", muted: "687991" },
-    terracotta: { ink: "703b32", accent: "e39a70", wash: "f8e9df", paper: "fffaf7", body: "543b34", muted: "826c63" },
-    slate: { ink: "293943", accent: "7aa4a8", wash: "e7eef0", paper: "fbfcfc", body: "34464e", muted: "6e7d82" },
-  };
-  const source = palette && typeof palette === "object" ? palette : themeDefaults[theme ?? "slate"];
-  if (!source) return content;
-  const keys = ["ink", "accent", "wash", "paper", "body", "muted"] as const;
-  const valid = keys.every((key) => typeof source[key] === "string" && /^[0-9a-f]{6}$/i.test(source[key] as string));
-  if (!valid) return content;
-  return `<!-- pdf-theme: ${JSON.stringify(Object.fromEntries(keys.map((key) => [key, source[key]])))} -->\n\n${content}`;
+  if (/<!--\s*pdf-theme:/i.test(content)) {
+    return content;
+  }
+  const requested =
+    data && typeof data === "object"
+      ? (data as { theme?: unknown }).theme
+      : undefined;
+  const allowed = new Set([
+    "slate",
+    "ocean",
+    "cobalt",
+    "forest",
+    "plum",
+    "terracotta",
+  ]);
+  const theme =
+    typeof requested === "string" && allowed.has(requested)
+      ? requested
+      : "slate";
+  return `<!-- pdf-theme: ${JSON.stringify({ theme })} -->\n\n${content}`;
 }
 
 const run = async ({ prompt, data, dataStream, modelId, type }: any) => {
@@ -46,11 +49,20 @@ export const pdfDocumentHandler = createDocumentHandler({
     run({
       ...args,
       type: "pdf",
-      prompt: `Create a downloadable PDF document titled "${args.title}".
+      prompt: `Create a downloadable, print-ready Letter-size PDF document titled "${args.title}".
 Audience: ${args.audience ?? "professional decision makers"}
-Style: ${args.style ?? "clear, editorial, print-ready"}
+Style: ${args.style ?? "editorial research report with disciplined typography and information-dense exhibits"}
 Source data: ${JSON.stringify(args.data ?? {})}
-Use Markdown headings, emphasis, lists, tables, blockquotes, fenced chart specs, and Markdown image URLs when they improve comprehension. Keep the document truthful and structured for both screen preview and PDF export.`,
+
+Design the document like a real authored PDF, not a chat transcript:
+- Establish a cover/title treatment, running hierarchy, section headings, page rhythm, and a clear closing source note.
+- Use concise paragraphs, intentional whitespace, bold lead-ins, bullets, tables, blockquotes, and exhibits. Prefer two-column exhibit sections only when the content genuinely benefits from comparison.
+- Use Markdown tables for structured data. Keep table cells concise enough to wrap cleanly on Letter pages.
+- Use fenced JSON chart specs when a chart is materially useful: {"title":"...","labels":["..."],"series":[{"name":"...","data":[1,2,3]}]}.
+- Use Markdown image URLs for relevant visuals and place an italic source/caption directly below each image.
+- Use blockquotes for callout panels and label them with a short bold lead-in.
+- Never emit raw HTML, inline CSS, or hard-coded color values. Choose one semantic theme from: slate, ocean, cobalt, forest, plum, terracotta. Emit exactly one metadata comment at the top: <!-- pdf-theme: {"theme":"slate"} -->.
+- Do not invent citations, sources, figures, or images. Keep the document truthful and structured for both screen preview and PDF export.`,
     }),
   onUpdateDocument: (args) =>
     run({
