@@ -1,4 +1,4 @@
-import { streamText } from "ai";
+import { smoothStream, streamText } from "ai";
 import { reportPrompt, updateDocumentPrompt } from "@/lib/ai/prompts";
 import { getArtifactModel } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
@@ -11,6 +11,7 @@ export const reportDocumentHandler = createDocumentHandler<"report">({
       model: getArtifactModel(modelId),
       system: reportPrompt,
       prompt: title,
+      experimental_transform: smoothStream({ chunking: "word" }),
     });
     for await (const delta of result.textStream) {
       draftContent += delta;
@@ -28,6 +29,7 @@ export const reportDocumentHandler = createDocumentHandler<"report">({
       model: getArtifactModel(modelId),
       system: updateDocumentPrompt(document.content, "report"),
       prompt: description,
+      experimental_transform: smoothStream({ chunking: "word" }),
     });
     for await (const delta of result.textStream) {
       draftContent += delta;

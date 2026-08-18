@@ -160,6 +160,14 @@ export function resolvePdfColors(
   }
 }
 
+/**
+ * Removes the model-authored `<!-- pdf-theme: ... -->` metadata comment so an
+ * explicitly selected theme (from the artifact picker) wins during rendering.
+ */
+export function stripPdfThemeComment(markdown: string): string {
+  return markdown.replace(/<!--\s*pdf-theme:[\s\S]*?-->/gi, "").trim();
+}
+
 function wrapPdfText(
   text: string,
   font: PDFFont,

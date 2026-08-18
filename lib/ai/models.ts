@@ -4,7 +4,12 @@
 export const DEFAULT_CHAT_MODEL = "openai/gpt-5.6-luna";
 
 export type ImageModelProvider = "google" | "openai" | "bytedance" | "xai";
-export type VideoModelProvider = "google" | "bytedance" | "xai" | "minimax";
+export type VideoModelProvider =
+  | "google"
+  | "bytedance"
+  | "xai"
+  | "minimax"
+  | "bfl";
 
 export type ImageModel = {
   id: string;
@@ -31,12 +36,12 @@ export const imageModels: ImageModel[] = [
     description:
       "Fast image generation model for lightweight edits and renders.",
   },
-  {
-    id: "openai/gpt-image-2",
-    name: "GPT Image 2",
-    provider: "openai",
-    description: "OpenAI image generation model for rich visual outputs.",
-  },
+  // {
+  //   id: "openai/gpt-image-2",
+  //   name: "GPT Image 2",
+  //   provider: "openai",
+  //   description: "OpenAI image generation model for rich visual outputs.",
+  // },
   {
     id: "bytedance/seedream-5.0-pro",
     name: "Seedream 5.0 Pro",
@@ -86,6 +91,13 @@ export const videoModels: VideoModel[] = [
     provider: "google",
     description:
       "Fast and cost-effective video generation with Google Veo 3.1 Lite.",
+  },
+  {
+    id: "bfl/flux-3-video",
+    name: "Flux 3 Video",
+    provider: "bfl",
+    description:
+      "High-quality text-to-video generation from Black Forest Labs.",
   },
 ];
 
@@ -357,7 +369,8 @@ export const chatModels: ChatModel[] = [
     id: "deepseek/deepseek-v4-pro-0813",
     name: "DeepSeek V4 Pro 0813",
     provider: "deepseek",
-    description: "DeepSeek V4 Pro reasoning model with tool use; no vision input",
+    description:
+      "DeepSeek V4 Pro reasoning model with tool use; no vision input",
     features: { reasoning: true, vision: false, tools: true },
     gatewayOrder: ["deepseek", "bedrock"],
   },
@@ -376,6 +389,15 @@ export const chatModels: ChatModel[] = [
     name: "Nemotron 3 Nano",
     provider: "nvidia",
     description: "Compact efficient model",
+    features: { reasoning: false, vision: false, tools: true },
+    gatewayOrder: ["nvidia"],
+  },
+  {
+    id: "nvidia/nemotron-3.5-lightning",
+    name: "Nemotron 3.5 Lightning",
+    provider: "nvidia",
+    description:
+      "Fast Nemotron 3.5 Lightning model with tool use; no vision input",
     features: { reasoning: false, vision: false, tools: true },
     gatewayOrder: ["nvidia"],
   },
@@ -475,6 +497,14 @@ export const chatModels: ChatModel[] = [
     name: "GLM-5.2",
     provider: "zai",
     description: "Ultra long-context flagship GLM-5.2",
+    features: { reasoning: true, vision: false, tools: true },
+    gatewayOrder: ["zai"],
+  },
+  {
+    id: "zai/glm-5.3",
+    name: "GLM-5.3",
+    provider: "zai",
+    description: "Advanced GLM-5.3 model with tool use; no vision input",
     features: { reasoning: true, vision: false, tools: true },
     gatewayOrder: ["zai"],
   },
@@ -590,6 +620,14 @@ export const chatModels: ChatModel[] = [
     name: "Qwen 3.8 Max",
     provider: "alibaba",
     description: "Latest flagship Max model of the Qwen 3.8 family",
+    features: { reasoning: true, vision: true, tools: true },
+    gatewayOrder: ["alibaba"],
+  },
+  {
+    id: "alibaba/qwen3.8-27b",
+    name: "Qwen 3.8 27B",
+    provider: "alibaba",
+    description: "Qwen 3.8 27B model with reasoning, vision, and tool use",
     features: { reasoning: true, vision: true, tools: true },
     gatewayOrder: ["alibaba"],
   },

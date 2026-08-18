@@ -14,9 +14,13 @@ export function parseImageContent(content: string): ImageGalleryItem[] {
   try {
     const parsed = JSON.parse(content) as { images?: unknown };
     if (Array.isArray(parsed.images)) {
-      return parsed.images.filter(
-        (image): image is ImageGalleryItem =>
-          Boolean(image && typeof image === "object" && "url" in image && typeof image.url === "string")
+      return parsed.images.filter((image): image is ImageGalleryItem =>
+        Boolean(
+          image &&
+            typeof image === "object" &&
+            "url" in image &&
+            typeof image.url === "string"
+        )
       );
     }
   } catch {
@@ -37,6 +41,7 @@ type ImageEditorProps = {
   currentVersionIndex: number;
   status: string;
   isInline: boolean;
+  isLoading?: boolean;
 };
 
 export function ImageEditor({
@@ -44,27 +49,42 @@ export function ImageEditor({
   content,
   status,
   isInline,
+  isLoading,
 }: ImageEditorProps) {
   const images = parseImageContent(content);
+  const isGenerating =
+    status === "streaming" || (isLoading && images.length === 0);
 
   return (
     <div
-      className={cn("flex min-w-0 w-full flex-row items-center justify-center overflow-hidden", {
-        "h-[calc(100dvh-60px)]": !isInline,
-        "h-[200px]": isInline,
-      })}
+      className={cn(
+        "flex min-w-0 w-full flex-row items-center justify-center overflow-hidden",
+        {
+          "h-[calc(100dvh-60px)]": !isInline,
+          "h-[200px]": isInline,
+        }
+      )}
     >
-      {status === "streaming" ? (
-        <div className="flex flex-row items-center gap-4">
+      {isGenerating ? (
+        <div className="flex flex-col items-center gap-4">
           {!isInline && (
             <div className="animate-spin">
               <LoaderIcon />
             </div>
           )}
-          <div>Generating Image...</div>
+          <div>
+            {status === "streaming"
+              ? "Generating Image..."
+              : "Loading image..."}
+          </div>
         </div>
       ) : images.length > 0 ? (
-        <div className={cn("w-full min-w-0", !isInline && "px-3 py-6 sm:px-8 md:px-16")}>
+        <div
+          className={cn(
+            "w-full min-w-0",
+            !isInline && "px-3 py-6 sm:px-8 md:px-16"
+          )}
+        >
           <GeneratedImageCarousel
             images={images.map((image, index) => ({
               ...image,
@@ -73,7 +93,9 @@ export function ImageEditor({
           />
         </div>
       ) : (
-        <div className="px-6 text-sm text-muted-foreground">No image available.</div>
+        <div className="px-6 text-sm text-muted-foreground">
+          No image available.
+        </div>
       )}
     </div>
   );

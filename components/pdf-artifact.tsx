@@ -2,7 +2,11 @@
 
 import { type CSSProperties, useMemo } from "react";
 import { ArtifactSourceEditor } from "@/components/artifact-source-editor";
-import { type PdfTheme, resolvePdfColors } from "@/components/pdf-export";
+import {
+  type PdfTheme,
+  resolvePdfColors,
+  stripPdfThemeComment,
+} from "@/components/pdf-export";
 import { RichArtifactMarkdown } from "@/components/rich-artifact-markdown";
 import type { Suggestion } from "@/lib/db/schema";
 
@@ -28,15 +32,22 @@ export function PdfArtifact({
   title = "Client document",
   onSaveContent,
   suggestions = [],
+  theme,
 }: {
   content: string;
   editMode?: boolean;
   title?: string;
   onSaveContent?: (content: string, debounce: boolean) => void;
   suggestions?: Suggestion[];
+  theme?: PdfTheme;
 }) {
-  const theme: PdfTheme = "slate";
-  const colors = resolvePdfColors(content, theme);
+  const colors = useMemo(() => {
+    // An explicit theme from the artifact picker wins over the model-authored
+    // <!-- pdf-theme --> comment so the picker is actually effective. Without
+    // an explicit theme, the comment (or the slate fallback) is honored.
+    const source = theme ? stripPdfThemeComment(content) : content;
+    return resolvePdfColors(source, theme ?? "slate");
+  }, [content, theme]);
   const pages = useMemo(() => splitPdfPages(content), [content]);
   const sections = useMemo(
     () =>

@@ -1,6 +1,6 @@
-import { streamText } from "ai";
+import { smoothStream, streamText } from "ai";
 import { pdfPrompt } from "@/lib/ai/prompts";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { getArtifactModel } from "@/lib/ai/providers";
 import { createDocumentHandler } from "@/lib/artifacts/server";
 
 function withPdfThemeComment(content: string, data: unknown) {
@@ -28,9 +28,10 @@ function withPdfThemeComment(content: string, data: unknown) {
 
 const run = async ({ prompt, data, dataStream, modelId, type }: any) => {
   const result = streamText({
-    model: getLanguageModel(modelId ?? "google/gemini-2.5-flash"),
+    model: getArtifactModel(modelId),
     system: pdfPrompt,
     prompt,
+    experimental_transform: smoothStream({ chunking: "word" }),
   });
   let content = "";
   for await (const delta of result.textStream) {

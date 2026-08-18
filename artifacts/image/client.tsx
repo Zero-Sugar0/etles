@@ -2,6 +2,7 @@ import { toast } from "sonner";
 import { Artifact } from "@/components/create-artifact";
 import { CopyIcon, DownloadIcon, RedoIcon, UndoIcon } from "@/components/icons";
 import { ImageEditor, parseImageContent } from "@/components/image-editor";
+import { Frame, RefreshCw } from "lucide-react";
 
 export const imageArtifact = new Artifact({
   kind: "image",
@@ -87,10 +88,11 @@ export const imageArtifact = new Artifact({
           return;
         }
 
-        const baseName = (title || "generated-image")
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "") || "generated-image";
+        const baseName =
+          (title || "generated-image")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "") || "generated-image";
 
         for (const [index, image] of images.entries()) {
           const filename = `${baseName}${images.length > 1 ? `-${index + 1}` : ""}.png`;
@@ -127,5 +129,36 @@ export const imageArtifact = new Artifact({
       },
     },
   ],
-  toolbar: [],
+  toolbar: [
+    {
+      icon: <RefreshCw size={16} />,
+      description: "Regenerate with a new style",
+      onClick: ({ sendMessage }) => {
+        sendMessage({
+          role: "user",
+          parts: [
+            {
+              type: "text",
+              text: "Regenerate the current image with a distinctly different visual style, lighting, and composition while keeping the same subject.",
+            },
+          ],
+        });
+      },
+    },
+    {
+      icon: <Frame size={16} />,
+      description: "Generate a 16:9 landscape version",
+      onClick: ({ sendMessage }) => {
+        sendMessage({
+          role: "user",
+          parts: [
+            {
+              type: "text",
+              text: "Generate a 16:9 landscape version of the current image with the same subject and concept.",
+            },
+          ],
+        });
+      },
+    },
+  ],
 });

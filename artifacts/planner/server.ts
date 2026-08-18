@@ -1,17 +1,26 @@
-import { streamText } from "ai";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { smoothStream, streamText } from "ai";
+import { getArtifactModel } from "@/lib/ai/providers";
 import { plannerPrompt } from "@/lib/ai/prompts";
 import { createDocumentHandler } from "@/lib/artifacts/server";
 export const plannerDocumentHandler = createDocumentHandler({
   kind: "planner",
-  onCreateDocument: async ({ title, dataStream, modelId, prompt, audience, style, data }) => {
+  onCreateDocument: async ({
+    title,
+    dataStream,
+    modelId,
+    prompt,
+    audience,
+    style,
+    data,
+  }) => {
     const r = streamText({
-      model: getLanguageModel(modelId ?? "google/gemini-2.5-flash"),
+      model: getArtifactModel(modelId),
       system: plannerPrompt,
       prompt: `${prompt ?? `Build a planner titled ${title}.`}
 Audience: ${audience ?? "the user"}
 Style: ${style ?? "clear and calm"}
 Source data: ${JSON.stringify(data ?? {})}`,
+      experimental_transform: smoothStream({ chunking: "word" }),
     });
     let c = "";
     for await (const d of r.textStream) {
@@ -22,9 +31,10 @@ Source data: ${JSON.stringify(data ?? {})}`,
   },
   onUpdateDocument: async ({ document, description, dataStream, modelId }) => {
     const r = streamText({
-      model: getLanguageModel(modelId ?? "google/gemini-2.5-flash"),
+      model: getArtifactModel(modelId),
       system: plannerPrompt,
       prompt: `${description}\nReturn ONLY updated valid JSON.\n${document.content}`,
+      experimental_transform: smoothStream({ chunking: "word" }),
     });
     let c = "";
     for await (const d of r.textStream) {
