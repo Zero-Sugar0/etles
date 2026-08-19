@@ -35,7 +35,7 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   // Robust server-side check for onboarding status for real users
   if (session.user?.id) {
     const onboarded = await isUserOnboarded(session.user.id);
-    if (!onboarded) {
+    if (process.env.E2E_SKIP_ONBOARDING !== "1" && !onboarded) {
       return redirect("/onboarding");
     }
   }

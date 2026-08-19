@@ -52,8 +52,25 @@ export default defineConfig({
   /* Configure projects */
   projects: [
     {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    {
       name: "e2e",
       testMatch: /e2e\/.*.test.ts/,
+      testIgnore: /auth\.test\.ts/,
+      dependencies: ["setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "tests/.auth/e2e-user.json",
+      },
+    },
+    {
+      name: "e2e-auth",
+      testMatch: /auth\.test\.ts/,
       use: {
         ...devices["Desktop Chrome"],
       },
@@ -78,6 +95,13 @@ export default defineConfig({
       AUTH_SECRET:
         process.env.AUTH_SECRET ||
         "e2e-test-only-secret-8f3a47b6c92d1e05a7b4c6d2f9e1a3b5",
+      /*
+       * tests/e2e/auth.setup.ts seeds and authenticates a test user, and the
+       * chat tests sign in through that session. This test-only env skips the
+       * Upstash-vector-backed onboarding gate so /chat is reachable without
+       * external onboarding state. Real deployments never set it.
+       */
+      E2E_SKIP_ONBOARDING: process.env.E2E_SKIP_ONBOARDING || "1",
     },
   },
 });

@@ -25,7 +25,7 @@ async function NewChatPage() {
 
   // Robust server-side check for onboarding status
   const onboarded = await isUserOnboarded(session.user.id);
-  if (!onboarded) {
+  if (process.env.E2E_SKIP_ONBOARDING !== "1" && !onboarded) {
     return redirect("/onboarding");
   }
 

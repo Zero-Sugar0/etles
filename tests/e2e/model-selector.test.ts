@@ -65,7 +65,7 @@ test.describe("Model Selector", () => {
 
     // Should show provider group headers
     await expect(page.getByText("Anthropic")).toBeVisible();
-    await expect(page.getByText("Google")).toBeVisible();
+    await expect(page.getByText("Google", { exact: true })).toBeVisible();
   });
 
   test("can select a different model", async ({ page }) => {
